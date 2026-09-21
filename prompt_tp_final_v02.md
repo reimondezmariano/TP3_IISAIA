@@ -1,5 +1,7 @@
 # Prompt — TP Final: Sistema de gestión de guardias médicas
 
+**Grupo 7** — Ana María Florencia Lucca, Carlos Alejandro Lugones, Mariano Ezequiel Reimondez
+
 ## Contexto y problema a resolver
 
 Diseñar y especificar una aplicación (móvil + web) para reemplazar el sistema actual de gestión de guardias médicas de un servicio hospitalario, que hoy se maneja con:

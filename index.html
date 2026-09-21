@@ -1,0 +1,814 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Guardia Viva</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F5F6F8;
+    --surface:#FFFFFF;
+    --surface-alt:#FBFBFC;
+    --ink:#131B26;
+    --ink-soft:#5C6779;
+    --ink-faint:#8993A3;
+    --line:#E3E6EC;
+    --line-soft:#EEF0F4;
+    --accent:#2C6E7F;
+    --accent-ink:#0E3540;
+    --accent-soft:#DEEEF1;
+    --red:#B23A24;
+    --red-strong:#C4432E;
+    --red-soft:#FBEAE5;
+    --amber:#8A5A05;
+    --amber-strong:#B8790A;
+    --amber-soft:#FBF0DC;
+    --green:#1F6E45;
+    --green-strong:#2E8B57;
+    --green-soft:#E3F4EA;
+    --shadow: 0 1px 2px rgba(17,24,38,.06), 0 10px 26px -14px rgba(17,24,38,.22);
+    --radius: 12px;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0E1417;
+      --surface:#161D21;
+      --surface-alt:#121719;
+      --ink:#E9EFF1;
+      --ink-soft:#98A6AB;
+      --ink-faint:#6C7A80;
+      --line:#283136;
+      --line-soft:#20282C;
+      --accent:#74BFCB;
+      --accent-ink:#D9F1F5;
+      --accent-soft:#1C3A41;
+      --red:#F0A190;
+      --red-strong:#E5786A;
+      --red-soft:#3B241F;
+      --amber:#F0C878;
+      --amber-strong:#E3AE4E;
+      --amber-soft:#3B3018;
+      --green:#9AD9B7;
+      --green-strong:#6FC79A;
+      --green-soft:#1D3327;
+      --shadow: 0 1px 2px rgba(0,0,0,.5), 0 14px 32px -16px rgba(0,0,0,.65);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0E1417;
+    --surface:#161D21;
+    --surface-alt:#121719;
+    --ink:#E9EFF1;
+    --ink-soft:#98A6AB;
+    --ink-faint:#6C7A80;
+    --line:#283136;
+    --line-soft:#20282C;
+    --accent:#74BFCB;
+    --accent-ink:#D9F1F5;
+    --accent-soft:#1C3A41;
+    --red:#F0A190;
+    --red-strong:#E5786A;
+    --red-soft:#3B241F;
+    --amber:#F0C878;
+    --amber-strong:#E3AE4E;
+    --amber-soft:#3B3018;
+    --green:#9AD9B7;
+    --green-strong:#6FC79A;
+    --green-soft:#1D3327;
+    --shadow: 0 1px 2px rgba(0,0,0,.5), 0 14px 32px -16px rgba(0,0,0,.65);
+  }
+
+  *{box-sizing:border-box;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+    padding-inline:16px;
+    padding-block:20px 40px;
+  }
+  .mono{ font-family:"IBM Plex Mono", ui-monospace, monospace; font-variant-numeric:tabular-nums; }
+  .wrap{ max-width:1400px; margin:0 auto; display:flex; flex-direction:column; gap:16px; }
+
+  /* ---- Header ---- */
+  header.app{
+    display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap;
+  }
+  .brand{ display:flex; align-items:center; gap:12px; }
+  .brand .mark{
+    width:38px;height:38px;border-radius:10px;background:var(--accent);
+    display:flex;align-items:center;justify-content:center;color:var(--surface);
+    font-weight:700; font-size:15px; flex:none; box-shadow:var(--shadow);
+  }
+  .brand h1{ margin:0; font-size:19px; font-weight:700; letter-spacing:-0.01em; }
+  .brand p{ margin:1px 0 0; font-size:12.5px; color:var(--ink-soft); }
+  .legend{ display:flex; gap:14px; align-items:center; flex-wrap:wrap; font-size:12px; color:var(--ink-soft); }
+  .legend .dot{ width:8px;height:8px;border-radius:50%; display:inline-block; margin-right:5px; }
+  .legend span{ display:inline-flex; align-items:center; }
+
+  /* ---- Activity feed strip ---- */
+  .activity{
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+    padding:10px 14px; display:flex; gap:12px; align-items:flex-start; box-shadow:var(--shadow);
+  }
+  .activity .lbl{
+    flex:none; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.06em;
+    color:var(--accent); padding-top:3px; display:flex; align-items:center; gap:6px;
+  }
+  .pulse{ width:7px;height:7px;border-radius:50%; background:var(--green-strong); flex:none; animation:pulse 2s infinite; }
+  @media (prefers-reduced-motion: reduce){ .pulse{ animation:none; } }
+  @keyframes pulse{ 0%,100%{opacity:1;} 50%{opacity:.35;} }
+  .activity-log{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:5px; font-size:12.5px; flex:1; min-width:0; }
+  .activity-log li{ display:flex; gap:8px; color:var(--ink-soft); }
+  .activity-log li .t{ flex:none; color:var(--ink-faint); }
+  .activity-log li .who{ color:var(--ink); font-weight:600; }
+  .activity-log li.empty{ color:var(--ink-faint); font-style:italic; }
+
+  /* ---- Panels grid ---- */
+  .panels{ display:grid; grid-template-columns:repeat(3,1fr); gap:14px; align-items:start; }
+  @media (max-width: 980px){ .panels{ grid-template-columns:1fr; } }
+
+  .panel{
+    background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+    box-shadow:var(--shadow); overflow:hidden; position:relative; display:flex; flex-direction:column;
+  }
+  .panel-head{
+    display:flex; align-items:center; gap:10px; padding:12px 14px; border-bottom:1px solid var(--line);
+    background:var(--surface-alt);
+  }
+  .avatar{
+    width:32px;height:32px;border-radius:50%; flex:none; display:flex; align-items:center; justify-content:center;
+    font-weight:700; font-size:13px; color:var(--surface);
+  }
+  .panel-head .id{ min-width:0; flex:1; }
+  .panel-head .id .name{ font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .role-pill{
+    display:inline-block; font-size:10.5px; font-weight:600; text-transform:uppercase; letter-spacing:.04em;
+    padding:2px 7px; border-radius:999px; background:var(--accent-soft); color:var(--accent-ink); margin-top:1px;
+  }
+
+  .toolbar{ display:flex; align-items:center; gap:6px; padding:9px 12px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  .toolbar .seg{ display:flex; border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  .toolbar .seg button{
+    border:none; background:var(--surface); color:var(--ink-soft); font-size:11.5px; font-weight:600;
+    padding:5px 10px; cursor:pointer; font-family:inherit;
+  }
+  .toolbar .seg button.on{ background:var(--accent); color:var(--surface); }
+  .iconbtn{
+    border:1px solid var(--line); background:var(--surface); color:var(--ink); border-radius:8px;
+    width:26px;height:26px; display:flex; align-items:center; justify-content:center; cursor:pointer; font-size:13px;
+    line-height:1;
+  }
+  .iconbtn:hover{ border-color:var(--accent); color:var(--accent); }
+  .today-btn{
+    border:1px solid var(--line); background:var(--surface); color:var(--ink-soft); border-radius:8px;
+    font-size:11px; font-weight:600; padding:5px 9px; cursor:pointer; font-family:inherit;
+  }
+  .today-btn:hover{ border-color:var(--accent); color:var(--accent); }
+  .cursor-label{ font-size:12.5px; font-weight:600; flex:1; text-align:center; min-width:80px; text-transform:capitalize; }
+  .zoomctl{ display:flex; align-items:center; gap:4px; margin-left:auto; }
+
+  .panel-body{ padding:10px 12px 14px; min-height:0; }
+
+  /* ---- Month grid ---- */
+  .weekhead{ display:grid; grid-template-columns:repeat(7,1fr); gap:3px; margin-bottom:3px; }
+  .weekhead div{ text-align:center; font-size:10px; font-weight:600; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.03em; padding-block:2px; }
+  .monthgrid{ display:grid; grid-template-columns:repeat(7,1fr); gap:3px; }
+  .daycell{
+    aspect-ratio:1/0.82; border-radius:8px; border:1px solid var(--line-soft); background:var(--surface-alt);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px; cursor:pointer;
+    font-size:12.5px; color:var(--ink); position:relative; transition:background .12s, transform .12s;
+  }
+  .daycell:hover{ background:var(--accent-soft); }
+  .daycell.other{ opacity:.32; }
+  .daycell.today{ border-color:var(--accent); box-shadow:inset 0 0 0 1px var(--accent); font-weight:700; }
+  .daycell .badges{ display:flex; gap:3px; height:6px; }
+  .badges i{ width:6px;height:6px;border-radius:50%; display:block; }
+
+  /* ---- Day timeline ---- */
+  .daymeta{ font-size:11.5px; color:var(--ink-soft); margin-bottom:8px; display:flex; justify-content:space-between; gap:8px; }
+  .timeline-scroll{ overflow-x:auto; padding-bottom:4px; }
+  .timeline{ position:relative; }
+  .hourrow{ display:flex; height:16px; }
+  .hourrow div{
+    flex:none; width:var(--hour-w,34px); font-size:9px; color:var(--ink-faint); border-left:1px solid var(--line-soft);
+    padding-left:2px;
+  }
+  .lanes{ position:relative; border-top:1px solid var(--line-soft); margin-top:2px; }
+  .lane{ position:relative; height:30px; border-bottom:1px solid var(--line-soft); display:flex; align-items:center; }
+  .lane .rowlabel{
+    position:sticky; left:0; z-index:2; background:var(--surface); font-size:10.5px; font-weight:600;
+    padding:0 6px; white-space:nowrap; color:var(--ink-soft); pointer-events:none; display:none;
+  }
+  .track{ position:relative; height:100%; width:calc(var(--hour-w, 34px) * 24); flex:none; }
+  .bar{
+    position:absolute; top:4px; bottom:4px; border-radius:6px; border-left:3px solid; cursor:pointer;
+    display:flex; align-items:center; padding:0 6px; font-size:10px; font-weight:600; overflow:hidden;
+    white-space:nowrap; text-overflow:ellipsis; box-shadow:0 1px 1px rgba(0,0,0,.08);
+  }
+  .bar.green{ background:var(--green-soft); border-color:var(--green-strong); color:var(--green); }
+  .bar.red{ background:var(--red-soft); border-color:var(--red-strong); color:var(--red); }
+  .bar.amber{ background:var(--amber-soft); border-color:var(--amber-strong); color:var(--amber); }
+  .nowline{ position:absolute; top:0; bottom:0; width:0; border-left:2px solid var(--red-strong); z-index:3; }
+  .nowline::before{
+    content:"ahora"; position:absolute; top:-14px; left:-16px; font-size:8.5px; font-weight:700; color:var(--red-strong);
+    font-family:"IBM Plex Mono", monospace;
+  }
+  .emptyday{ font-size:12px; color:var(--ink-faint); text-align:center; padding:20px 0; }
+
+  /* ---- Toasts ---- */
+  .toasts{ position:absolute; left:10px; right:10px; bottom:10px; display:flex; flex-direction:column; gap:6px; z-index:20; pointer-events:none; }
+  .toast{
+    background:var(--ink); color:var(--bg); font-size:11.5px; padding:8px 10px; border-radius:8px;
+    box-shadow:var(--shadow); animation:toastin .2s ease-out, toastout .35s ease-in 2.6s forwards;
+  }
+  @keyframes toastin{ from{ opacity:0; transform:translateY(6px);} to{ opacity:1; transform:none;} }
+  @keyframes toastout{ to{ opacity:0; transform:translateY(-4px);} }
+
+  /* ---- Modal ---- */
+  .modal-veil{
+    position:fixed; inset:0; background:rgba(10,14,18,.5); display:flex; align-items:center; justify-content:center;
+    padding:16px; z-index:100;
+  }
+  .modal{
+    background:var(--surface); border-radius:14px; max-width:380px; width:100%; box-shadow:var(--shadow);
+    border:1px solid var(--line); max-height:86vh; overflow-y:auto;
+  }
+  .modal-head{ padding:14px 16px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; gap:10px; align-items:flex-start; }
+  .modal-head h3{ margin:0; font-size:14.5px; font-weight:700; }
+  .modal-head p{ margin:2px 0 0; font-size:11.5px; color:var(--ink-soft); }
+  .modal-close{ border:none; background:none; color:var(--ink-faint); font-size:18px; cursor:pointer; line-height:1; padding:0; }
+  .modal-body{ padding:14px 16px; display:flex; flex-direction:column; gap:12px; }
+  .kv{ display:flex; justify-content:space-between; font-size:12.5px; gap:10px; }
+  .kv .k{ color:var(--ink-soft); }
+  .kv .v{ font-weight:600; text-align:right; }
+  .status-pill{ display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; }
+  .status-pill.green{ background:var(--green-soft); color:var(--green); }
+  .status-pill.red{ background:var(--red-soft); color:var(--red); }
+  .status-pill.amber{ background:var(--amber-soft); color:var(--amber); }
+  .status-pill i{ width:6px;height:6px;border-radius:50%; background:currentColor; }
+  .btn{
+    border:none; border-radius:9px; padding:9px 12px; font-size:12.5px; font-weight:600; cursor:pointer;
+    font-family:inherit; width:100%;
+  }
+  .btn.primary{ background:var(--accent); color:var(--surface); }
+  .btn.primary:hover{ filter:brightness(1.08); }
+  .btn.danger{ background:var(--red-soft); color:var(--red); }
+  .btn.ghost{ background:var(--surface-alt); color:var(--ink); border:1px solid var(--line); }
+  .cand-list{ display:flex; flex-direction:column; gap:8px; }
+  .cand{
+    border:1px solid var(--line); border-radius:10px; padding:8px 10px; display:flex; justify-content:space-between;
+    align-items:center; gap:8px;
+  }
+  .cand .info{ min-width:0; }
+  .cand .info .n{ font-size:12.5px; font-weight:600; }
+  .cand .info .r{ font-size:10.5px; color:var(--ink-soft); }
+  .cand .info .r.top{ color:var(--green); font-weight:600; }
+  .cand button{
+    border:none; background:var(--accent); color:var(--surface); font-size:11px; font-weight:700;
+    padding:6px 10px; border-radius:7px; cursor:pointer; flex:none;
+  }
+  .readonly-note{ font-size:11.5px; color:var(--ink-faint); text-align:center; padding:6px 0 0; }
+
+  @media (max-width:400px){
+    .brand h1{ font-size:17px; }
+    .legend{ font-size:11px; }
+  }
+</style>
+
+<div class="wrap">
+  <header class="app">
+    <div class="brand">
+      <div class="mark">GV</div>
+      <div>
+        <h1>Guardia Viva</h1>
+        <p>Calendario de guardias médicas &middot; simulador de tres roles en tiempo real</p>
+      </div>
+    </div>
+    <div class="legend">
+      <span><i class="dot" style="background:var(--green-strong)"></i>Confirmado</span>
+      <span><i class="dot" style="background:var(--amber-strong)"></i>Con candidatos</span>
+      <span><i class="dot" style="background:var(--red-strong)"></i>Vacante libre</span>
+    </div>
+  </header>
+
+  <div class="activity">
+    <div class="lbl"><span class="pulse"></span>En vivo</div>
+    <ul class="activity-log" id="activityLog"></ul>
+  </div>
+
+  <div class="panels" id="panels"></div>
+</div>
+
+<div id="modalRoot"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------------- date helpers ---------------- */
+  function pad(n){ return String(n).padStart(2,"0"); }
+  function toISO(d){ return d.getFullYear()+"-"+pad(d.getMonth()+1)+"-"+pad(d.getDate()); }
+  function parseISO(s){ var p=s.split("-").map(Number); return new Date(p[0],p[1]-1,p[2]); }
+  function addDays(d,n){ var r=new Date(d); r.setDate(r.getDate()+n); return r; }
+  function addMinutes(d,m){ return new Date(d.getTime()+m*60000); }
+  function addMonths(d,n){ var r=new Date(d); r.setDate(1); r.setMonth(r.getMonth()+n); return r; }
+  function sameDay(a,b){ return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
+  function hm(h,m){ return h*60+(m||0); }
+  function fmtTime(min){ min=((min%1440)+1440)%1440; return pad(Math.floor(min/60))+":"+pad(min%60); }
+  var WEEKDAY_NAMES=["dom","lun","mar","mié","mié","vie","sáb"]; // unused fallback
+  var DOW_SHORT=["D","L","M","M","J","V","S"]; // grid starts Monday below, see MON_ORDER
+  var MON_ORDER=[1,2,3,4,5,6,0]; // Mon..Sun -> JS getDay index
+  var MONTHS=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+  var DAYFULL=["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+
+  /* ---------------- domain data ---------------- */
+  var DOCS = {
+    d1:{name:"Valentina Ríos"}, d2:{name:"Martín Aguirre"}, d3:{name:"Camila Suárez"},
+    d4:{name:"Tomás Herrera"}, d5:{name:"Lucía Fontana"}, d6:{name:"Bruno Peralta"},
+    d7:{name:"Agustina Molina"}, d8:{name:"Ezequiel Duarte"}, d9:{name:"Sofía Lombardi"},
+    d10:{name:"Nicolás Weber"}, d11:{name:"Renata Ibarra"}
+  };
+  function docName(id){ return DOCS[id] ? DOCS[id].name : "—"; }
+  function initials(name){ return name.split(" ").map(function(w){return w[0];}).slice(0,2).join("").toUpperCase(); }
+  var AVATAR_COLORS = ["#2C6E7F","#8A5A05","#3A5FA0","#7A4B9E","#1F6E45"];
+  function avatarColor(id){ var n=0; for(var i=0;i<id.length;i++){n+=id.charCodeAt(i);} return AVATAR_COLORS[n%AVATAR_COLORS.length]; }
+
+  var sid=0;
+  function slot(startH,startM,endH,endM,crosses,dur,titulars){
+    sid++;
+    return { id:"s"+sid, startMin:hm(startH,startM), endMin:hm(endH,endM)+(crosses?1440:0), durationHours:dur, titulars:titulars };
+  }
+  function rot(a,b){ return {rotation:[a,b]}; }
+
+  var weekday = [ // index 0=domingo .. 6=sábado (JS getDay)
+    [ // domingo
+      slot(9,0,16,0,false,7,"d2"),
+      slot(16,0,24,0,false,8,"d3"),
+      slot(0,0,8,0,false,8,"d4"),
+      slot(12,0,24,0,false,12,"d11")
+    ],
+    [ // lunes
+      slot(8,0,16,0,false,8,"d1"),
+      slot(16,0,22,0,false,6,"d6"),
+      slot(22,0,6,0,true,8,"d2"),
+      slot(8,0,20,0,false,12,"d7"),
+      slot(20,0,8,0,true,12,"d3")
+    ],
+    [ // martes
+      slot(8,0,16,0,false,8,"d2"),
+      slot(16,0,22,0,false,6,"d7"),
+      slot(22,0,6,0,true,8,"d3"),
+      slot(8,0,20,0,false,12,"d8"),
+      slot(20,0,8,0,true,12,"d4")
+    ],
+    [ // miércoles
+      slot(8,0,16,0,false,8,"d3"),
+      slot(16,0,22,0,false,6,"d8"),
+      slot(22,0,6,0,true,8,"d4"),
+      slot(8,0,20,0,false,12,"d9"),
+      slot(20,0,8,0,true,12,"d5")
+    ],
+    [ // jueves
+      slot(8,0,16,0,false,8,rot("d4","d5")),
+      slot(16,0,22,0,false,6,"d9"),
+      slot(22,0,6,0,true,8,"d5"),
+      slot(8,0,20,0,false,12,"d10"),
+      slot(20,0,8,0,true,12,"d1")
+    ],
+    [ // viernes
+      slot(8,0,16,0,false,8,"d1"),
+      slot(16,0,22,0,false,6,"d10"),
+      slot(22,0,6,0,true,8,"d1"),
+      slot(8,0,20,0,false,12,"d6"),
+      slot(20,0,8,0,true,12,"d2")
+    ],
+    [ // sábado
+      slot(9,0,16,0,false,7,"d8"),
+      slot(0,0,24,0,false,24,"d9"),
+      slot(16,0,24,0,false,8,"d10"),
+      slot(10,0,22,0,false,12,"d1")
+    ]
+  ];
+
+  function weekParity(ownerISO){
+    var d=parseISO(ownerISO);
+    var anchor=new Date(2024,0,1); // Monday
+    var diffDays=Math.round((d-anchor)/86400000);
+    var weekNum=Math.floor(diffDays/7);
+    return ((weekNum%2)+2)%2;
+  }
+  function resolveTitular(titulars, ownerISO){
+    if(typeof titulars==="string") return titulars;
+    return titulars.rotation[weekParity(ownerISO)];
+  }
+
+  /* ---------------- app state ---------------- */
+  var NOW = new Date();
+  var state = {
+    exceptions: {}, // instanceId -> {status, generatedBy, assignedDoctorId, candidates:[{doctorId,ts}]}
+    activity: [],
+    panels: [
+      { id:"p1", role:"medico", doctorId:"d1", label:"Médico 1", view:"month", cursor:new Date(NOW.getFullYear(),NOW.getMonth(),1), selected:new Date(NOW), hourW:34 },
+      { id:"p2", role:"medico", doctorId:"d2", label:"Médico 2", view:"month", cursor:new Date(NOW.getFullYear(),NOW.getMonth(),1), selected:new Date(NOW), hourW:34 },
+      { id:"p3", role:"coordinador", doctorId:"d11", label:"Coordinadora", view:"day", cursor:new Date(NOW.getFullYear(),NOW.getMonth(),1), selected:new Date(NOW), hourW:34 }
+    ]
+  };
+
+  function makeInstance(slotDef, ownerISO, renderISO){
+    var instanceId = slotDef.id+"_"+ownerISO;
+    var titularId = resolveTitular(slotDef.titulars, ownerISO);
+    var ex = state.exceptions[instanceId];
+    var status = ex ? ex.status : "green";
+    var assignedDoctorId = ex ? (ex.assignedDoctorId||null) : titularId;
+    var ownerDate = parseISO(ownerISO);
+    var startDate = addMinutes(ownerDate, slotDef.startMin);
+    var endDate = addMinutes(ownerDate, slotDef.endMin);
+    var renderDate = parseISO(renderISO);
+    var dayStart = renderDate, dayEnd = addDays(renderDate,1);
+    var clampedStart = startDate < dayStart ? dayStart : startDate;
+    var clampedEnd = endDate > dayEnd ? dayEnd : endDate;
+    return {
+      instanceId: instanceId, slot: slotDef, ownerISO: ownerISO, renderISO: renderISO,
+      titularId: titularId, status: status, assignedDoctorId: assignedDoctorId,
+      candidates: ex ? (ex.candidates||[]) : [], generatedBy: ex ? ex.generatedBy : null,
+      startDate: startDate, endDate: endDate,
+      startMinOfDay: (clampedStart-dayStart)/60000, endMinOfDay: (clampedEnd-dayStart)/60000
+    };
+  }
+
+  function instancesForDate(dateISO){
+    var d = parseISO(dateISO);
+    var list = [];
+    weekday[d.getDay()].forEach(function(s){ list.push(makeInstance(s, dateISO, dateISO)); });
+    var prevDate = addDays(d,-1), prevISO = toISO(prevDate);
+    weekday[prevDate.getDay()].forEach(function(s){
+      if(s.endMin>1440) list.push(makeInstance(s, prevISO, dateISO));
+    });
+    list.sort(function(a,b){ return a.startMinOfDay-b.startMinOfDay; });
+    return list;
+  }
+
+  function dayBadge(dateISO){
+    var list = instancesForDate(dateISO);
+    var hasRed=false, hasAmber=false;
+    list.forEach(function(i){ if(i.status==="red") hasRed=true; if(i.status==="yellow") hasAmber=true; });
+    return { red:hasRed, amber:hasAmber };
+  }
+
+  /* last guardia efectivamente realizada por médico, para prioridad de descanso */
+  function computeLastShiftEnd(){
+    var map = {};
+    var start = addDays(new Date(NOW.getFullYear(),NOW.getMonth(),NOW.getDate()), -60);
+    for(var i=0;i<75;i++){
+      var d = addDays(start, i);
+      if(d>NOW) break;
+      var iso = toISO(d);
+      weekday[d.getDay()].forEach(function(s){
+        var inst = makeInstance(s, iso, iso);
+        if(inst.endDate<=NOW){
+          var who = inst.assignedDoctorId || inst.titularId;
+          if(!map[who] || inst.endDate>map[who]) map[who]=inst.endDate;
+        }
+      });
+    }
+    return map;
+  }
+  var lastShiftEnd = computeLastShiftEnd();
+  function restHours(doctorId){
+    if(!lastShiftEnd[doctorId]) return null;
+    return (NOW - lastShiftEnd[doctorId]) / 3600000;
+  }
+
+  /* ---------------- actions ---------------- */
+  function ensureException(instanceId){
+    if(!state.exceptions[instanceId]) state.exceptions[instanceId] = { status:"green", generatedBy:null, assignedDoctorId:null, candidates:[] };
+    return state.exceptions[instanceId];
+  }
+  function logActivity(actorId, text){
+    state.activity.unshift({ ts:new Date(), who:docName(actorId), text:text });
+    if(state.activity.length>10) state.activity.length=10;
+  }
+  function toastOthers(excludePanelId, text){
+    state.panels.forEach(function(p){
+      if(p.id!==excludePanelId) pendingToasts[p.id]=(pendingToasts[p.id]||[]).concat([text]);
+    });
+  }
+  var pendingToasts = {};
+
+  function actionGenerarVacante(panel, inst){
+    var ex = ensureException(inst.instanceId);
+    ex.status="red"; ex.generatedBy=panel.doctorId; ex.assignedDoctorId=null; ex.candidates=[];
+    var txt = docName(panel.doctorId)+" avisó que no puede cubrir su guardia del "+fmtDateShort(inst.ownerISO)+" ("+fmtTime(inst.slot.startMin)+"–"+fmtTime(inst.slot.endMin)+")";
+    logActivity(panel.doctorId, txt);
+    toastOthers(panel.id, "🔴 Nueva vacante: "+fmtDateShort(inst.ownerISO)+" "+fmtTime(inst.slot.startMin)+"–"+fmtTime(inst.slot.endMin));
+  }
+  function actionPostularse(panel, inst){
+    var ex = ensureException(inst.instanceId);
+    ex.candidates.push({ doctorId:panel.doctorId, ts:Date.now() });
+    ex.status="yellow";
+    logActivity(panel.doctorId, "se postuló para cubrir la guardia del "+fmtDateShort(inst.ownerISO)+" ("+fmtTime(inst.slot.startMin)+"–"+fmtTime(inst.slot.endMin)+")");
+    toastOthers(panel.id, "🟡 "+docName(panel.doctorId)+" se postuló a la vacante del "+fmtDateShort(inst.ownerISO));
+  }
+  function actionRetirar(panel, inst){
+    var ex = ensureException(inst.instanceId);
+    ex.candidates = ex.candidates.filter(function(c){ return c.doctorId!==panel.doctorId; });
+    if(ex.candidates.length===0 && ex.status==="yellow") ex.status="red";
+    logActivity(panel.doctorId, "retiró su postulación del "+fmtDateShort(inst.ownerISO));
+    toastOthers(panel.id, "↩︎ "+docName(panel.doctorId)+" retiró su postulación ("+fmtDateShort(inst.ownerISO)+")");
+  }
+  function actionConfirmar(panel, inst, candidateId){
+    var ex = ensureException(inst.instanceId);
+    ex.status="green"; ex.assignedDoctorId=candidateId; ex.candidates=[];
+    logActivity(panel.doctorId, "confirmó a "+docName(candidateId)+" para la guardia del "+fmtDateShort(inst.ownerISO)+" ("+fmtTime(inst.slot.startMin)+"–"+fmtTime(inst.slot.endMin)+")");
+    toastOthers(panel.id, "🟢 Vacante confirmada: "+docName(candidateId)+" cubre el "+fmtDateShort(inst.ownerISO));
+  }
+
+  function fmtDateShort(iso){
+    var d=parseISO(iso);
+    return d.getDate()+" de "+MONTHS[d.getMonth()];
+  }
+
+  /* ---------------- rendering ---------------- */
+  var panelsEl = document.getElementById("panels");
+  var activityEl = document.getElementById("activityLog");
+  var modalRoot = document.getElementById("modalRoot");
+  var openModal = null; // {panelId, instanceId}
+
+  function render(){
+    renderActivity();
+    state.panels.forEach(renderPanel);
+    renderModal();
+  }
+
+  function renderActivity(){
+    if(state.activity.length===0){
+      activityEl.innerHTML = '<li class="empty">Sin novedades todavía — generá una vacante desde cualquier panel de médico.</li>';
+      return;
+    }
+    activityEl.innerHTML = state.activity.map(function(a){
+      return '<li><span class="t mono">'+pad(a.ts.getHours())+":"+pad(a.ts.getMinutes())+'</span><span><span class="who">'+esc(a.who)+'</span> '+esc(a.text)+'</span></li>';
+    }).join("");
+  }
+
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+
+  function renderPanel(panel){
+    var el = document.getElementById("panel-"+panel.id);
+    if(!el){
+      el = document.createElement("div");
+      el.className="panel";
+      el.id="panel-"+panel.id;
+      panelsEl.appendChild(el);
+    }
+    var color = avatarColor(panel.doctorId);
+    var monthLabel = MONTHS[panel.cursor.getMonth()]+" "+panel.cursor.getFullYear();
+    var dayLabel = DAYFULL[panel.selected.getDay()]+" "+panel.selected.getDate()+" de "+MONTHS[panel.selected.getMonth()];
+
+    var html = '';
+    html += '<div class="panel-head">';
+    html += '  <div class="avatar" style="background:'+color+'">'+initials(docName(panel.doctorId))+'</div>';
+    html += '  <div class="id"><div class="name">'+esc(panel.label)+' &middot; '+esc(docName(panel.doctorId))+'</div>';
+    html += '  <span class="role-pill">'+(panel.role==="coordinador"?"Coordinador":"Médico")+'</span></div>';
+    html += '</div>';
+
+    html += '<div class="toolbar">';
+    html += '  <div class="seg" data-act="setview">';
+    html += '    <button data-view="month" class="'+(panel.view==="month"?"on":"")+'">Mes</button>';
+    html += '    <button data-view="day" class="'+(panel.view==="day"?"on":"")+'">Día</button>';
+    html += '  </div>';
+    if(panel.view==="month"){
+      html += '  <button class="iconbtn" data-act="prevmonth">‹</button>';
+      html += '  <div class="cursor-label">'+monthLabel+'</div>';
+      html += '  <button class="iconbtn" data-act="nextmonth">›</button>';
+    } else {
+      html += '  <button class="iconbtn" data-act="prevday">‹</button>';
+      html += '  <div class="cursor-label" style="text-transform:none;font-size:11.5px;">'+dayLabel+'</div>';
+      html += '  <button class="iconbtn" data-act="nextday">›</button>';
+      html += '  <div class="zoomctl"><button class="iconbtn" data-act="zoomout">−</button><button class="iconbtn" data-act="zoomin">+</button></div>';
+    }
+    html += '  <button class="today-btn" data-act="today">Hoy</button>';
+    html += '</div>';
+
+    html += '<div class="panel-body">';
+    if(panel.view==="month") html += renderMonth(panel);
+    else html += renderDay(panel);
+    html += '</div>';
+
+    html += '<div class="toasts" id="toasts-'+panel.id+'"></div>';
+
+    el.innerHTML = html;
+    wirePanel(el, panel);
+    flushToasts(panel);
+  }
+
+  function renderMonth(panel){
+    var cursor = panel.cursor;
+    var firstOfMonth = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
+    var firstWeekday = firstOfMonth.getDay(); // 0=Sun
+    var offsetToMonday = (firstWeekday===0?6:firstWeekday-1);
+    var gridStart = addDays(firstOfMonth, -offsetToMonday);
+
+    var html = '<div class="weekhead">'+["L","M","M","J","V","S","D"].map(function(d){return '<div>'+d+'</div>';}).join("")+'</div>';
+    html += '<div class="monthgrid">';
+    for(var i=0;i<42;i++){
+      var d = addDays(gridStart, i);
+      var iso = toISO(d);
+      var other = d.getMonth()!==cursor.getMonth();
+      var isToday = sameDay(d, NOW);
+      var badge = dayBadge(iso);
+      html += '<div class="daycell '+(other?"other":"")+' '+(isToday?"today":"")+'" data-act="pickday" data-date="'+iso+'">';
+      html += '<span>'+d.getDate()+'</span>';
+      html += '<span class="badges">';
+      if(badge.red) html += '<i style="background:var(--red-strong)"></i>';
+      if(badge.amber) html += '<i style="background:var(--amber-strong)"></i>';
+      html += '</span></div>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function renderDay(panel){
+    var iso = toISO(panel.selected);
+    var list = instancesForDate(iso);
+    var isToday = sameDay(panel.selected, NOW);
+    var hourW = panel.hourW;
+
+    var html = '<div class="daymeta"><span>'+list.length+' turno'+(list.length===1?"":"s")+' este día</span>';
+    html += '<span>'+list.filter(function(i){return i.status!=="green";}).length+' con novedades</span></div>';
+
+    if(list.length===0){
+      html += '<div class="emptyday">Sin turnos registrados este día.</div>';
+      return html;
+    }
+
+    html += '<div class="timeline-scroll"><div class="timeline" style="--hour-w:'+hourW+'px; width:calc('+hourW+'px*24)">';
+    html += '<div class="hourrow">';
+    for(var h=0; h<24; h++){ html += '<div>'+pad(h)+'</div>'; }
+    html += '</div>';
+    html += '<div class="lanes">';
+    list.forEach(function(inst){
+      var rowDoc = inst.assignedDoctorId || inst.titularId;
+      var leftPct = inst.startMinOfDay, widthMin = Math.max(inst.endMinOfDay-inst.startMinOfDay, 15);
+      var leftPx = (leftPct/60)*hourW, widthPx = (widthMin/60)*hourW;
+      var cls = inst.status==="red"?"red":(inst.status==="yellow"?"amber":"green");
+      var label = docName(rowDoc);
+      if(inst.status==="red") label = docName(inst.titularId)+" — vacante";
+      else if(inst.status==="yellow") label = docName(inst.titularId)+" — "+inst.candidates.length+" cand.";
+      html += '<div class="lane"><div class="track">';
+      html += '<div class="bar '+cls+'" style="left:'+leftPx+'px;width:'+widthPx+'px" data-act="openbar" data-instance="'+inst.instanceId+'" data-owner="'+inst.ownerISO+'" title="'+esc(label)+'">';
+      html += fmtTime(inst.slot.startMin)+'–'+fmtTime(inst.slot.endMin)+' · '+esc(label);
+      html += '</div>';
+      if(isToday){
+        var nowMin = NOW.getHours()*60+NOW.getMinutes();
+        html += '<div class="nowline" style="left:'+((nowMin/60)*hourW)+'px"></div>';
+      }
+      html += '</div></div>';
+    });
+    html += '</div></div></div>';
+    return html;
+  }
+
+  function flushToasts(panel){
+    var host = document.getElementById("toasts-"+panel.id);
+    if(!host) return;
+    var queue = pendingToasts[panel.id];
+    if(queue && queue.length){
+      queue.forEach(function(text){
+        var t=document.createElement("div");
+        t.className="toast"; t.textContent=text;
+        host.appendChild(t);
+        setTimeout(function(){ t.remove(); }, 3000);
+      });
+      pendingToasts[panel.id]=[];
+    }
+  }
+
+  function wirePanel(el, panel){
+    el.querySelectorAll('[data-view]').forEach(function(btn){
+      btn.addEventListener("click", function(){ panel.view=btn.getAttribute("data-view"); render(); });
+    });
+    var map = {
+      prevmonth: function(){ panel.cursor=addMonths(panel.cursor,-1); },
+      nextmonth: function(){ panel.cursor=addMonths(panel.cursor,1); },
+      prevday: function(){ panel.selected=addDays(panel.selected,-1); },
+      nextday: function(){ panel.selected=addDays(panel.selected,1); },
+      today: function(){ panel.cursor=new Date(NOW.getFullYear(),NOW.getMonth(),1); panel.selected=new Date(NOW); },
+      zoomin: function(){ panel.hourW=Math.min(90, panel.hourW+10); },
+      zoomout: function(){ panel.hourW=Math.max(22, panel.hourW-10); }
+    };
+    Object.keys(map).forEach(function(act){
+      var btn = el.querySelector('[data-act="'+act+'"]');
+      if(btn) btn.addEventListener("click", function(){ map[act](); render(); });
+    });
+    el.querySelectorAll('[data-act="pickday"]').forEach(function(cell){
+      cell.addEventListener("click", function(){
+        panel.selected = parseISO(cell.getAttribute("data-date"));
+        panel.cursor = new Date(panel.selected.getFullYear(), panel.selected.getMonth(), 1);
+        panel.view="day";
+        render();
+      });
+    });
+    el.querySelectorAll('[data-act="openbar"]').forEach(function(bar){
+      bar.addEventListener("click", function(){
+        openModal = { panelId: panel.id, instanceId: bar.getAttribute("data-instance"), ownerISO: bar.getAttribute("data-owner") };
+        render();
+      });
+    });
+  }
+
+  function findPanel(id){ return state.panels.filter(function(p){return p.id===id;})[0]; }
+
+  function renderModal(){
+    if(!openModal){ modalRoot.innerHTML=""; return; }
+    var panel = findPanel(openModal.panelId);
+    var inst = makeInstance(findSlotById(openModal.instanceId, openModal.ownerISO), openModal.ownerISO, openModal.ownerISO);
+    var statusCls = inst.status==="red"?"red":(inst.status==="yellow"?"amber":"green");
+    var statusLabel = inst.status==="red"?"Vacante libre":(inst.status==="yellow"?"Con candidatos":"Confirmado");
+
+    var html = '<div class="modal-veil" data-act="closeveil"><div class="modal">';
+    html += '<div class="modal-head"><div><h3>'+fmtDateShort(inst.ownerISO)+' &middot; '+fmtTime(inst.slot.startMin)+'–'+fmtTime(inst.slot.endMin)+'</h3>';
+    html += '<p>'+inst.slot.durationHours+' h &middot; titular de plantilla: '+esc(docName(inst.titularId))+'</p></div>';
+    html += '<button class="modal-close" data-act="closemodal">✕</button></div>';
+    html += '<div class="modal-body">';
+    html += '<div><span class="status-pill '+statusCls+'"><i></i>'+statusLabel+'</span></div>';
+
+    if(inst.status==="green"){
+      html += '<div class="kv"><span class="k">Cubre</span><span class="v">'+esc(docName(inst.assignedDoctorId))+'</span></div>';
+    }
+    if(inst.status!=="green"){
+      html += '<div class="kv"><span class="k">Vacante avisada por</span><span class="v">'+esc(docName(inst.generatedBy||inst.titularId))+'</span></div>';
+    }
+
+    var isFuture = inst.startDate > NOW;
+    var iAmAssigned = (inst.assignedDoctorId||inst.titularId) === panel.doctorId && inst.status==="green";
+    var iAmCandidate = inst.candidates.some(function(c){ return c.doctorId===panel.doctorId; });
+    var canPostularme = inst.status!=="green" && !iAmCandidate && panel.doctorId!==inst.generatedBy;
+
+    var actions = '';
+    if(iAmAssigned && isFuture){
+      actions += '<button class="btn danger" data-act="generar">Generar vacante</button>';
+    }
+    if(canPostularme){
+      actions += '<button class="btn primary" data-act="postularme">Postularme</button>';
+    }
+    if(iAmCandidate){
+      actions += '<button class="btn ghost" data-act="retirar">Retirar postulación</button>';
+    }
+
+    if(panel.role==="coordinador" && inst.status==="yellow"){
+      var sorted = inst.candidates.slice().sort(function(a,b){
+        var ra=restHours(a.doctorId), rb=restHours(b.doctorId);
+        if(ra===null && rb===null) return a.ts-b.ts;
+        if(ra===null) return -1;
+        if(rb===null) return 1;
+        if(rb!==ra) return rb-ra;
+        return a.ts-b.ts;
+      });
+      actions += '<div class="cand-list">';
+      sorted.forEach(function(c,idx){
+        var rh = restHours(c.doctorId);
+        var rtxt = rh===null ? "Sin guardias previas — prioridad alta" : Math.round(rh)+" h de descanso";
+        actions += '<div class="cand"><div class="info"><div class="n">'+(idx===0?"★ ":"")+esc(docName(c.doctorId))+'</div>';
+        actions += '<div class="r'+(idx===0?" top":"")+'">'+rtxt+'</div></div>';
+        actions += '<button data-act="confirmar" data-doctor="'+c.doctorId+'">Confirmar</button></div>';
+      });
+      actions += '</div>';
+    }
+
+    if(actions){
+      html += actions;
+    } else {
+      html += '<p class="readonly-note">No hay acciones disponibles para '+esc(panel.label)+' en este turno.</p>';
+    }
+
+    html += '</div></div></div>';
+    modalRoot.innerHTML = html;
+
+    modalRoot.querySelectorAll('[data-act="closeveil"]').forEach(function(v){
+      v.addEventListener("click", function(e){ if(e.target===v){ openModal=null; render(); } });
+    });
+    var closeBtn = modalRoot.querySelector('[data-act="closemodal"]');
+    if(closeBtn) closeBtn.addEventListener("click", function(){ openModal=null; render(); });
+    var genBtn = modalRoot.querySelector('[data-act="generar"]');
+    if(genBtn) genBtn.addEventListener("click", function(){ actionGenerarVacante(panel, inst); openModal=null; render(); });
+    var postBtn = modalRoot.querySelector('[data-act="postularme"]');
+    if(postBtn) postBtn.addEventListener("click", function(){ actionPostularse(panel, inst); openModal=null; render(); });
+    var retBtn = modalRoot.querySelector('[data-act="retirar"]');
+    if(retBtn) retBtn.addEventListener("click", function(){ actionRetirar(panel, inst); openModal=null; render(); });
+    modalRoot.querySelectorAll('[data-act="confirmar"]').forEach(function(btn){
+      btn.addEventListener("click", function(){ actionConfirmar(panel, inst, btn.getAttribute("data-doctor")); openModal=null; render(); });
+    });
+  }
+
+  function findSlotById(instanceId, ownerISO){
+    var slotId = instanceId.slice(0, instanceId.length - ("_"+ownerISO).length);
+    var d = parseISO(ownerISO);
+    var found=null;
+    weekday[d.getDay()].forEach(function(s){ if(s.id===slotId) found=s; });
+    return found;
+  }
+
+  render();
+})();
+</script>
+
+</body></html>
