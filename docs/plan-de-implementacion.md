@@ -21,14 +21,31 @@ Cada funcionalidad es un ciclo completo de Superpowers: brainstorming, spec, pla
 
 | # | Funcionalidad | Contenido | Fecha objetivo |
 |---|---|---|---|
-| F0 | Esqueleto | Estructura de carpetas, FastAPI, conexión a Supabase, Alembic, pytest, reloj inyectable, CLAUDE.md de backend y frontend | 5/10 |
+| F0 | Esqueleto | Estructura de carpetas, FastAPI, conexión a Supabase, Alembic, pytest, reloj inyectable, esqueleto de frontend con React y Vite, CLAUDE.md de backend y frontend | 5/10 |
 | F1 | Plantilla y calendario | Usuario con rol, HorarioPactado, VersionHorario, GET /turnos calculado, script de datos de ejemplo | 6/10 |
-| F2 | Vacantes y postulaciones | Turno materializado, Vacante (incluida la urgente), Postulacion, semáforo calculado, reglas de elegibilidad, bitácora | 7/10 |
-| F3 | Candidatos y asignación | Lista de candidatos con datos informativos, PUT asignacion con sus tres casos, pruebas de concurrencia | 8/10 |
-| F4 | Historia y alertas | Consolidación perezosa, turno sin cobertura, indicador de horas sin cobertura, rectificación, alertas escalonadas, notificaciones, reloj de demo | 9/10 |
-| F5 | Seguridad y usuarios | Supabase Auth, roles, RLS, baja con transferencia o cierre de horarios | 9/10 |
-| F6 | Interfaz y despliegue | Conectar el prototipo a la API, PWA, despliegue | 10 y 11/10 |
+| F2 | Vacantes y postulaciones | Turno materializado, Vacante (incluida la urgente), Postulacion, semáforo calculado, reglas de elegibilidad, bitácora, logs de dominio legibles en la terminal (una línea por acción) | 7/10 |
+| F3 | Candidatos y asignación | Lista de candidatos ordenada por equidad (D17), PUT asignacion con sus tres casos, pruebas de concurrencia | 8/10 |
+| F4 | Historia y alertas | Consolidación perezosa, turno sin cobertura, indicador de horas sin cobertura, rectificación, alertas escalonadas, notificaciones (con aviso emergente para vacantes urgentes), reloj de demo | 9/10 |
+| F5 | Seguridad y staff | Supabase Auth con email y contraseña, registro con código de coordinación (D30), estados de usuario, RLS, API de staff, baja con horarios sin titular (D24) | 9/10 |
+| F6 | Interfaz y despliegue | Frontend en React con Vite (frontend/), tomando el prototipo HTML como referencia visual: calendario, vacantes y candidatos, registro y login, pantalla de staff, aviso emergente, PWA; despliegue con el backend sirviendo la compilación | 10 y 11/10 |
 | Cierre | Ensayo | Pruebas en celulares, README final, ensayo de la demo con el script de reinicio | 12 y 13/10 |
+
+## Requisitos de entrega (lista de control)
+
+| Requisito | Dónde se cumple | Estado |
+|---|---|---|
+| Frontend con framework visible en el repo, y el README indica dónde está | F6: React con Vite en frontend/, con package.json | Pendiente |
+| Backend con persistencia | F0 a F5 | Pendiente |
+| CLAUDE.md con el diseño documentado (modelo de datos, endpoints, contrato) | CLAUDE.md, sección Diseño | Hecho; actualizar si cambia el diseño |
+| TP1 (Bad UI) incluido en el repo del TP final | Carpeta tp1-bad-ui/ con el TP1 individual de cada integrante | Pendiente |
+| Idea presentada en la clase 5 | Ya presentada | Hecho |
+| Al menos una funcionalidad hecha con Superpowers, con spec y plan en docs/superpowers/ | F0 + F1 en adelante | Pendiente |
+| Commits seguidos a lo largo del trabajo, no uno solo de entrega | Todo el proceso | En curso |
+| Branches feature/..., revisión de código y pull requests mergeados | Cada funcionalidad | En curso |
+| README con: qué nos propusimos construir, prompts principales, cómo se ejecuta, arquitectura, qué decidimos, cómo gestionamos el contexto, qué salió mal | Cierre | Pendiente |
+| Poder explicar Superpowers en la presentación | Guion, bloque 3 | Pendiente |
+| Repo único con los tres como colaboradores y aviso al docente | Mariano | Pendiente |
+| Presentación en la última clase | 14/10 | Pendiente |
 
 ## Consumo de tokens
 
@@ -40,24 +57,33 @@ Cada funcionalidad es un ciclo completo de Superpowers: brainstorming, spec, pla
 
 1. "Cómo gestioné el contexto": CLAUDE.md por nivel, documento de decisiones, una sesión por funcionalidad, subagentes, specs y planes en disco.
 2. "Qué salió mal": cada vez que el agente se desvíe o una revisión encuentre un error, anotar en `docs/bitacora-de-desvios.md` qué pasó, cómo se detectó y cómo se corrigió. Al final se resume.
+3. "Prompts principales": copiar en `docs/prompts-principales.md` el prompt con que arranca cada funcionalidad y cualquier prompt de corrección importante, con fecha y resultado.
 
 ## Primer prompt (F0 + F1)
 
 Pegar en una sesión nueva de Claude Code, parados en la raíz del repo:
 
 ```
-/brainstorming Vamos a construir el backend de Guardia Viva. El brainstorming de arquitectura ya está hecho y sus decisiones están en docs/decisiones-arquitectura.md (D01 a D29). Leelo completo antes de preguntar nada; no reabras decisiones tomadas salvo que encuentres una contradicción, y en ese caso señalala.
+/brainstorming Vamos a construir el backend de Guardia Viva. El brainstorming de arquitectura ya está hecho y sus decisiones están en docs/decisiones-arquitectura.md (D01 a D30). Leelo completo antes de preguntar nada; no reabras decisiones tomadas salvo que encuentres una contradicción, y en ese caso señalala.
 
 Alcance de este ciclo: F0 (esqueleto) y F1 (plantilla y calendario) según docs/plan-de-implementacion.md.
 
 Lo que esperamos al final:
-1. Proyecto FastAPI en backend/ conectado a Supabase con SQLAlchemy y Alembic.
-2. Reloj inyectable para toda la lógica que dependa de la hora actual (D27).
-3. Tablas Usuario (rol MEDICO o COORDINADOR, D23), HorarioPactado y VersionHorario, con la restricción de exclusión de vigencias (D10).
-4. Cálculo de turnos desde la plantilla (D13, D14: sin rotaciones), incluidos turnos que cruzan medianoche y horarios de distintos médicos superpuestos.
-5. GET /turnos?desde&hasta devolviendo turnos calculados con id "horarioId:fecha" (D09).
-6. Script de datos de ejemplo: unos 10 médicos con horarios pactados de duraciones variadas (6, 8, 12 y 24 h), uno o dos coordinadores y guardias que cruzan medianoche.
-7. Pruebas con pytest contra Postgres que cubran medianoche, superposición entre médicos y cambio de versión de un horario.
+1. Proyecto FastAPI en backend/ conectado a Supabase con SQLAlchemy y Alembic, con un endpoint GET /health.
+2. Esqueleto de frontend en frontend/ con React y Vite (package.json), con una página mínima que consulta GET /health. Las pantallas reales se hacen en F6.
+3. Reloj inyectable para toda la lógica que dependa de la hora actual (D27).
+4. Tablas Usuario (rol MEDICO o COORDINADOR y estado PENDIENTE, ACTIVO o BAJA, D23), HorarioPactado y VersionHorario (con médico opcional, para los horarios sin titular de D24), con la restricción de exclusión de vigencias (D10).
+5. Cálculo de turnos desde la plantilla (D13, D14: frecuencia en semanas con fecha ancla), incluidos horarios semana por medio, turnos que cruzan medianoche y horarios de distintos médicos superpuestos.
+6. GET /turnos?desde&hasta devolviendo turnos calculados con id "horarioId:fecha" (D09).
+7. Script de datos de ejemplo que cubra lo que pide docs/guion-demo.md (sección "Datos de ejemplo necesarios"): unos 10 médicos con horarios pactados de duraciones variadas (6, 8, 12 y 24 h), entre ellos Florencia, Mariano y Carlos; un coordinador "Enzo"; guardias que cruzan medianoche; al menos un horario semana por medio. El script deja la base en ese estado cada vez que se corre. En este ciclo solo carga usuarios y horarios; la historia y las vacantes se suman en F2 a F4.
+8. Pruebas con pytest contra Postgres que cubran medianoche, semana por medio, superposición entre médicos y cambio de versión de un horario.
+
+Respuestas a preguntas técnicas que ya surgieron en una sesión anterior:
+1. Pruebas contra Postgres local en Docker con docker-compose (Postgres 15). Supabase queda para desarrollo y demo.
+2. El día de la semana es parte de VersionHorario: una renegociación puede cambiar el día.
+3. Vigencias semiabiertas [vigenteDesde, vigenteHasta): vigenteHasta es el primer día en que la versión ya no rige; vacío significa vigente. Coincide con el daterange de Postgres.
+4. GET /turnos devuelve los turnos cuyo intervalo se superpone con el rango pedido, desde las 00:00 de "desde" hasta las 24:00 de "hasta". Así una guardia que empieza a las 22:00 del lunes aparece también en el martes.
+5. La conexión a Supabase usa el Session pooler; la cadena va en un archivo .env excluido del repo, que completamos nosotros.
 
 Hacé las preguntas que necesites antes de escribir el spec.
 ```
