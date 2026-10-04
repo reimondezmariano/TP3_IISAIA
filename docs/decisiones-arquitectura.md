@@ -9,11 +9,13 @@ Equipo: Carlos Lugones, Mariano Reimondez, Florencia Lucca.
 Un servicio hospitalario de 10 a 12 médicos gestiona hoy sus guardias con un grupo de WhatsApp y una planilla Excel que actualiza el coordinador. Guardia Viva reemplaza ese mecanismo con una aplicación web instalable en el celular, un backend con API y persistencia.
 
 Cómo funciona el servicio (validado con Carlos, médico de guardia):
-1. Cada médico, al ingresar, pacta sus días y horarios, que se repiten todas las semanas. La duración varía según el médico: 6, 7, 8, 12 o 24 horas. No hay rotaciones.
+1. Cada médico, al ingresar, pacta sus días y horarios. Como regla general se repiten todas las semanas, y hay médicos que hacen un horario semana por medio. Cada horario tiene un solo médico. La duración varía según el médico: 6, 7, 8, 12 o 24 horas.
 2. Los médicos no trabajan todos los días: muchos hacen uno o dos días por semana, y cada uno decide su carga. No hay prioridad por descanso ni descanso mínimo obligatorio.
 3. El coordinador no hace guardias ni cubre vacantes.
 4. Cuando nadie cubre una ausencia, no se hace nada: los demás médicos trabajan el doble.
 5. Las ausencias se avisan con anticipación muy variable: meses (vacaciones, congresos) o minutos (una urgencia familiar).
+6. En los feriados cada médico cumple su horario habitual.
+7. Cada médico y cada coordinador ingresa con usuario y contraseña. Cuando un médico deja el servicio, su lugar queda sin titular hasta que se designa a otra persona; mientras tanto otros pueden cubrirlo, pero debe quedar claro que es por la baja del titular.
 
 Criterio rector: el modelo más simple que preserve correctamente las reglas del dominio, la concurrencia, la historia y la trazabilidad. Plazo: Demo Day el 14/10/2026, con la aplicación lista el 11/10 para probar.
 
@@ -35,10 +37,15 @@ Motivo: genera automáticamente la documentación OpenAPI navegable en /docs, qu
 D04. Acceso a datos con SQLAlchemy y migraciones con Alembic.
 Motivo: estándar con FastAPI; cada cambio de esquema queda como migración numerada en el repositorio.
 
-D05. Interfaz web responsive instalable en el celular (PWA). Notificaciones dentro de la app, consultadas cada 10 a 15 segundos. Push nativo y Web Push quedan como trabajo futuro. Mail para vacantes urgentes: trabajo futuro (a confirmar el 4/10).
+D05. Interfaz web responsive instalable en el celular (PWA), hecha con React y Vite en la carpeta frontend/. El prototipo HTML del equipo se usa como referencia visual. En producción el backend sirve la compilación como estáticos, para tener un solo despliegue.
+Alternativa descartada: adaptar el prototipo en HTML y JavaScript sin framework. Era menos trabajo, pero un framework ordena mejor las varias pantallas (calendario, candidatos, staff, login) y el estado que se actualiza con las notificaciones. Notificaciones dentro de la app, consultadas cada 10 a 15 segundos. Las vacantes urgentes (menos de 24 h de anticipación) se muestran además como aviso emergente (pop-up) en la aplicación, para todos los médicos que la tengan abierta. Push nativo, Web Push y mail quedan como trabajo futuro.
 Motivo: el README evalúa la aplicación de punta a punta, no el canal de notificaciones. Web Push en iPhone exige instalar la app y es frágil en vivo.
 
-D06. Autenticación con Supabase Auth (cuenta de Google). El backend verifica el token y busca al usuario por email. Los permisos se validan en el backend aunque la interfaz oculte las acciones.
+D06. Autenticación con Supabase Auth, con email y contraseña. Las contraseñas las gestiona Supabase Auth; nunca se guardan en las tablas propias. Confirmación de email desactivada, para no depender del envío de mails. El backend verifica el token y vincula la cuenta con el Usuario por el identificador de Supabase Auth. Los permisos se validan en el backend aunque la interfaz oculte las acciones. "Olvidé mi contraseña" queda como trabajo futuro.
+Cambio tras validar con Carlos: el diseño anterior usaba login con Google. Carlos indicó usuario y contraseña, que además funciona con cualquier email.
+
+D30. Registro con código de coordinación. Cada persona crea su cuenta (nombre, email, contraseña) y elige su propia contraseña. Si ingresa el código de coordinación del servicio (por ejemplo, SMG), la cuenta queda como coordinador activo; sin código queda como médico pendiente, sin acceso, hasta que un coordinador lo activa desde la pantalla de staff. El código se valida en el backend y se configura como variable de entorno; nunca está en el frontend ni en el repositorio.
+Motivo: es la opción más simple de implementar (sin contraseñas temporales ni invitaciones por mail) y resuelve el alta del primer coordinador. Limitación reconocida: un código compartido es un control simple; en producción se reemplazaría por invitaciones.
 
 D07. Seguridad por filas (RLS) activada en todas las tablas, sin políticas. El frontend usa Supabase solo para el login; el backend se conecta a Postgres con credenciales propias.
 Motivo: Supabase publica las tablas en una API accesible con la clave pública; sin RLS cualquiera podría saltear las reglas del backend.
@@ -66,7 +73,7 @@ Entidades: Usuario, HorarioPactado, VersionHorario, Turno, Vacante, Postulacion,
 
 D09. Identidad del turno = horario pactado + fecha de inicio. En la API, identificador compuesto "horarioId:fecha" (por ejemplo, 7:2026-10-10). Existe aunque el turno nunca se haya guardado y no cambia aunque cambie la plantilla.
 
-D10. Plantilla como horarios pactados versionados: HorarioPactado (identidad estable, pertenece a un médico) y VersionHorario (día de la semana, hora de inicio, duración, vigenteDesde, vigenteHasta). Una renegociación cierra la versión vigente y abre otra. Las vigencias de un horario no se superponen (restricción de exclusión de Postgres). Que horarios de distintos médicos se superpongan es normal: hay varios médicos de guardia a la vez.
+D10. Plantilla como horarios pactados versionados: HorarioPactado (identidad estable, pertenece a un médico) y VersionHorario (día de la semana, hora de inicio, duración, frecuencia en semanas, fecha ancla, vigenteDesde, vigenteHasta). Una renegociación cierra la versión vigente y abre otra. Las vigencias de un horario no se superponen (restricción de exclusión de Postgres). Que horarios de distintos médicos se superpongan es normal: hay varios médicos de guardia a la vez.
 Alternativa descartada: una sola tabla con vigencias, donde cada versión tiene otro identificador y deja colgadas las excepciones futuras.
 
 D11. Materialización perezosa: el turno se calcula desde la plantilla mientras no le pasa nada. Se guarda como fila cuando se genera una vacante o cuando se consolida. Al crearse copia inicio, fin, versión y médico titular, que no se recalculan. Restricción única sobre (horario, fecha).
@@ -76,8 +83,8 @@ D12. Un cambio de plantilla nunca rompe lo ya asignado. Las excepciones existent
 
 D13. Horario expresado como hora de inicio + duración. El turno pertenece a la fecha en que empieza. Zona horaria America/Argentina/Buenos_Aires; instantes guardados con zona horaria. La semana empieza el lunes.
 
-D14. Sin rotaciones: cada horario pactado tiene un solo médico, que se repite todas las semanas (a confirmar el 4/10).
-Cambio tras validar con Carlos: el diseño anterior soportaba titulares rotativos con período y fecha ancla. Carlos confirmó que en el servicio no existen rotaciones; se eliminaron la rotación y la entidad VersionTitular.
+D14. Frecuencia en lugar de rotación: cada horario pactado tiene un solo médico y una frecuencia en semanas (1 = todas las semanas, que es el caso general; 2 = semana por medio; 3 = cada tres semanas) con una fecha ancla, que es el lunes de una semana en que el horario se cumple. El horario se cumple en la semana S si la cantidad de semanas entre la fecha ancla y S es múltiplo de la frecuencia.
+Cambio tras validar con Carlos: el diseño anterior soportaba varios titulares rotativos por horario. Carlos confirmó que cada horario es de una sola persona, pero que hay médicos que toman un horario semana por medio. Se eliminó la entidad VersionTitular y se conservó solo la frecuencia. Si alguna vez dos médicos se alternan un mismo horario, se representa con dos horarios de frecuencia 2 desfasados una semana.
 
 ## Reglas operativas
 
@@ -85,9 +92,8 @@ D15. Vacantes. Las genera el médico titular o asignado del turno, o un coordina
 
 D16. Postulaciones al turno. La oferta de un médico vale para el turno mientras no ocurra y no la retire. Si el asignado cancela y se abre otra vacante, los candidatos anteriores siguen activos: son la reserva para cancelaciones de último momento y reciben una notificación para retirarse si ya no pueden. No se postula el titular a su propio turno ni un médico con una guardia superpuesta. La elegibilidad se calcula al consultar: si un impedimento desaparece, el candidato vuelve a ser elegible.
 
-D17. Candidatos ordenados por hora de postulación (según el servidor), con datos informativos que no alteran el orden: horas de guardia del médico en esa semana y vacantes que cubrió en el mes (a confirmar el 4/10).
-Cambio tras validar con Carlos: el diseño anterior ordenaba por horas de descanso previo, con advertencia por menos de 12 h. Carlos explicó que en el servicio no existe prioridad por descanso: los médicos hacen uno o dos días por semana y cada uno decide su carga. Se eliminaron el ranking por descanso y la advertencia.
-Alternativa en estudio: ordenar por equidad (primero quien cubrió menos vacantes en el mes), si Carlos confirma que es una preocupación real.
+D17. Candidatos ordenados por equidad: primero quien cubrió menos vacantes en el mes calendario del turno. Cuenta como cobertura cada turno de ese mes en que el médico quedó asignado sin ser el titular. Desempate: hora de postulación según el servidor. Dato informativo que no altera el orden: horas de guardia del médico en esa semana. El orden es un apoyo: el coordinador puede elegir a cualquier candidato.
+Cambio tras validar con Carlos: el diseño anterior ordenaba por horas de descanso previo, con advertencia por menos de 12 h. Carlos explicó que en el servicio no existe prioridad por descanso: los médicos hacen uno o dos días por semana y cada uno decide su carga. Propuso en cambio repartir la carga extra de forma equitativa. Se eliminaron el ranking por descanso y la advertencia.
 
 D18. Asignación con un solo endpoint. "Esta persona cubre este turno" cubre tres casos que el backend distingue: elección de un candidato, asignación directa de alguien que no se postuló, y reasignación. El coordinador puede elegir a cualquier candidato.
 
@@ -96,31 +102,29 @@ Indicador para el coordinador: horas sin cobertura por mes. Hoy, cuando nadie cu
 
 D20. Consolidación perezosa e idempotente. Antes de responder consultas de calendario, el backend consolida los turnos terminados; el coordinador también puede forzarla. Al terminar un turno cubierto, se presume realizado por el asignado vigente (o el titular). Tolera caídas del servidor porque no depende de un proceso programado.
 
-D21. Rectificación. El coordinador corrige quién realizó una guardia consolidada, con motivo obligatorio. Queda un evento con el valor anterior.
+D21. Rectificación (endpoint propio, solo coordinadores). El coordinador corrige quién realizó una guardia consolidada, con motivo obligatorio. Queda un evento con el valor anterior.
 
 D22. Bitácora (EventoTurno) solo de agregar, escrita en la misma transacción que el cambio. Distingue actor humano y sistema. Eventos: VACANTE_GENERADA, VACANTE_RETIRADA, POSTULACION_CREADA, POSTULACION_RETIRADA, CANDIDATO_ELEGIDO (con la posición en la lista y la cantidad de candidatos), ASIGNACION_DIRECTA, REASIGNACION, TURNO_SIN_COBERTURA, REALIZADOR_RECTIFICADO, ALERTA_SIN_COBERTURA. Excluidos: consolidación normal (ya está en consolidadoEn), consultas, logins, lecturas de notificaciones y cambios de plantilla (las versiones ya son su historia).
 
-D23. Roles excluyentes: cada usuario es MEDICO o COORDINADOR. El coordinador no tiene horarios pactados, no se postula y no cubre vacantes. El rol puede cambiar de persona y puede haber varios coordinadores (lectura a confirmar con Carlos).
+D23. Roles excluyentes: cada usuario es MEDICO o COORDINADOR, con estado PENDIENTE, ACTIVO o BAJA. El coordinador no tiene horarios pactados, no se postula y no cubre vacantes. El rol puede cambiar de persona y puede haber varios coordinadores; siempre debe quedar al menos un coordinador activo. Un médico que pasa a coordinador deja antes sus horarios sin titular.
 Cambio tras validar con Carlos: el diseño anterior suponía que el coordinador también era médico de guardia.
 
-D24. Baja definitiva de un médico: fecha de baja (activo hasta ese día inclusive). En el mismo paso, el coordinador decide para cada horario pactado si lo transfiere a otro médico (nueva versión) o lo cierra (el servicio pierde esas horas). Las coberturas que el médico había aceptado para turnos posteriores se le listan al coordinador para reabrirlas. Nunca se borra un usuario.
+D24. Baja definitiva de un médico: fecha de baja (activo hasta ese día inclusive); desde esa fecha no puede ingresar. Sus horarios pactados quedan sin titular desde la fecha de baja (nueva versión del horario sin médico). Cada guardia de un horario sin titular se calcula en rojo con la etiqueta BAJA, distinta de una vacante común. Mientras tanto, cada guardia se puede cubrir con el circuito habitual de postulación y asignación, y se muestra como cubierta por baja del titular. Cuando el coordinador designa un nuevo titular, se crea una nueva versión del horario desde esa fecha. El coordinador también puede cerrar el horario. Las coberturas que el médico había aceptado para turnos posteriores se reabren como vacantes comunes. Las horas sin cubrir cuentan en el indicador de D19. Nunca se borra un usuario.
+Cambio tras validar con Carlos: el diseño anterior obligaba a transferir o cerrar cada horario en el momento de la baja. Carlos indicó que el lugar debe quedar visible como baja hasta designar a otra persona.
 
-D25. Motivo de la ausencia opcional y visible solo para el coordinador.
+D25. Motivo de la ausencia: se informa al generar la vacante y es visible solo para los coordinadores; el resto del servicio ve solo que el turno está vacante.
 Motivo: puede incluir información personal o de salud que no corresponde mostrar a todo el servicio.
 
 ## Alcance para el Demo Day
 
-D26. Plantilla: API completa, datos de ejemplo cargados por script, pantalla de lectura y formulario simple de nueva versión. La edición completa queda como trabajo futuro.
+D26. Pantalla de staff completa para el coordinador: lista de usuarios con rol, estado y horarios pactados; activar médicos pendientes, cargar y modificar horarios (cada cambio es una nueva versión), cambiar el rol, dar de baja y designar nuevo titular en los horarios marcados BAJA. Los datos de ejemplo se cargan por script.
 
 D27. Reloj de demo: en modo demo (variable de entorno) un endpoint adelanta la hora del sistema para mostrar consolidación y alertas. Las pruebas usan el mismo mecanismo. No existe fuera del modo demo.
 
-D28. Demo: un usuario coordinador "Enzo" con una cuenta de Gmail creada por el equipo; los tres integrantes actúan como médicos desde sus celulares. Si Enzo quiere operar en vivo, se agrega su email. Plan de respaldo: todo desde una computadora.
+D28. Demo: un usuario coordinador "Enzo" con un email creado por el equipo; los tres integrantes actúan como médicos. Si Enzo quiere operar en vivo, se agrega su email. Plan de respaldo: todo desde una computadora.
 
-D29. Fuera de alcance: coberturas parciales, intercambios directos entre médicos, rotaciones, push nativo.
+D29. Fuera de alcance: coberturas parciales, intercambios directos entre médicos, push nativo, mail.
 
-## Pendiente de confirmar (reunión del 4/10, 17:00)
+## Pendiente de confirmar
 
-1. D14: eliminar la rotación.
-2. D17: orden por hora de postulación con datos informativos, o por equidad de coberturas.
-3. D05: mail para vacantes urgentes ahora o como trabajo futuro.
-4. D23: confirmar con Carlos que el coordinador no hace guardias.
+Sin pendientes al 4/10/2026.
