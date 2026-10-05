@@ -90,13 +90,18 @@ def cargar_datos_ejemplo(sesion: Session) -> None:
             nueva_version(sesion, horario.id, replace(datos, hora_inicio=NUEVA_HORA), FECHA_CAMBIO)
 
 
+def describir_destino(url: str) -> str:
+    destino = make_url(url)
+    puerto = f":{destino.port}" if destino.port is not None else ""
+    return f"{destino.host}{puerto}/{destino.database}"
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Carga los datos de ejemplo de Guardia Viva (borra los datos actuales).")
     parser.add_argument("--confirmar", action="store_true", help="confirma que se borran los datos actuales")
     args = parser.parse_args(argv)
 
-    url = make_url(get_settings().database_url)
-    print(f"Base de destino: {url.host}:{url.port}/{url.database}")
+    print(f"Base de destino: {describir_destino(get_settings().database_url)}")
     if not args.confirmar:
         print("No se modificó nada. Volvé a correrlo con --confirmar para borrar y recargar los datos.")
         return 0

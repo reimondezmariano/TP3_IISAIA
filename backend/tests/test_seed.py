@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from app.dominio.calendario import calcular_turnos
 from app.modelos import HorarioPactado, RolUsuario, Usuario, VersionHorario
 from app.repos.horarios import versiones_en_rango
-from scripts.seed import cargar_datos_ejemplo, main
+from scripts.seed import cargar_datos_ejemplo, describir_destino, main
 
 ZONA = ZoneInfo("America/Argentina/Buenos_Aires")
 
@@ -88,3 +88,8 @@ def test_main_sin_confirmar_no_modifica_nada(capsys):
     assert main([]) == 0
     salida = capsys.readouterr().out
     assert "--confirmar" in salida
+
+
+def test_describir_destino_omite_el_puerto_si_no_esta():
+    assert describir_destino("postgresql://u:p@db.ejemplo.com/postgres") == "db.ejemplo.com/postgres"
+    assert describir_destino("postgresql://u:p@localhost:5433/guardia") == "localhost:5433/guardia"
