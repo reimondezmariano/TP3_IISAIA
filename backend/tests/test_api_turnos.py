@@ -1,5 +1,7 @@
 from datetime import date, time
 
+import pytest
+
 from app.repos.horarios import DatosVersion, crear_horario
 from fabricas import crear_usuario
 
@@ -57,6 +59,14 @@ def test_hasta_anterior_a_desde_es_rango_invalido(cliente):
     r = cliente.get("/api/turnos", params={"desde": "2026-10-18", "hasta": "2026-10-12"})
     assert r.status_code == 422
     assert r.json()["codigo"] == "RANGO_INVALIDO"
+
+
+@pytest.mark.parametrize("desde,hasta", [("0001-01-01", "0001-01-10"), ("9999-12-20", "9999-12-31")])
+def test_fechas_en_los_extremos_del_calendario_son_422_con_formato_de_error(cliente, desde, hasta):
+    r = cliente.get("/api/turnos", params={"desde": desde, "hasta": hasta})
+    assert r.status_code == 422
+    assert r.json()["codigo"] == "FECHA_FUERA_DE_RANGO"
+    assert r.json()["mensaje"]
 
 
 def test_rango_de_62_dias_se_acepta_y_63_no(cliente):

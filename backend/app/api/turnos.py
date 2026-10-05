@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict
@@ -61,6 +61,8 @@ def listar_turnos(
         raise ErrorDominio("RANGO_INVALIDO", "La fecha 'hasta' no puede ser anterior a 'desde'.")
     if (hasta - desde).days + 1 > MAX_DIAS_RANGO:
         raise ErrorDominio("RANGO_DEMASIADO_GRANDE", f"El rango no puede superar {MAX_DIAS_RANGO} días.")
+    if desde <= date.min + timedelta(days=1) or hasta >= date.max - timedelta(days=1):
+        raise ErrorDominio("FECHA_FUERA_DE_RANGO", "Las fechas deben estar lejos de los extremos del calendario (años 1 y 9999).")
     versiones = versiones_en_rango(db, desde, hasta)
     turnos = calcular_turnos(versiones, desde, hasta, get_settings().zona)
     return [_a_salida(turno) for turno in turnos]
