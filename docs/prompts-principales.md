@@ -31,7 +31,7 @@ Resultado: se eliminaron la rotación de titulares y el ranking por descanso; se
 Fecha: 5/10/2026.
 Herramienta: Claude Code con Superpowers (/brainstorming).
 Prompt: ver la sección "Primer prompt (F0 + F1)" de `docs/plan-de-implementacion.md`, con las respuestas a preguntas técnicas agregadas al final.
-Resultado: spec en `docs/superpowers/specs/2026-10-05-f0-f1-esqueleto-plantilla-calendario-design.md` y plan en `docs/superpowers/plans/2026-10-05-f0-f1-esqueleto-plantilla-calendario.md`. Preguntas del agente antes del spec: herramienta de entorno de Python (venv + pip), autenticación en F1 (abierto hasta F5), granularidad de horarios (inicio HH:MM, duración en horas enteras). El agente señaló una inconsistencia en D10 (médico en el horario o en la versión), que se corrigió. Durante el diseño el equipo agregó el marcador commit_real para las pruebas de concurrencia de F3. Implementación por subagentes con Sonnet en la branch feature/esqueleto-calendario.
+Resultado: spec en `docs/superpowers/specs/2026-10-05-f0-f1-esqueleto-plantilla-calendario-design.md` y plan en `docs/superpowers/plans/2026-10-05-f0-f1-esqueleto-plantilla-calendario.md`. Preguntas del agente antes del spec: herramienta de entorno de Python (venv + pip), autenticación en F1 (abierto hasta F5), granularidad de horarios (inicio HH:MM, duración en horas enteras). El agente señaló una inconsistencia en D10 (médico en el horario o en la versión), que se corrigió. Durante el diseño el equipo agregó el marcador commit_real para las pruebas de concurrencia de F3. Implementación por subagentes con Sonnet en la branch feature/esqueleto-calendario, con revisión por tarea y revisión final; pull request #6.
 
 ## Próximas entradas
 
