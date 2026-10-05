@@ -45,11 +45,11 @@ def formatear_id_turno(horario_id: int, fecha: date) -> str:
     return f"{horario_id}:{fecha.isoformat()}"
 
 
-_PATRON_ID = re.compile(r"^(\d+):(\d{4}-\d{2}-\d{2})$")
+_PATRON_ID = re.compile(r"(\d+):(\d{4}-\d{2}-\d{2})", re.ASCII)
 
 
 def parsear_id_turno(texto: str) -> tuple[int, date]:
-    coincidencia = _PATRON_ID.match(texto)
+    coincidencia = _PATRON_ID.fullmatch(texto)
     if coincidencia is None:
         raise ErrorDominio("TURNO_ID_INVALIDO", f"Identificador de turno inválido: {texto!r}.")
     try:

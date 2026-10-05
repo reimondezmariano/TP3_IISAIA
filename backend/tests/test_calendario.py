@@ -161,13 +161,20 @@ def test_cambio_de_version_puede_cambiar_el_dia():
     assert [t.id for t in resultado] == ["7:2026-09-22", "7:2026-10-01"]
 
 
-def test_turno_del_ultimo_dia_de_vigencia_pertenece_a_la_version_vieja():
+def test_turno_que_empieza_antes_del_corte_y_termina_despues_pertenece_a_la_version_vieja():
     vieja = version(horario_id=4, version_id=1, dia=7, hora=time(20), hasta=date(2026, 10, 12))
     nueva = version(horario_id=4, version_id=2, dia=7, hora=time(8), desde=date(2026, 10, 12))
     [t] = turnos([vieja, nueva], date(2026, 10, 12), date(2026, 10, 12))
     assert t.version_id == 1
     assert t.fecha == date(2026, 10, 11)
     assert t.fin == en_ba(2026, 10, 12, 8, 0)
+
+
+def test_el_dia_del_corte_pertenece_a_la_version_nueva():
+    vieja = version(horario_id=7, version_id=1, dia=2, hora=time(7), hasta=date(2026, 9, 29))
+    nueva = version(horario_id=7, version_id=2, dia=2, hora=time(8), desde=date(2026, 9, 29))
+    [t] = turnos([vieja, nueva], date(2026, 9, 29), date(2026, 9, 29))
+    assert (t.fecha, t.version_id, t.inicio) == (date(2026, 9, 29), 2, en_ba(2026, 9, 29, 8, 0))
 
 
 def test_no_hay_turnos_antes_de_la_vigencia():
@@ -190,7 +197,7 @@ def test_formatear_y_parsear_id_son_inversas():
     assert parsear_id_turno(texto) == (7, date(2026, 10, 17))
 
 
-@pytest.mark.parametrize("texto", ["abc", "7-2026-10-10", "7:2026-13-01", "7:2026-10-1", ":2026-10-10", "x:2026-10-10"])
+@pytest.mark.parametrize("texto", ["abc", "7-2026-10-10", "7:2026-13-01", "7:2026-10-1", ":2026-10-10", "x:2026-10-10", "7:2026-10-10\n", "٧:2026-10-10", "7:٢٠٢٦-10-10"])
 def test_parsear_id_invalido_lanza_turno_id_invalido(texto):
     with pytest.raises(ErrorDominio) as error:
         parsear_id_turno(texto)
