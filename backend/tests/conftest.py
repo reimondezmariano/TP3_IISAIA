@@ -23,10 +23,15 @@ HOSTS_LOCALES = {"localhost", "127.0.0.1", "postgres"}
 
 def verificar_base_local(url: str) -> None:
     """La infraestructura de pruebas borra y recrea la base: nunca contra una base remota."""
-    host = make_url(url).host
-    if host not in HOSTS_LOCALES:
+    destino = make_url(url)
+    if destino.host not in HOSTS_LOCALES:
         raise RuntimeError(
-            f"TEST_DATABASE_URL apunta a '{host}'. Las pruebas solo corren contra el Postgres local de docker-compose."
+            f"TEST_DATABASE_URL apunta a '{destino.host}'. Las pruebas solo corren contra el Postgres local de docker-compose."
+        )
+    if not (destino.database or "").endswith("_test"):
+        raise RuntimeError(
+            f"TEST_DATABASE_URL apunta a la base '{destino.database}'. El nombre debe terminar en '_test': "
+            "las pruebas borran y recrean la base."
         )
 
 
