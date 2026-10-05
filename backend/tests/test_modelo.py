@@ -5,6 +5,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.exc import DataError, IntegrityError
 
 from app.modelos import EstadoUsuario, HorarioPactado, RolUsuario, Usuario, VersionHorario
+from conftest import _vaciar_tablas
 from fabricas import crear_usuario
 
 
@@ -36,12 +37,11 @@ def guardar(sesion, objeto):
     sesion.flush()
 
 
-def debe_fallar(sesion, objeto):
-    # DataError: con vigente_hasta < vigente_desde, Postgres rechaza el daterange generado
-    # ("range lower bound must be less than or equal to range upper bound") antes de evaluar los CHECK.
-    with pytest.raises((IntegrityError, DataError)):
+def debe_fallar(sesion, objeto, restriccion: str):
+    with pytest.raises(IntegrityError) as excinfo:
         with sesion.begin_nested():
             guardar(sesion, objeto)
+    assert excinfo.value.orig.diag.constraint_name == restriccion
 
 
 def test_migracion_crea_las_tablas_con_rls(sesion):
@@ -63,19 +63,19 @@ def test_usuario_estado_por_defecto_es_pendiente(sesion):
 
 def test_email_unico_sin_distinguir_mayusculas(sesion):
     crear_usuario(sesion, "Florencia", email="Florencia@Prueba.test")
-    debe_fallar(sesion, Usuario(nombre="Otra", email="florencia@prueba.TEST", rol=RolUsuario.MEDICO))
+    debe_fallar(sesion, Usuario(nombre="Otra", email="florencia@prueba.TEST", rol=RolUsuario.MEDICO), "ux_usuario_email_lower")
 
 
 def test_exclusion_rechaza_vigencias_superpuestas_del_mismo_horario(sesion):
     horario = nuevo_horario(sesion)
     guardar(sesion, fila_version(horario, vigente_hasta=date(2026, 10, 12)))
-    debe_fallar(sesion, fila_version(horario, vigente_desde=date(2026, 10, 5)))
+    debe_fallar(sesion, fila_version(horario, vigente_desde=date(2026, 10, 5)), "ex_version_horario_vigencia")
 
 
 def test_exclusion_rechaza_dos_versiones_abiertas_del_mismo_horario(sesion):
     horario = nuevo_horario(sesion)
     guardar(sesion, fila_version(horario))
-    debe_fallar(sesion, fila_version(horario, vigente_desde=date(2026, 12, 7)))
+    debe_fallar(sesion, fila_version(horario, vigente_desde=date(2026, 12, 7)), "ex_version_horario_vigencia")
 
 
 def test_exclusion_acepta_vigencias_contiguas(sesion):
@@ -103,20 +103,26 @@ def test_vigencia_generada_es_semiabierta(sesion):
 
 
 @pytest.mark.parametrize(
-    "cambios",
+    "cambios, restriccion",
     [
-        {"fecha_ancla": date(2026, 9, 8)},
-        {"duracion_horas": 0},
-        {"duracion_horas": 25},
-        {"dia_semana": 0},
-        {"dia_semana": 8},
-        {"frecuencia_semanas": 0},
-        {"vigente_hasta": date(2026, 9, 7)},
-        {"vigente_hasta": date(2026, 9, 1)},
+        ({"fecha_ancla": date(2026, 9, 8)}, "ck_version_horario_ancla_lunes"),
+        ({"duracion_horas": 0}, "ck_version_horario_duracion"),
+        ({"duracion_horas": 25}, "ck_version_horario_duracion"),
+        ({"dia_semana": 0}, "ck_version_horario_dia_semana"),
+        ({"dia_semana": 8}, "ck_version_horario_dia_semana"),
+        ({"frecuencia_semanas": 0}, "ck_version_horario_frecuencia"),
+        ({"vigente_hasta": date(2026, 9, 7)}, "ck_version_horario_vigencia"),
     ],
 )
-def test_checks_rechazan_valores_invalidos(sesion, cambios):
-    debe_fallar(sesion, fila_version(nuevo_horario(sesion), **cambios))
+def test_checks_rechazan_valores_invalidos(sesion, cambios, restriccion):
+    debe_fallar(sesion, fila_version(nuevo_horario(sesion), **cambios), restriccion)
+
+
+def test_vigencia_invertida_es_rechazada_por_el_rango_generado(sesion):
+    # Postgres evalúa el daterange generado antes del CHECK: falla como DataError, sin nombre de restricción.
+    with pytest.raises(DataError):
+        with sesion.begin_nested():
+            guardar(sesion, fila_version(nuevo_horario(sesion), vigente_hasta=date(2026, 9, 1)))
 
 
 def test_version_acepta_medico_vacio_y_medico_asignado(sesion):
@@ -139,7 +145,15 @@ def test_commit_real_confirma_y_otra_sesion_lo_ve(fabrica_sesiones):
         assert segunda.scalar(select(func.count()).select_from(Usuario)) == 1
 
 
-def test_despues_de_commit_real_la_base_queda_vacia(engine):
-    # Corre después de la prueba anterior (orden del archivo): el fixture debe haber vaciado las tablas.
-    with engine.connect() as conexion:
-        assert conexion.execute(text("SELECT count(*) FROM usuario")).scalar_one() == 0
+@pytest.mark.commit_real
+def test_vaciar_tablas_borra_filas_y_reinicia_identidades(fabrica_sesiones, engine):
+    with fabrica_sesiones() as sesion:
+        sesion.add(Usuario(nombre="Uno", email="uno@prueba.test", rol=RolUsuario.MEDICO))
+        sesion.commit()
+    _vaciar_tablas(engine)
+    with fabrica_sesiones() as sesion:
+        assert sesion.scalar(select(func.count()).select_from(Usuario)) == 0
+        nuevo = Usuario(nombre="Dos", email="dos@prueba.test", rol=RolUsuario.MEDICO)
+        sesion.add(nuevo)
+        sesion.commit()
+        assert nuevo.id == 1
