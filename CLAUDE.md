@@ -50,6 +50,7 @@ Modelo de datos (modelo C5, D08):
 Lo que se calcula y no se guarda: turnos futuros sin novedades, semáforo, etiqueta BAJA, orden de candidatos, horas sin cobertura.
 
 Endpoints principales:
+Todos los endpoints van bajo el prefijo `/api` (por ejemplo, `GET /api/turnos`); el OpenAPI queda en `/docs`.
 1. Sesión: GET /me. Registro y login los maneja Supabase Auth; el código de coordinación se valida en POST /registro.
 2. Calendario: GET /turnos?desde&hasta, GET /turnos/{turnoId} (detalle y línea de tiempo).
 3. Vacantes y postulaciones: POST /turnos/{turnoId}/vacantes, POST /vacantes/lote, POST /vacantes/{id}/retiro, POST /turnos/{turnoId}/postulaciones, POST /postulaciones/{id}/retiro, GET /turnos/{turnoId}/candidatos.
@@ -63,6 +64,7 @@ Contrato entre interfaz y servidor:
 2. Token de Supabase Auth en el encabezado Authorization en todos los pedidos.
 3. Identificador de turno compuesto "horarioId:fecha" (D09).
 4. Errores con formato único: un código legible por la interfaz y un mensaje. 401 sin sesión, 403 rol insuficiente, 404 inexistente, 409 conflicto de estado o concurrencia, 422 regla de negocio.
+5. JSON en camelCase (por ejemplo, `horarioId`, `duracionHoras`). Instantes en ISO 8601 con desplazamiento (`2026-10-17T08:00:00-03:00`).
 
 ## Forma de trabajo
 
@@ -75,4 +77,16 @@ Contrato entre interfaz y servidor:
 
 ## Comandos
 
-(Completar cuando exista el esqueleto: levantar el backend, correr pruebas, migrar, cargar datos de ejemplo, reiniciar la demo.)
+Detalle en `backend/CLAUDE.md` y `frontend/CLAUDE.md`.
+
+```bash
+docker compose up -d --wait                                            # Postgres 15 local para pruebas (puerto 5433)
+cd backend && .venv/bin/pytest                                         # pruebas del backend
+cd backend && .venv/bin/alembic upgrade head                           # migrar (DATABASE_URL de backend/.env)
+cd backend && .venv/bin/python -m scripts.seed --confirmar             # cargar datos de ejemplo (borra los actuales)
+cd backend && .venv/bin/uvicorn app.main:app --reload --port 8000      # levantar el backend
+cd frontend && npm run dev                                             # levantar el frontend
+cd frontend && npm run test:e2e                                        # verificación con Playwright
+```
+
+El reinicio de la demo es el mismo script de datos de ejemplo; en F2 a F4 suma historia y vacantes.

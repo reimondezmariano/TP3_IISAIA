@@ -73,8 +73,9 @@ Entidades: Usuario, HorarioPactado, VersionHorario, Turno, Vacante, Postulacion,
 
 D09. Identidad del turno = horario pactado + fecha de inicio. En la API, identificador compuesto "horarioId:fecha" (por ejemplo, 7:2026-10-10). Existe aunque el turno nunca se haya guardado y no cambia aunque cambie la plantilla.
 
-D10. Plantilla como horarios pactados versionados: HorarioPactado (identidad estable, pertenece a un médico) y VersionHorario (día de la semana, hora de inicio, duración, frecuencia en semanas, fecha ancla, vigenteDesde, vigenteHasta). Una renegociación cierra la versión vigente y abre otra. Las vigencias de un horario no se superponen (restricción de exclusión de Postgres). Que horarios de distintos médicos se superpongan es normal: hay varios médicos de guardia a la vez.
+D10. Plantilla como horarios pactados versionados: HorarioPactado (identidad estable) y VersionHorario (médico titular, opcional para los horarios sin titular de D24; día de la semana, hora de inicio, duración, frecuencia en semanas, fecha ancla, vigenteDesde, vigenteHasta). Una renegociación o un cambio de titular cierra la versión vigente y abre otra. Las vigencias de un horario no se superponen (restricción de exclusión de Postgres). Que horarios de distintos médicos se superpongan es normal: hay varios médicos de guardia a la vez.
 Alternativa descartada: una sola tabla con vigencias, donde cada versión tiene otro identificador y deja colgadas las excepciones futuras.
+Ajuste del 5/10/2026 (spec de F0 y F1): el texto anterior decía que el HorarioPactado pertenecía a un médico; el médico va en la versión, como ya indicaban D24 y CLAUDE.md.
 
 D11. Materialización perezosa: el turno se calcula desde la plantilla mientras no le pasa nada. Se guarda como fila cuando se genera una vacante o cuando se consolida. Al crearse copia inicio, fin, versión y médico titular, que no se recalculan. Restricción única sobre (horario, fecha).
 Alternativa descartada: materializar todos los turnos de las próximas N semanas (obliga a regenerar y reconciliar ante cada cambio de plantilla).
