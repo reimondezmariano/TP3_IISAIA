@@ -1,6 +1,6 @@
 from fastapi import APIRouter, FastAPI
 
-from app.api import health
+from app.api import health, turnos
 from app.api.manejadores import registrar_manejadores
 
 
@@ -10,6 +10,7 @@ def crear_app() -> FastAPI:
 
     api = APIRouter(prefix="/api")
     api.include_router(health.router)
+    api.include_router(turnos.router)
     app.include_router(api)
     return app
 
