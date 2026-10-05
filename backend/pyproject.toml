@@ -23,6 +23,7 @@ include = ["app*", "scripts*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 addopts = "--strict-markers"
 filterwarnings = [
   "ignore:Using `httpx` with `starlette.testclient` is deprecated",
