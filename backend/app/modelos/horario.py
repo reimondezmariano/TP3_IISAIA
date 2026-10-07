@@ -1,6 +1,6 @@
 from datetime import date, datetime, time
 
-from sqlalchemy import CheckConstraint, Computed, DateTime, ForeignKey, SmallInteger, func
+from sqlalchemy import CheckConstraint, Computed, DateTime, ForeignKey, SmallInteger, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import DATERANGE, ExcludeConstraint, Range
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -36,6 +36,7 @@ class VersionHorario(Base):
         ExcludeConstraint(
             ("horario_id", "="), ("vigencia", "&&"), name="ex_version_horario_vigencia", using="gist"
         ),
+        UniqueConstraint("id", "horario_id", name="ux_version_horario_id_horario"),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

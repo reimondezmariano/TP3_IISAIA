@@ -123,6 +123,7 @@ D26. Pantalla de staff completa para el coordinador: lista de usuarios con rol, 
 D27. Reloj de demo: en modo demo (variable de entorno) un endpoint adelanta la hora del sistema para mostrar consolidación y alertas. Las pruebas usan el mismo mecanismo. No existe fuera del modo demo.
 
 D28. Demo: un usuario coordinador "Enzo" con un email creado por el equipo; los tres integrantes actúan como médicos. Si Enzo quiere operar en vivo, se agrega su email. Plan de respaldo: todo desde una computadora.
+Cambio en F2 (7/10/2026): los usuarios cargados por el seed se vinculan a su cuenta de Supabase por email al registrarse. Como la confirmación de email está desactivada (D06), cualquiera puede crear la cuenta de un email cargado; por eso vincular un coordinador cargado exige el código de coordinación (D30). Los médicos cargados se vinculan activos sin código: riesgo aceptado para la demo, porque sus emails no se publican fuera del repositorio y un médico no tiene permisos de coordinación.
 
 D29. Fuera de alcance: coberturas parciales, intercambios directos entre médicos, push nativo, mail.
 

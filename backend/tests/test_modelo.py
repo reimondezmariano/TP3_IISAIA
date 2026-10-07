@@ -2,11 +2,11 @@ from datetime import date, time
 
 import pytest
 from sqlalchemy import func, select, text
-from sqlalchemy.exc import DataError, IntegrityError
+from sqlalchemy.exc import DataError
 
 from app.modelos import EstadoUsuario, HorarioPactado, RolUsuario, Usuario, VersionHorario
 from conftest import _vaciar_tablas
-from fabricas import crear_usuario
+from fabricas import crear_usuario, debe_fallar, guardar
 
 
 def nuevo_horario(sesion) -> HorarioPactado:
@@ -30,18 +30,6 @@ def fila_version(horario, **cambios) -> VersionHorario:
     )
     datos.update(cambios)
     return VersionHorario(**datos)
-
-
-def guardar(sesion, objeto):
-    sesion.add(objeto)
-    sesion.flush()
-
-
-def debe_fallar(sesion, objeto, restriccion: str):
-    with pytest.raises(IntegrityError) as excinfo:
-        with sesion.begin_nested():
-            guardar(sesion, objeto)
-    assert excinfo.value.orig.diag.constraint_name == restriccion
 
 
 def test_migracion_crea_las_tablas_con_rls(sesion):

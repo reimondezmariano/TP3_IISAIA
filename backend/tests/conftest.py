@@ -11,10 +11,12 @@ from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.auth import VerificadorToken, get_verificador
 from app.config import get_settings
 from app.db import get_db
 from app.main import app
 from app.reloj import RelojFijo, get_reloj
+from fabricas import SECRETO_PRUEBA
 
 BACKEND = Path(__file__).resolve().parents[1]
 ZONA = ZoneInfo("America/Argentina/Buenos_Aires")
@@ -104,9 +106,11 @@ def cliente(request: pytest.FixtureRequest) -> Iterator[TestClient]:
             yield compartida
 
     app.dependency_overrides[get_db] = _get_db
+    app.dependency_overrides[get_verificador] = lambda: VerificadorToken(secreto=SECRETO_PRUEBA)
     with TestClient(app) as c:
         yield c
     app.dependency_overrides.pop(get_db, None)
+    app.dependency_overrides.pop(get_verificador, None)
 
 
 @pytest.fixture

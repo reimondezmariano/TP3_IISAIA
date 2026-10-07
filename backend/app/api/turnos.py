@@ -1,15 +1,15 @@
 from datetime import date, datetime, timedelta
 
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, ConfigDict
-from pydantic.alias_generators import to_camel
 from sqlalchemy.orm import Session
 
+from app.api.esquemas import Esquema
 from app.auth import usuario_actual
 from app.config import get_settings
 from app.db import get_db
 from app.dominio.calendario import TurnoCalculado, calcular_turnos
 from app.errores import ErrorDominio
+from app.modelos import Usuario
 from app.repos.horarios import versiones_en_rango
 
 router = APIRouter()
@@ -17,16 +17,12 @@ router = APIRouter()
 MAX_DIAS_RANGO = 62
 
 
-class _Esquema(BaseModel):
-    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
-
-
-class TitularOut(_Esquema):
+class TitularOut(Esquema):
     id: int
     nombre: str
 
 
-class TurnoOut(_Esquema):
+class TurnoOut(Esquema):
     id: str
     horario_id: int
     fecha: date
@@ -54,7 +50,7 @@ def listar_turnos(
     desde: date,
     hasta: date,
     db: Session = Depends(get_db),
-    _usuario: None = Depends(usuario_actual),
+    _usuario: Usuario = Depends(usuario_actual),
 ) -> list[TurnoOut]:
     """Turnos cuyo intervalo se superpone con [desde 00:00, hasta 24:00) en la zona del servicio (D09, D11)."""
     if hasta < desde:
