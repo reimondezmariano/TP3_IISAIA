@@ -20,6 +20,12 @@ class Settings(BaseSettings):
     test_database_url: str = "postgresql+psycopg://guardia:guardia@localhost:5433/guardia_test"
     app_timezone: str = "America/Argentina/Buenos_Aires"
     modo_demo: bool = False
+    # D06: verificación de tokens de Supabase Auth. Con SUPABASE_URL se usan las claves públicas (JWKS) del
+    # proyecto; con SUPABASE_JWT_SECRET, el secreto HS256 de los proyectos anteriores. Puede haber ambos.
+    supabase_url: str = ""
+    supabase_jwt_secret: str = ""
+    # D30: código de coordinación del servicio. Vacío = nadie puede registrarse como coordinador.
+    codigo_coordinacion: str = ""
 
     @field_validator("database_url", "test_database_url")
     @classmethod
