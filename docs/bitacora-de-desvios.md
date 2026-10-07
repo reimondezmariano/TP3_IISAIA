@@ -34,3 +34,18 @@ Cómo lo corregimos: el equipo eligió exigir el código para vincular un coordi
 
 Qué aprendimos: aprobar decisiones una por una no alcanza; hay que mirarlas combinadas con las anteriores (acá, la 4 con D06). La revisión final con contexto nuevo es la que ve esos cruces.
 
+## 2026-10-07. Menores de la revisión de F2 que quedan pendientes
+
+Qué pasó: la revisión de código de F2 marcó siete puntos menores. Antes del pull request se corrigieron tres, cada uno en su commit: el umbral de la alerta limitado a 48H, 24H e INICIO; TOKEN_SIN_EMAIL con 403; y la aclaración sobre turno.creado_en en backend/CLAUDE.md. Los otros cuatro quedan pendientes:
+
+1. Si el endpoint de claves públicas de Supabase (JWKS) responde algo que no es JSON (por ejemplo, la página de error de un proxy), PyJWT lanza un ValueError que no captura, y el backend responde 500 sin el formato de error. Si el JWKS llega sin claves, responde 401 TOKEN_INVALIDO aunque el problema sea de Supabase. Corrección propuesta: capturar ValueError alrededor de la búsqueda de la clave y responder 503 AUTH_NO_DISPONIBLE.
+2. pyproject.toml pide `pyjwt[crypto]>=2.9`, pero la espera mínima antes de volver a pedir claves por un `kid` desconocido existe solo en versiones recientes. Subir el mínimo a la versión probada (2.15).
+3. Al vincular un médico cargado, un código de coordinación correcto se ignora (decisión 4 del plan) y la respuesta no lo avisa. La interfaz de F6 tiene que explicarlo o la respuesta tiene que sumar un campo.
+4. POST /api/registro no limita los intentos, y la respuesta 422 CODIGO_INVALIDO deja probar códigos sin límite. D30 ya reconoce que el código es un control simple; como mínimo, recomendar en .env.example un código largo y difícil de adivinar.
+
+Cómo lo detectamos: revisión de código de toda la branch feature/f2-cimientos.
+
+Cómo lo corregimos: todavía no; se anotan para F5 (seguridad y staff) o F6 (interfaz), según corresponda.
+
+Qué aprendimos: separar en la revisión lo que bloquea el merge de lo que se puede anotar deja el pull request chico sin perder los hallazgos.
+
