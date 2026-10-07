@@ -8,13 +8,14 @@
 
 **Tecnologías:** React 19, Vite 7, `@supabase/supabase-js`, Vitest + Testing Library + jsdom (pruebas unitarias y de componentes), Playwright (e2e con Supabase y API simulados por `page.route`, más un contrato contra el backend real).
 
-**Spec:** no hay spec propio: el plan se apoya en `docs/decisiones-arquitectura.md` (D05, D06, D13, D15, D16, D24, D25, D30), en `backend/CLAUDE.md`, en `frontend/CLAUDE.md` y en el pedido del 7/10/2026 registrado en `docs/prompts-principales.md`. Las elecciones que quedan abiertas están en "Decisiones de este plan".
+**Spec:** no hay spec propio: el plan se apoya en `docs/decisiones-arquitectura.md` (D05, D06, D13, D15, D16, D24, D25, D30), en `backend/CLAUDE.md`, en `frontend/CLAUDE.md` y en el pedido del 7/10/2026 (su texto se registra en la descripción del pull request). Las elecciones que quedan abiertas están en "Decisiones de este plan".
 
-**Ejecución:** branch `feature/f4-frontend-medico` (ya creada), un commit por tarea. Al terminar, `npm test`, `npm run test:e2e`, verificación manual con Playwright del flujo de verdad contra el backend y revisión de código de la branch antes del pull request.
+**Ejecución (definida por el equipo el 7/10/2026):** en la misma sesión, con superpowers:executing-plans (modo Native), tarea por tarea. Branch `feature/f4-frontend-medico` (ya creada), un commit por tarea. Al terminar, `npm test`, `npm run test:e2e`, verificación manual con Playwright del flujo de verdad contra el backend y revisión de código de la branch antes del pull request.
 
 ## Restricciones globales
 
-- No se toca nada en `backend/`. Si algo del contrato no alcanza, se anota en `docs/bitacora-de-desvios.md` y se avisa; no se resuelve en el backend.
+- No se toca nada en `backend/`. Si algo del contrato no alcanza, se anota en la sección "Desvíos" de la descripción del pull request y se avisa; no se resuelve en el backend.
+- Alcance de escritura: solo `frontend/` (incluido `frontend/CLAUDE.md`) y este plan. No se modifican `CLAUDE.md` de la raíz, `docs/prompts-principales.md` ni `docs/bitacora-de-desvios.md`: los prompts principales y los desvíos van en secciones propias de la descripción del pull request y Florencia los pasa a los documentos compartidos al final.
 - Toda llamada a `/api/...` pasa por `lib/api.js` y manda `Authorization: Bearer <access_token de Supabase>`. Sin token no se hace el pedido: se falla con `SIN_SESION` (el backend respondería 401 `SIN_SESION`).
 - Errores del servidor: `{"codigo", "mensaje"}`; la interfaz decide por `codigo` y muestra `mensaje` (`frontend/CLAUDE.md`).
 - JSON en camelCase (`horarioId`, `duracionHoras`); instantes ISO 8601 con desplazamiento. Las horas se muestran en `America/Argentina/Buenos_Aires` (D13); la semana empieza el lunes. El turno pertenece a la fecha en que empieza (`turno.fecha`).
@@ -2756,7 +2757,7 @@ git commit -m "Frontend: pruebas e2e del login, registro, calendario y contrato 
 ### Task 10: Verificación real, documentación y registro del proceso
 
 **Files:**
-- Modify: `frontend/CLAUDE.md`, `CLAUDE.md` (solo la línea del frontend si quedó desactualizada), `docs/prompts-principales.md`, `docs/bitacora-de-desvios.md` (solo si hubo desvíos)
+- Modify: `frontend/CLAUDE.md` (nada fuera de `frontend/`)
 
 - [ ] **Step 1: Verificación contra el backend y Supabase reales**
 
@@ -2797,20 +2798,18 @@ npm run test:e2e                                 # Playwright; levanta backend y
 
 (En el archivo real, los comandos van dentro de un bloque ```bash como estaba.)
 
-- [ ] **Step 3: Registrar el prompt en `docs/prompts-principales.md`**
+- [ ] **Step 3: Preparar las secciones para la descripción del pull request**
 
-Agregar la entrada `## 5. F4: frontend del médico` antes de "Próximas entradas", con fecha 7/10/2026, herramienta (Claude Code con Superpowers: writing-plans, luego ejecución), el prompt del pedido (copiado tal cual) y el resultado (plan en `docs/superpowers/plans/2026-10-07-f4-frontend-medico.md`, decisiones aprobadas, pull request cuando exista). Completar "Resultado" con lo que realmente ocurrió, incluidas correcciones del equipo.
+No se editan archivos compartidos. Al abrir el pull request, la descripción lleva dos secciones propias: **"Prompts principales"** (el prompt del pedido de F4 copiado tal cual, el plan aprobado y las correcciones del equipo: no tocar nada fuera de `frontend/`, prompts y desvíos en el PR, Native) y **"Desvíos"** (apartes del agente respecto del plan o del pedido, y todo lo que el contrato del backend no alcanzó, por ejemplo un campo ausente; con el formato de `docs/bitacora-de-desvios.md` para que Florencia lo copie). Los desvíos se acumulan en el libro de ejecución y se avisa en el momento si son de contrato. Si no hubo, la sección dice "Sin desvíos".
 
-- [ ] **Step 4: Bitácora de desvíos**
-
-Si durante la ejecución el agente se apartó del plan o del pedido, o el contrato del backend no alcanzó (por ejemplo, ausencia de un campo), registrarlo en `docs/bitacora-de-desvios.md` con el formato de las entradas existentes. Si no hubo desvíos, no agregar nada.
+- [ ] **Step 4: (sin archivos)** Confirmar que no se tocó nada fuera de `frontend/` y del plan: `git diff main --stat` solo muestra rutas `frontend/` y `docs/superpowers/plans/2026-10-07-f4-frontend-medico.md`.
 
 - [ ] **Step 5: Verificación final antes de dar por terminado**
 
 ```bash
 cd frontend && npm test && npm run build && npm run test:e2e
 git status --short   # sin cambios en backend/
-git diff main --stat -- ../backend   # vacío
+git diff main --name-only | grep -v '^frontend/\|^docs/superpowers/plans/2026-10-07-f4-frontend-medico.md$'   # vacío
 ```
 
 Expected: todo verde y `backend/` sin cambios.
@@ -2818,11 +2817,11 @@ Expected: todo verde y `backend/` sin cambios.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add frontend/CLAUDE.md docs/prompts-principales.md docs/bitacora-de-desvios.md
-git commit -m "Docs: convenciones del frontend y registro del prompt de F4" -m "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
+git add frontend/CLAUDE.md
+git commit -m "Docs: convenciones del frontend de F4" -m "Co-Authored-By: Claude Sonnet 5.5 <noreply@anthropic.com>"
 ```
 
-- [ ] **Step 7: Revisión de código de la branch** con superpowers:requesting-code-review antes de abrir el pull request. El pull request lo revisa además otro integrante del equipo en GitHub (CLAUDE.md raíz).
+- [ ] **Step 7: Revisión de código de la branch** con superpowers:requesting-code-review antes de abrir el pull request. El pull request lo revisa además otro integrante del equipo en GitHub (CLAUDE.md raíz). La descripción del pull request incluye las secciones "Prompts principales" y "Desvíos" del paso 3.
 
 ---
 
