@@ -33,6 +33,13 @@ Herramienta: Claude Code con Superpowers (/brainstorming).
 Prompt: ver la sección "Primer prompt (F0 + F1)" de `docs/plan-de-implementacion.md`, con las respuestas a preguntas técnicas agregadas al final.
 Resultado: spec en `docs/superpowers/specs/2026-10-05-f0-f1-esqueleto-plantilla-calendario-design.md` y plan en `docs/superpowers/plans/2026-10-05-f0-f1-esqueleto-plantilla-calendario.md`. Preguntas del agente antes del spec: herramienta de entorno de Python (venv + pip), autenticación en F1 (abierto hasta F5), granularidad de horarios (inicio HH:MM, duración en horas enteras). El agente señaló una inconsistencia en D10 (médico en el horario o en la versión), que se corrigió. Durante el diseño el equipo agregó el marcador commit_real para las pruebas de concurrencia de F3. Implementación por subagentes con Sonnet en la branch feature/esqueleto-calendario, con revisión por tarea y revisión final; pull request #6.
 
+## 4. F3 (primera etapa): reglas de dominio puras
+
+Fecha: 7/10/2026.
+Herramienta: Claude Code con Superpowers (writing-plans y executing-plans).
+Prompt: "Leé backend/CLAUDE.md y el documento de decisiones de arquitectura en docs, especialmente D15 a D22 y D27. En esta primera etapa implementá solo funciones puras en backend/app/dominio, sin base de datos y con pruebas pytest: elegibilidad de postulantes (D16), orden de candidatos por equidad (D17), consolidación (D20), umbrales de alerta 48 h, 24 h e inicio (D19) y vacante urgente (D15). No crees modelos ni migraciones: los está haciendo Florencia en feature/f2-cimientos. Usá Superpowers: plan en docs/superpowers/plans, branch feature/f3-reglas-dominio, un commit por tarea."
+Resultado: plan en `docs/superpowers/plans/2026-10-07-f3-reglas-dominio-puras.md` y branch `feature/f3-reglas-dominio`, con un módulo por regla en `backend/app/dominio/` y sus pruebas. El plan lista los supuestos que cierran lo que las decisiones dejan abierto. Ejecución inline en una sola sesión.
+
 ## Próximas entradas
 
 Copiar acá el prompt con que arranca cada funcionalidad (F2 a F6) y cualquier prompt de corrección que haya cambiado el rumbo.
