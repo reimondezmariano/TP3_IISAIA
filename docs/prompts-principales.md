@@ -33,6 +33,16 @@ Herramienta: Claude Code con Superpowers (/brainstorming).
 Prompt: ver la sección "Primer prompt (F0 + F1)" de `docs/plan-de-implementacion.md`, con las respuestas a preguntas técnicas agregadas al final.
 Resultado: spec en `docs/superpowers/specs/2026-10-05-f0-f1-esqueleto-plantilla-calendario-design.md` y plan en `docs/superpowers/plans/2026-10-05-f0-f1-esqueleto-plantilla-calendario.md`. Preguntas del agente antes del spec: herramienta de entorno de Python (venv + pip), autenticación en F1 (abierto hasta F5), granularidad de horarios (inicio HH:MM, duración en horas enteras). El agente señaló una inconsistencia en D10 (médico en el horario o en la versión), que se corrigió. Durante el diseño el equipo agregó el marcador commit_real para las pruebas de concurrencia de F3. Implementación por subagentes con Sonnet en la branch feature/esqueleto-calendario, con revisión por tarea y revisión final; pull request #6.
 
+## 4. F2: cimientos
+
+Fecha: 7/10/2026.
+Herramienta: Claude Code con Superpowers (writing-plans; sin brainstorming ni spec propio: el plan se apoya en las decisiones de arquitectura).
+Prompt:
+
+> Leé backend/CLAUDE.md y el documento de decisiones de arquitectura en docs. Vamos a hacer la fase F2 "cimientos": autenticación con Supabase Auth (D06, D07), POST /api/registro con código de coordinación (D30), GET /api/me, y los modelos Turno, Vacante, Postulacion, EventoTurno y Notificacion según D08 a D25, todos en una única migración de Alembic. No implementes reglas de negocio ni endpoints de vacantes o postulaciones: eso lo hace otro integrante. Usá Superpowers: escribí el plan en docs/superpowers/plans, trabajá en la branch feature/f2-cimientos y un commit por tarea. Por ahora solo escribí el plan, mostrámelo para aprobarlo y commitealo en la branch. No ejecutes ninguna tarea hasta que te lo pida.
+
+Resultado: plan en `docs/superpowers/plans/2026-10-07-f2-cimientos.md`, con 13 decisiones que D06 a D30 dejaban abiertas (entre ellas, vencimiento del token con la hora real y vinculación por email de los usuarios del seed) para aprobar antes de ejecutar.
+
 ## Próximas entradas
 
 Copiar acá el prompt con que arranca cada funcionalidad (F2 a F6) y cualquier prompt de corrección que haya cambiado el rumbo.
