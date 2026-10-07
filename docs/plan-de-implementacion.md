@@ -23,10 +23,11 @@ Cada funcionalidad es un ciclo completo de Superpowers: brainstorming, spec, pla
 |---|---|---|---|
 | F0 | Esqueleto | Estructura de carpetas, FastAPI, conexión a Supabase, Alembic, pytest, reloj inyectable, esqueleto de frontend con React y Vite, CLAUDE.md de backend y frontend | 5/10 |
 | F1 | Plantilla y calendario | Usuario con rol, HorarioPactado, VersionHorario, GET /turnos calculado, script de datos de ejemplo | 6/10 |
-| F2 | Vacantes y postulaciones | Turno materializado, Vacante (incluida la urgente), Postulacion, semáforo calculado, reglas de elegibilidad, bitácora, logs de dominio legibles en la terminal (una línea por acción) | 7/10 |
+| F2 | Cimientos | Supabase Auth (D06, D07), POST /registro con código de coordinación (D30), GET /me, permisos por estado y rol; tablas Turno, Vacante, Postulacion, EventoTurno y Notificacion en una sola migración | 7/10 |
+| F2b | Vacantes y postulaciones | Reglas de vacantes (incluida la urgente) y postulaciones, semáforo calculado, elegibilidad, bitácora, logs de dominio legibles en la terminal (una línea por acción). Otro integrante, sobre las tablas de F2 | 8/10 |
 | F3 | Candidatos y asignación | Lista de candidatos ordenada por equidad (D17), PUT asignacion con sus tres casos, pruebas de concurrencia | 8/10 |
 | F4 | Historia y alertas | Consolidación perezosa, turno sin cobertura, indicador de horas sin cobertura, rectificación, alertas escalonadas, notificaciones (con aviso emergente para vacantes urgentes), reloj de demo | 9/10 |
-| F5 | Seguridad y staff | Supabase Auth con email y contraseña, registro con código de coordinación (D30), estados de usuario, RLS, API de staff, baja con horarios sin titular (D24) | 9/10 |
+| F5 | Seguridad y staff | Estados de usuario, API de staff, baja con horarios sin titular (D24) | 9/10 |
 | F6 | Interfaz y despliegue | Frontend en React con Vite (frontend/), tomando el prototipo HTML como referencia visual: calendario, vacantes y candidatos, registro y login, pantalla de staff, aviso emergente, PWA; despliegue con el backend sirviendo la compilación | 10 y 11/10 |
 | Cierre | Ensayo | Pruebas en celulares, README final, ensayo de la demo con el script de reinicio | 12 y 13/10 |
 

@@ -33,7 +33,19 @@ Herramienta: Claude Code con Superpowers (/brainstorming).
 Prompt: ver la sección "Primer prompt (F0 + F1)" de `docs/plan-de-implementacion.md`, con las respuestas a preguntas técnicas agregadas al final.
 Resultado: spec en `docs/superpowers/specs/2026-10-05-f0-f1-esqueleto-plantilla-calendario-design.md` y plan en `docs/superpowers/plans/2026-10-05-f0-f1-esqueleto-plantilla-calendario.md`. Preguntas del agente antes del spec: herramienta de entorno de Python (venv + pip), autenticación en F1 (abierto hasta F5), granularidad de horarios (inicio HH:MM, duración en horas enteras). El agente señaló una inconsistencia en D10 (médico en el horario o en la versión), que se corrigió. Durante el diseño el equipo agregó el marcador commit_real para las pruebas de concurrencia de F3. Implementación por subagentes con Sonnet en la branch feature/esqueleto-calendario, con revisión por tarea y revisión final; pull request #6.
 
-## 4. F3 (primera etapa): reglas de dominio puras
+## 4. F2: cimientos
+
+Fecha: 7/10/2026.
+Herramienta: Claude Code con Superpowers (writing-plans; sin brainstorming ni spec propio: el plan se apoya en las decisiones de arquitectura).
+Prompt:
+
+> Leé backend/CLAUDE.md y el documento de decisiones de arquitectura en docs. Vamos a hacer la fase F2 "cimientos": autenticación con Supabase Auth (D06, D07), POST /api/registro con código de coordinación (D30), GET /api/me, y los modelos Turno, Vacante, Postulacion, EventoTurno y Notificacion según D08 a D25, todos en una única migración de Alembic. No implementes reglas de negocio ni endpoints de vacantes o postulaciones: eso lo hace otro integrante. Usá Superpowers: escribí el plan en docs/superpowers/plans, trabajá en la branch feature/f2-cimientos y un commit por tarea. Por ahora solo escribí el plan, mostrámelo para aprobarlo y commitealo en la branch. No ejecutes ninguna tarea hasta que te lo pida.
+
+Resultado: plan en `docs/superpowers/plans/2026-10-07-f2-cimientos.md`, con 13 decisiones que D06 a D30 dejaban abiertas (entre ellas, vencimiento del token con la hora real y vinculación por email de los usuarios del seed) para aprobar antes de ejecutar.
+Corrección al aprobar el plan: "Agregá una tarea 6: que el script de datos de ejemplo conserve los vínculos con las cuentas de Supabase al volver a correrse." Se ejecuta en la misma sesión, con revisión de código de toda la branch antes del pull request.
+Ejecución: "Ejecutá el plan de F2 cimientos." Seis tareas en la misma sesión con executing-plans, un commit por tarea, y revisión de toda la branch por un subagente. La revisión encontró que cualquiera podía tomar la cuenta de coordinador de Enzo sin el código (decisión 4 del plan combinada con D06); el equipo eligió exigir el código para vincular un coordinador cargado (cambio en D28). Corrección antes del pull request: "Antes del PR, corregí tres menores con su prueba y un commit cada uno: limitá ck_evento_alerta_umbral a '48H', '24H' e 'INICIO' dentro de la migración 0002; TOKEN_SIN_EMAIL responde 403 en lugar de 401; y anotá en la convención 8 de backend/CLAUDE.md que turno.creado_en es una marca técnica con DEFAULT now(). Los demás menores dejalos anotados en la bitácora de desvíos como pendientes." Pull request #7.
+
+## 5. F3 (primera etapa): reglas de dominio puras
 
 Fecha: 7/10/2026.
 Herramienta: Claude Code con Superpowers (writing-plans y executing-plans).
