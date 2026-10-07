@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, tzinfo
 from zoneinfo import ZoneInfo
 
 import pytest
@@ -28,3 +28,18 @@ def test_generada_con_el_turno_en_curso_es_urgente():
 def test_instante_sin_zona_es_error():
     with pytest.raises(ValueError):
         es_urgente(INICIO, datetime(2026, 10, 16, 9))
+
+
+def test_tzinfo_sin_desplazamiento_se_trata_como_sin_zona():
+    class SinDesplazamiento(tzinfo):
+        def utcoffset(self, dt):
+            return None
+
+        def dst(self, dt):
+            return None
+
+        def tzname(self, dt):
+            return None
+
+    with pytest.raises(ValueError):
+        es_urgente(INICIO, datetime(2026, 10, 16, 9, tzinfo=SinDesplazamiento()))

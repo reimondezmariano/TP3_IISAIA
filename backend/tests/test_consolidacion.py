@@ -11,12 +11,12 @@ FIN = datetime(2026, 10, 17, 20, tzinfo=ZONA)
 AHORA = FIN + timedelta(minutes=5)
 
 
-def turno(turno_id=1, fin=FIN, titular=1, asignado=None, vacante=False, sin_cobertura=False, consolidado_en=None):
+def turno(turno_id="1:2026-10-17", fin=FIN, titular=1, asignado=None, vacante=False, sin_cobertura=False, consolidado_en=None):
     return TurnoConsolidable(turno_id, fin, titular, asignado, vacante, sin_cobertura, consolidado_en)
 
 
 def test_turno_terminado_lo_hace_el_titular():
-    assert consolidar([turno()], AHORA) == [Consolidacion(1, 1, AHORA)]
+    assert consolidar([turno()], AHORA) == [Consolidacion("1:2026-10-17", 1, AHORA)]
 
 
 def test_turno_cubierto_lo_hace_el_asignado():
@@ -50,11 +50,11 @@ def test_turno_en_curso_no_se_consolida():
 
 
 def test_turno_que_termina_justo_ahora_se_consolida():
-    assert consolidar([turno()], FIN) == [Consolidacion(1, 1, FIN)]
+    assert consolidar([turno()], FIN) == [Consolidacion("1:2026-10-17", 1, FIN)]
 
 
 def test_ya_consolidado_no_se_repite():
-    pendientes = [turno(1), turno(2, asignado=3)]
+    pendientes = [turno("1:2026-10-17"), turno("2:2026-10-17", asignado=3)]
     primera = consolidar(pendientes, AHORA)
     assert len(primera) == 2
     reflejados = [replace(t, consolidado_en=c.consolidado_en) for t, c in zip(pendientes, primera)]
@@ -68,12 +68,12 @@ def test_turno_rectificado_no_se_vuelve_a_consolidar():
 
 def test_consolida_varios_y_deja_los_pendientes():
     turnos = [
-        turno(1),
-        turno(2, fin=AHORA + timedelta(hours=3)),
-        turno(3, consolidado_en=AHORA - timedelta(days=1)),
-        turno(4, asignado=2),
+        turno("1:2026-10-17"),
+        turno("2:2026-10-17", fin=AHORA + timedelta(hours=3)),
+        turno("3:2026-10-17", consolidado_en=AHORA - timedelta(days=1)),
+        turno("4:2026-10-17", asignado=2),
     ]
-    assert [c.turno_id for c in consolidar(turnos, AHORA)] == [1, 4]
+    assert [c.turno_id for c in consolidar(turnos, AHORA)] == ["1:2026-10-17", "4:2026-10-17"]
 
 
 def test_instante_sin_zona_es_error():

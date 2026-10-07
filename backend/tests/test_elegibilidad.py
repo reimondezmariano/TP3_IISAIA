@@ -80,3 +80,14 @@ def test_instante_sin_zona_es_error():
         motivo_inelegibilidad(MEDICO, TITULAR, datetime(2026, 10, 17, 8), FIN, [])
     with pytest.raises(ValueError):
         motivo([Guardia(datetime(2026, 10, 17, 6), datetime(2026, 10, 17, 10))])
+
+
+def test_titular_con_guardia_sin_zona_tambien_es_error():
+    with pytest.raises(ValueError):
+        motivo([Guardia(datetime(2026, 10, 17, 6), datetime(2026, 10, 17, 10))], medico=TITULAR)
+
+
+def test_superposicion_temprana_no_saltea_la_validacion_de_las_demas_guardias():
+    sin_zona = Guardia(datetime(2026, 10, 1, 6), datetime(2026, 10, 1, 10))
+    with pytest.raises(ValueError):
+        motivo([guardia(17, 6, 17, 10), sin_zona])

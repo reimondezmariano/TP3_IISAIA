@@ -31,13 +31,12 @@ def motivo_inelegibilidad(
     `guardias_del_medico` son sus guardias vigentes, sin incluir el turno evaluado. Se recalcula en cada
     consulta: si el impedimento desaparece, el médico vuelve a ser elegible.
     """
-    exigir_zona(inicio, fin)
+    guardias = list(guardias_del_medico)
+    exigir_zona(inicio, fin, *(instante for g in guardias for instante in (g.inicio, g.fin)))
     if medico_id == titular_id:
         return Motivo.ES_TITULAR
-    for guardia in guardias_del_medico:
-        exigir_zona(guardia.inicio, guardia.fin)
-        if guardia.inicio < fin and guardia.fin > inicio:
-            return Motivo.GUARDIA_SUPERPUESTA
+    if any(g.inicio < fin and g.fin > inicio for g in guardias):
+        return Motivo.GUARDIA_SUPERPUESTA
     return None
 
 

@@ -9,7 +9,7 @@ from app.dominio.tiempo import exigir_zona
 
 @dataclass(frozen=True)
 class TurnoConsolidable:
-    turno_id: int
+    turno_id: str  # id compuesto "horarioId:fecha" (D09): el turno puede no tener fila todavía (D11)
     fin: datetime
     titular_id: int | None
     asignado_id: int | None
@@ -20,7 +20,7 @@ class TurnoConsolidable:
 
 @dataclass(frozen=True)
 class Consolidacion:
-    turno_id: int
+    turno_id: str
     realizador_id: int | None
     consolidado_en: datetime
 
