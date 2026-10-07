@@ -43,6 +43,7 @@ Prompt:
 
 Resultado: plan en `docs/superpowers/plans/2026-10-07-f2-cimientos.md`, con 13 decisiones que D06 a D30 dejaban abiertas (entre ellas, vencimiento del token con la hora real y vinculación por email de los usuarios del seed) para aprobar antes de ejecutar.
 Corrección al aprobar el plan: "Agregá una tarea 6: que el script de datos de ejemplo conserve los vínculos con las cuentas de Supabase al volver a correrse." Se ejecuta en la misma sesión, con revisión de código de toda la branch antes del pull request.
+Ejecución: "Ejecutá el plan de F2 cimientos." Seis tareas en la misma sesión con executing-plans, un commit por tarea, y revisión de toda la branch por un subagente. La revisión encontró que cualquiera podía tomar la cuenta de coordinador de Enzo sin el código (decisión 4 del plan combinada con D06); el equipo eligió exigir el código para vincular un coordinador cargado (cambio en D28). Corrección antes del pull request: "Antes del PR, corregí tres menores con su prueba y un commit cada uno: limitá ck_evento_alerta_umbral a '48H', '24H' e 'INICIO' dentro de la migración 0002; TOKEN_SIN_EMAIL responde 403 en lugar de 401; y anotá en la convención 8 de backend/CLAUDE.md que turno.creado_en es una marca técnica con DEFAULT now(). Los demás menores dejalos anotados en la bitácora de desvíos como pendientes." Pull request #7.
 
 ## Próximas entradas
 
