@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import Cargando from "../componentes/Cargando.jsx";
+import DetalleTurno from "../componentes/DetalleTurno.jsx";
 import TarjetaTurno from "../componentes/TarjetaTurno.jsx";
 import {
   agruparPorDia, diasDeSemana, etiquetaDia, etiquetaSemana, fechaLocal, lunesDe, sumarDias,
 } from "../lib/fechas.js";
 import { useSesion } from "../sesion/useSesion.js";
+import { useVacantesSimuladas } from "../simulado/useVacantesSimuladas.js";
 import { useTurnosSemana } from "./useTurnosSemana.js";
 
 export default function Calendario() {
@@ -38,6 +40,9 @@ function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }
   const dias = useMemo(() => diasDeSemana(lunes), [lunes]);
   const porDia = useMemo(() => agruparPorDia(turnos, dias), [turnos, dias]);
   const hoy = fechaLocal(ahora);
+  const simulado = useVacantesSimuladas({ usuario, ahora });
+  const [seleccionado, setSeleccionado] = useState(null);
+  useEffect(() => setSeleccionado(null), [lunes]);
   const esCoordinador = usuario.rol === "COORDINADOR";
 
   return (
@@ -69,11 +74,19 @@ function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }
             <section key={dia} className="dia" data-fecha={dia} aria-current={dia === hoy ? "date" : undefined}>
               <h3>{etiquetaDia(dia)}</h3>
               {porDia[dia].map((turno) => (
-                <TarjetaTurno key={turno.id} turno={turno} usuario={usuario} estado={null} onAbrir={() => {}} />
+                <TarjetaTurno key={turno.id} turno={turno} usuario={usuario} estado={simulado.estadoDe(turno)} onAbrir={setSeleccionado} />
               ))}
             </section>
           ))}
         </div>
+      )}
+      {seleccionado && (
+        <DetalleTurno
+          turno={seleccionado}
+          estado={simulado.estadoDe(seleccionado)}
+          acciones={simulado}
+          onCerrar={() => setSeleccionado(null)}
+        />
       )}
     </main>
   );

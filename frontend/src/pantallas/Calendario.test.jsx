@@ -100,3 +100,35 @@ describe("Calendario", () => {
     expect(cerrarSesion).toHaveBeenCalled();
   });
 });
+
+describe("Calendario con acciones simuladas", () => {
+  const propio = turno(1, "2026-10-09", "08:00", "16:00", { id: 1, nombre: "Ana" });
+
+  test("abrir un turno propio y avisar la ausencia lo marca como vacante (simulado)", async () => {
+    montar({ turnosPorDesde: { "2026-10-05": [propio] } });
+    await userEvent.click(await screen.findByTestId("turno"));
+    expect(screen.getByTestId("rotulo-simulado")).toBeVisible();
+    await userEvent.type(screen.getByLabelText(/Motivo/), "Congreso");
+    await userEvent.click(screen.getByRole("button", { name: "Avisar ausencia" }));
+    expect(screen.getAllByText("Vacante").length).toBeGreaterThan(0);
+    await userEvent.click(screen.getByRole("button", { name: "Retirar aviso" }));
+    expect(screen.getByRole("button", { name: "Avisar ausencia" })).toBeVisible();
+  });
+
+  test("el coordinador no ve botones de acción en el detalle", async () => {
+    montar({
+      usuario: { id: 9, nombre: "Enzo", rol: "COORDINADOR", estado: "ACTIVO" },
+      turnosPorDesde: { "2026-10-05": [turno(1, "2026-10-09", "08:00", "16:00", null)] },
+    });
+    await userEvent.click(await screen.findByTestId("turno"));
+    expect(screen.getByRole("dialog")).toBeVisible();
+    expect(screen.queryByRole("button", { name: /Postularme|Avisar ausencia/ })).toBeNull();
+  });
+
+  test("cambiar de semana cierra el detalle", async () => {
+    montar({ turnosPorDesde: { "2026-10-05": [propio] } });
+    await userEvent.click(await screen.findByTestId("turno"));
+    await userEvent.click(screen.getByRole("button", { name: "Semana siguiente" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
