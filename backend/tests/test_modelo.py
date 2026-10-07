@@ -145,3 +145,19 @@ def test_vaciar_tablas_borra_filas_y_reinicia_identidades(fabrica_sesiones, engi
         sesion.add(nuevo)
         sesion.commit()
         assert nuevo.id == 1
+
+
+def test_baja_sin_fecha_es_rechazada(sesion):
+    usuario = Usuario(nombre="Sin fecha", email="sinfecha@prueba.test", rol=RolUsuario.MEDICO, estado=EstadoUsuario.BAJA)
+    debe_fallar(sesion, usuario, "ck_usuario_fecha_baja")
+
+
+def test_fecha_de_baja_en_cuenta_activa_es_rechazada(sesion):
+    usuario = Usuario(
+        nombre="Activo",
+        email="activo@prueba.test",
+        rol=RolUsuario.MEDICO,
+        estado=EstadoUsuario.ACTIVO,
+        fecha_baja=date(2026, 10, 20),
+    )
+    debe_fallar(sesion, usuario, "ck_usuario_fecha_baja")

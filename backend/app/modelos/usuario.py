@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import DateTime, Enum, Index, Text, Uuid, func
+from sqlalchemy import CheckConstraint, DateTime, Enum, Index, Text, Uuid, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.modelos.base import Base
@@ -21,6 +21,9 @@ class EstadoUsuario(str, enum.Enum):
 
 class Usuario(Base):
     __tablename__ = "usuario"
+    __table_args__ = (
+        CheckConstraint("(estado = 'BAJA') = (fecha_baja IS NOT NULL)", name="ck_usuario_fecha_baja"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     nombre: Mapped[str] = mapped_column(Text)

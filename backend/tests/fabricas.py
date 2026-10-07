@@ -1,6 +1,6 @@
 import time
 import uuid
-from datetime import timedelta
+from datetime import date, timedelta
 from itertools import count
 
 import jwt
@@ -20,12 +20,16 @@ def crear_usuario(
     estado: EstadoUsuario = EstadoUsuario.ACTIVO,
     email: str | None = None,
     con_cuenta: bool = True,
+    fecha_baja: date | None = None,
 ) -> Usuario:
+    if estado == EstadoUsuario.BAJA and fecha_baja is None:
+        fecha_baja = date(2000, 1, 1)  # baja vieja: ya no entra con ningún reloj
     usuario = Usuario(
         nombre=nombre,
         email=email or f"usuario{next(_secuencia)}@prueba.test",
         rol=rol,
         estado=estado,
+        fecha_baja=fecha_baja,
         auth_id=uuid.uuid4() if con_cuenta else None,
     )
     sesion.add(usuario)
