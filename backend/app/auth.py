@@ -1,7 +1,9 @@
-"""Autenticación con Supabase Auth (D06).
+"""Autenticación con Supabase Auth (D06) y permisos por estado y rol (D23, D30).
 
 El frontend inicia sesión contra Supabase Auth y manda el token de acceso en Authorization: Bearer.
 El backend solo verifica el token: nunca ve ni guarda contraseñas.
+Dependencias, de menor a mayor exigencia: identidad_actual (token válido), usuario_registrado
+(token vinculado a un Usuario), usuario_actual (Usuario ACTIVO), requiere_coordinador.
 """
 
 import uuid
@@ -12,9 +14,13 @@ from typing import Any, Protocol
 import jwt
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy.orm import Session
 
 from app.config import get_settings
+from app.db import get_db
 from app.errores import ErrorDominio
+from app.modelos import EstadoUsuario, RolUsuario, Usuario
+from app.repos.usuarios import buscar_por_auth_id
 
 AUDIENCIA = "authenticated"
 ALGORITMOS_CON_SECRETO = ("HS256",)
@@ -111,6 +117,27 @@ def identidad_actual(
     return verificador.verificar(credenciales.credentials)
 
 
-def usuario_actual() -> None:
-    """Enganche de F1, todavía sin uso de la sesión. La tarea 3 lo reemplaza por el Usuario activo."""
-    return None
+def usuario_registrado(
+    identidad: Identidad = Depends(identidad_actual), db: Session = Depends(get_db)
+) -> Usuario:
+    """Usuario vinculado al token, en cualquier estado. Solo para GET /me."""
+    usuario = buscar_por_auth_id(db, identidad.auth_id)
+    if usuario is None:
+        raise ErrorDominio("USUARIO_NO_REGISTRADO", "La cuenta todavía no completó el registro.", 403)
+    return usuario
+
+
+def usuario_actual(usuario: Usuario = Depends(usuario_registrado)) -> Usuario:
+    """Usuario con acceso: estado ACTIVO (D23, D30). Lo exige todo endpoint salvo /health, /me y /registro."""
+    if usuario.estado == EstadoUsuario.PENDIENTE:
+        raise ErrorDominio("CUENTA_PENDIENTE", "Un coordinador tiene que activar tu cuenta.", 403)
+    if usuario.estado == EstadoUsuario.BAJA:
+        raise ErrorDominio("CUENTA_DADA_DE_BAJA", "La cuenta está dada de baja.", 403)
+    return usuario
+
+
+def requiere_coordinador(usuario: Usuario = Depends(usuario_actual)) -> Usuario:
+    """Permiso validado en el backend aunque la interfaz oculte la acción (regla 7)."""
+    if usuario.rol != RolUsuario.COORDINADOR:
+        raise ErrorDominio("SIN_PERMISO", "Solo un coordinador puede hacer esta acción.", 403)
+    return usuario

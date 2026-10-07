@@ -3,7 +3,13 @@ from datetime import date, time
 import pytest
 
 from app.repos.horarios import DatosVersion, crear_horario
-from fabricas import crear_usuario
+from fabricas import crear_usuario, encabezados
+
+
+@pytest.fixture(autouse=True)
+def con_sesion(cliente, sesion):
+    """GET /api/turnos exige un usuario activo: todas las consultas de este archivo van con sesión."""
+    cliente.headers.update(encabezados(crear_usuario(sesion, "Médico que consulta")))
 
 
 def horario(sesion, medico_id, dia, hora, dur, frec=1, ancla=date(2026, 9, 7)):
