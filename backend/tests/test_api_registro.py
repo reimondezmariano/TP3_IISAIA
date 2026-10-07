@@ -1,7 +1,7 @@
 import uuid
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 
 from app.config import get_settings
 from app.modelos import EstadoUsuario, RolUsuario, Usuario
@@ -167,3 +167,17 @@ def test_despues_del_registro_me_responde_pendiente(cliente):
 
     assert r.status_code == 200
     assert r.json()["estado"] == EstadoUsuario.PENDIENTE.value
+
+
+def test_vincular_un_email_que_otra_cuenta_vinculo_recien_es_409(cliente, sesion):
+    """Regla 8: entre la búsqueda y el UPDATE, otro registro vinculó el email. Gana el primero; el segundo, 409."""
+    carlos = crear_usuario(sesion, "Carlos Lugones", email="carlos@prueba.test", con_cuenta=False)
+    primera = uuid.uuid4()
+    # La otra vinculación llega a la base sin pasar por el objeto ya cargado (que sigue viendo auth_id vacío).
+    sesion.execute(text("UPDATE usuario SET auth_id = :a WHERE id = :id"), {"a": primera, "id": carlos.id})
+
+    r = registrar(cliente, uuid.uuid4(), email="carlos@prueba.test")
+
+    assert r.status_code == 409
+    assert r.json()["codigo"] == "EMAIL_YA_REGISTRADO"
+    assert sesion.scalar(text("SELECT auth_id FROM usuario WHERE id = :id"), {"id": carlos.id}) == primera

@@ -2,6 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Response
 from pydantic import Field, StringConstraints
+from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -75,7 +76,17 @@ def registrar(
         raise ErrorDominio("EMAIL_YA_REGISTRADO", "Ese email ya está registrado con otra cuenta.", 409)
 
     if existente is not None:
-        existente.auth_id = identidad.auth_id
+        # Regla 8: el UPDATE solo vincula si la fila sigue sin cuenta; si otro registro la vinculó entre
+        # la búsqueda y acá, no la pisa.
+        vinculada = db.execute(
+            update(Usuario)
+            .where(Usuario.id == existente.id, Usuario.auth_id.is_(None))
+            .values(auth_id=identidad.auth_id)
+            .execution_options(synchronize_session=False)
+        )
+        if vinculada.rowcount == 0:
+            raise ErrorDominio("EMAIL_YA_REGISTRADO", "Ese email ya está registrado con otra cuenta.", 409)
+        db.refresh(existente)
         usuario = existente
         respuesta.status_code = 200
     else:
