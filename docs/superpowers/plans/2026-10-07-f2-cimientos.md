@@ -10,6 +10,8 @@
 
 **Spec:** no hay spec propio de F2: el plan se apoya directamente en `docs/decisiones-arquitectura.md` (D06, D07, D08 a D25, D27, D28, D30) y en el `CLAUDE.md` de la raíz. Las elecciones que esas decisiones dejan abiertas están en la sección "Decisiones de este plan".
 
+**Ejecución (definida por el equipo el 7/10/2026):** en la misma sesión, con superpowers:executing-plans, tarea por tarea y un commit por tarea. Al terminar las seis tareas, revisión de código de toda la branch (superpowers:requesting-code-review) antes de abrir el pull request.
+
 ## Restricciones globales
 
 - Toda la API va bajo `/api`. Errores con formato `{"codigo": "...", "mensaje": "..."}`: 401 sin sesión, 403 sin permiso, 404 inexistente, 409 conflicto, 422 regla de negocio o validación (`VALIDACION`).
@@ -26,7 +28,7 @@
 
 ## Decisiones de este plan
 
-Elecciones que las decisiones de arquitectura dejan abiertas. Si el equipo no está de acuerdo con alguna, se cambia el plan antes de ejecutarlo.
+Elecciones que las decisiones de arquitectura dejan abiertas. El equipo aprobó el plan y estas decisiones el 7/10/2026. La decisión 1 se aparta a propósito de la regla 10 del CLAUDE.md, por el motivo que se explica ahí, y se aprobó de forma explícita.
 
 1. **Vencimiento del token con la hora real.** PyJWT controla `exp` con la hora del sistema, no con el reloj inyectable. Es deliberado: Supabase emite el token en tiempo real, y si el vencimiento usara el reloj de demo (D27), adelantarlo dos días cerraría todas las sesiones en plena demo. No viola la prueba de D27 porque la consulta de la hora ocurre dentro de la biblioteca, no en `app/`.
 2. **Algoritmo según el token.** Los proyectos nuevos de Supabase firman con claves asimétricas (ES256, JWKS público en `{SUPABASE_URL}/auth/v1/.well-known/jwks.json`); los anteriores, con el secreto HS256. El verificador acepta los dos según la configuración disponible y rechaza cualquier otro algoritmo, incluido `none`.
@@ -41,6 +43,7 @@ Elecciones que las decisiones de arquitectura dejan abiertas. Si el equipo no es
 11. **Versión del turno coherente con su horario:** FK compuesta `(version_id, horario_id)` hacia `version_horario (id, horario_id)`, para que un turno no pueda apuntar a la versión de otro horario.
 12. **Alertas escalonadas únicas por umbral (D19):** índice único parcial sobre `(turno_id, datos->>'umbral')` para los eventos `ALERTA_SIN_COBERTURA`, y un CHECK que obliga a informar el umbral (sin él, los NULL no chocan en el índice). Valores esperados del umbral: `"48H"`, `"24H"`, `"INICIO"`.
 13. **Tipo de notificación como texto.** Las decisiones no fijan la lista de tipos; `notificacion.tipo` es texto en MAYÚSCULAS para que F4 los defina sin cambiar el esquema.
+14. **El seed conserva los vínculos con Supabase Auth (tarea 6).** Al recargar, cada usuario de ejemplo recupera el `auth_id` que tenía el usuario con el mismo email (sin distinguir mayúsculas). Los usuarios que no son de ejemplo (por ejemplo, médicos que se registraron desde la app) se borran igual que hoy; si vuelven a entrar, `POST /api/registro` los da de alta de nuevo.
 
 ## Foco de revisión
 
@@ -60,7 +63,7 @@ Casos que las decisiones implican y que es más probable que fallen en uso real;
 backend/
   pyproject.toml                                   (T2)  + pyjwt[crypto]
   .env.example                                     (T2)  SUPABASE_URL, SUPABASE_JWT_SECRET, CODIGO_COORDINACION
-  CLAUDE.md                                        (T5)
+  CLAUDE.md                                        (T5, T6)
   migrations/versions/0002_operacion_y_bitacora.py (T1)
   app/config.py                                    (T2)  supabase_url, supabase_jwt_secret, codigo_coordinacion
   app/auth.py                                      (T2, T3)  Identidad, VerificadorToken, get_verificador, identidad_actual,
@@ -80,7 +83,8 @@ backend/
   tests/fabricas.py                                (T1, T2)  guardar, debe_fallar, token_para, encabezados
   tests/test_modelo.py                             (T1)  importa guardar y debe_fallar de fabricas
   tests/test_modelo_operacion.py                   (T1)
-  tests/test_seed.py                               (T1)
+  scripts/seed.py                                  (T6)  conserva auth_id por email al recargar
+  tests/test_seed.py                               (T1, T6)
   tests/test_auth.py                               (T2)
   tests/test_api_sesion.py                         (T3)
   tests/test_permisos.py                           (T3)
@@ -379,6 +383,9 @@ def test_seed_vacia_las_tablas_operativas(sesion):
         ]
     )
     sesion.flush()
+    # La recarga reutiliza los ids (RESTART IDENTITY): soltar los objetos de la carga anterior.
+    # Desde la tarea 6, el seed lo hace por su cuenta.
+    sesion.expunge_all()
 
     cargar_datos_ejemplo(sesion)
 
@@ -1952,3 +1959,178 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
 EOF
 )"
 ```
+
+---
+
+### Tarea 6: el seed conserva los vínculos con las cuentas de Supabase
+
+Hoy `scripts/seed.py` hace TRUNCATE de `usuario`, y con eso pierde el `auth_id` de quienes ya se registraron. Después de cada reinicio de la demo, Enzo y los médicos tendrían que volver a pasar por `POST /api/registro`. Esta tarea hace que cada usuario de ejemplo recupere la cuenta que tenía el usuario con el mismo email (decisión 14).
+
+**Archivos:**
+- Modificar: `backend/scripts/seed.py`, `backend/tests/test_seed.py`, `backend/CLAUDE.md`
+
+**Interfaces:**
+- Consume: `Usuario` (F1), `crear_usuario(..., con_cuenta=...)` de `tests/fabricas.py` (tarea 2).
+- Produce: `cargar_datos_ejemplo(sesion) -> int`, que ahora devuelve cuántos vínculos con Supabase Auth conservó (antes devolvía `None`). `main` lo informa.
+
+- [ ] **Paso 1: escribir las pruebas que fallan**
+
+En `backend/tests/test_seed.py`, sumar `import uuid` y `from fabricas import crear_usuario` a los imports, y agregar al final:
+
+```python
+def coordinador(sesion) -> Usuario:
+    return sesion.scalar(select(Usuario).where(Usuario.rol == RolUsuario.COORDINADOR))
+
+
+def test_seed_conserva_los_vinculos_con_supabase(sesion):
+    cargar_datos_ejemplo(sesion)
+    enzo = coordinador(sesion)
+    cuenta = uuid.uuid4()
+    enzo.auth_id = cuenta
+    enzo.email = enzo.email.upper()  # el vínculo se busca sin distinguir mayúsculas
+    sesion.flush()
+
+    conservados = cargar_datos_ejemplo(sesion)
+
+    assert conservados == 1
+    enzo = coordinador(sesion)
+    assert enzo.auth_id == cuenta
+    assert enzo.email == "enzo@guardiaviva.test"
+    con_cuenta = sesion.scalar(select(func.count()).select_from(Usuario).where(Usuario.auth_id.is_not(None)))
+    assert con_cuenta == 1
+
+
+def test_seed_sin_vinculos_previos_no_vincula_nada(sesion):
+    assert cargar_datos_ejemplo(sesion) == 0
+    assert sesion.scalar(select(func.count()).select_from(Usuario).where(Usuario.auth_id.is_not(None))) == 0
+
+
+def test_seed_borra_usuarios_que_no_son_de_ejemplo_aunque_tengan_cuenta(sesion):
+    cargar_datos_ejemplo(sesion)
+    crear_usuario(sesion, "Registrada desde la app", email="nueva@prueba.test")
+
+    assert cargar_datos_ejemplo(sesion) == 0
+    assert sesion.scalar(select(func.count()).select_from(Usuario)) == 11
+```
+
+Estas pruebas guardan referencias a usuarios de la carga anterior mientras se vuelve a cargar. Con los mismos ids (RESTART IDENTITY), el mapa de identidad de la sesión chocaría con los usuarios nuevos; por eso la implementación vacía ese mapa después del TRUNCATE.
+
+- [ ] **Paso 2: correr y ver que fallan**
+
+Run: `.venv/bin/pytest tests/test_seed.py -q`
+Expected: FAIL. `test_seed_conserva_los_vinculos_con_supabase` falla porque `cargar_datos_ejemplo` devuelve `None` (o por el choque del mapa de identidad), y `test_seed_sin_vinculos_previos_no_vincula_nada` porque `None != 0`.
+
+- [ ] **Paso 3: implementar**
+
+En `backend/scripts/seed.py`, sumar `import uuid` y cambiar el import de SQLAlchemy a `from sqlalchemy import func, select, text`. Agregar antes de `cargar_datos_ejemplo`:
+
+```python
+def _vinculos_con_supabase(sesion: Session) -> dict[str, uuid.UUID]:
+    """Cuentas de Supabase Auth ya vinculadas, por email en minúsculas (D06, D28)."""
+    filas = sesion.execute(
+        select(func.lower(Usuario.email), Usuario.auth_id).where(Usuario.auth_id.is_not(None))
+    ).all()
+    return {email: auth_id for email, auth_id in filas}
+```
+
+Reemplazar el comienzo de `cargar_datos_ejemplo`, desde la firma hasta el `sesion.flush()` que sigue al coordinador inclusive, por:
+
+```python
+def cargar_datos_ejemplo(sesion: Session) -> int:
+    """Vacía las tablas y carga usuarios y horarios. No hace commit.
+
+    Cada usuario de ejemplo recupera la cuenta de Supabase Auth que tenía el usuario con su mismo email,
+    así nadie tiene que volver a registrarse después de reiniciar la demo. Devuelve cuántas conservó.
+    """
+    vinculos = _vinculos_con_supabase(sesion)
+    sesion.execute(text("TRUNCATE usuario, horario_pactado, version_horario RESTART IDENTITY CASCADE"))
+    # RESTART IDENTITY reutiliza los ids: los objetos de la carga anterior no deben chocar con los nuevos.
+    sesion.expunge_all()
+
+    def nuevo_usuario(nombre: str, usuario: str, rol: RolUsuario) -> Usuario:
+        email = _email(usuario)
+        fila = Usuario(
+            nombre=nombre,
+            email=email,
+            rol=rol,
+            estado=EstadoUsuario.ACTIVO,
+            auth_id=vinculos.get(email.lower()),
+        )
+        sesion.add(fila)
+        sesion.flush()
+        return fila
+
+    ids: dict[str, int] = {}
+    for nombre, usuario in MEDICOS:
+        ids[usuario] = nuevo_usuario(nombre, usuario, RolUsuario.MEDICO).id
+    nombre, usuario = COORDINADOR
+    nuevo_usuario(nombre, usuario, RolUsuario.COORDINADOR)
+    conservados = sum(1 for _, usuario in [*MEDICOS, COORDINADOR] if _email(usuario).lower() in vinculos)
+```
+
+Al final de la función, después del bucle de `HORARIOS`, agregar:
+
+```python
+    return conservados
+```
+
+En `main`, reemplazar el bloque de la carga y su mensaje por:
+
+```python
+    with SessionLocal() as sesion, sesion.begin():
+        conservados = cargar_datos_ejemplo(sesion)
+    print(f"Datos de ejemplo cargados: {len(MEDICOS)} médicos, 1 coordinador, {len(HORARIOS)} horarios.")
+    print(f"Cuentas de Supabase conservadas: {conservados}.")
+```
+
+Actualizar el docstring del módulo: después de "Vacía las tablas y vuelve a cargar todo: correrlo dos veces deja el mismo estado y los mismos ids." agregar "Conserva los vínculos con Supabase Auth de los usuarios de ejemplo (por email); los demás usuarios se borran."
+
+- [ ] **Paso 4: correr y ver que pasan**
+
+Run: `.venv/bin/pytest tests/test_seed.py -q`
+Expected: todas pasan, incluidas las anteriores (`test_seed_dos_veces_deja_el_mismo_estado`, `test_seed_vacia_las_tablas_operativas`).
+
+Run: `.venv/bin/pytest -q`
+Expected: toda la suite pasa.
+
+- [ ] **Paso 5: probar el script contra la base local de desarrollo (nunca Supabase)**
+
+Run: `DATABASE_URL=postgresql://guardia:guardia@localhost:5433/guardia .venv/bin/alembic upgrade head && DATABASE_URL=postgresql://guardia:guardia@localhost:5433/guardia .venv/bin/python -m scripts.seed --confirmar`
+Expected: imprime `Base de destino: localhost:5433/guardia`, la línea de datos cargados y `Cuentas de Supabase conservadas: 0.`
+
+- [ ] **Paso 6: documentación**
+
+En `backend/CLAUDE.md`, reemplazar el punto 8 de "Estructura" por:
+
+```markdown
+8. `scripts/seed.py`: datos de ejemplo. Al recargar conserva, por email, las cuentas de Supabase Auth de los usuarios de ejemplo; los usuarios que no son de ejemplo se borran.
+```
+
+En `docs/prompts-principales.md`, al final de la entrada "4. F2: cimientos", agregar:
+
+```markdown
+Corrección al aprobar el plan: "Agregá una tarea 6: que el script de datos de ejemplo conserve los vínculos con las cuentas de Supabase al volver a correrse." Se ejecuta en la misma sesión, con revisión de código de toda la branch antes del pull request.
+```
+
+- [ ] **Paso 7: commit**
+
+```bash
+git add backend/scripts/seed.py backend/tests/test_seed.py backend/CLAUDE.md docs/prompts-principales.md
+git commit -m "$(cat <<'EOF'
+El seed conserva las cuentas de Supabase de los usuarios de ejemplo (D06, D28)
+
+Al reiniciar la demo, cada usuario de ejemplo recupera por email el auth_id que tenía,
+así nadie tiene que volver a registrarse.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+EOF
+)"
+```
+
+---
+
+### Después de la tarea 6: revisión de toda la branch
+
+- [ ] Correr `.venv/bin/pytest -q` (desde `backend/`) y confirmar que toda la suite pasa.
+- [ ] Revisión de código de `main..feature/f2-cimientos` con superpowers:requesting-code-review, contra este plan y `docs/decisiones-arquitectura.md`. Corregir lo que corresponda, con un commit por corrección, y anotar en `docs/bitacora-de-desvios.md` cada desvío o error que encuentre la revisión.
+- [ ] Recién entonces, abrir el pull request a `main` (lo revisa otro integrante en GitHub antes del merge).
