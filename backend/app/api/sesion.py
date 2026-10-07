@@ -61,7 +61,8 @@ def registrar(
 
     Con el código de coordinación correcto queda COORDINADOR ACTIVO; sin código, MEDICO PENDIENTE hasta
     que un coordinador lo active. Si el email ya estaba cargado sin cuenta (datos de ejemplo, D28),
-    vincula la cuenta, conserva nombre, rol y estado, y responde 200.
+    vincula la cuenta, conserva nombre, rol y estado, y responde 200. Vincular un coordinador cargado exige
+    el código: sin confirmación de email (D06), cualquiera podría crear la cuenta con ese email.
     """
     if identidad.email is None:
         raise ErrorDominio("TOKEN_SIN_EMAIL", "El token de sesión no trae el email de la cuenta.", 401)
@@ -75,6 +76,10 @@ def registrar(
     if existente is not None and existente.auth_id is not None:
         raise ErrorDominio("EMAIL_YA_REGISTRADO", "Ese email ya está registrado con otra cuenta.", 409)
 
+    if existente is not None and existente.rol == RolUsuario.COORDINADOR and not codigo:
+        # Sin confirmación de email (D06), cualquiera puede crear en Supabase la cuenta de un email cargado:
+        # tomar la de un coordinador exige el mismo código que registrarse como coordinador (D30).
+        raise ErrorDominio("CODIGO_REQUERIDO", "Para vincular una cuenta de coordinador hace falta el código.", 422)
     if existente is not None:
         # Regla 8: el UPDATE solo vincula si la fila sigue sin cuenta; si otro registro la vinculó entre
         # la búsqueda y acá, no la pisa.

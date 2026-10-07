@@ -23,3 +23,14 @@ Cómo lo detectamos: los subagentes implementadores lo reportaron como desvíos 
 Cómo lo corregimos: con correcciones mínimas aceptadas por el revisor. Las pruebas del modelo se reescribieron para verificar el nombre de la restricción, en una ronda de corrección con nueva revisión.
 
 Qué aprendimos: el código del plan es una hipótesis hasta que corre. Pedirle al implementador que no debilite las pruebas y que reporte cada desvío deja la traza para la revisión.
+
+## 2026-10-07. La revisión de F2 encontró una apropiación de cuentas aprobada en el plan
+
+Qué pasó: la decisión 4 del plan de F2 (aprobada por el equipo) vinculaba por email cualquier Usuario cargado por el seed, sin pedir el código de coordinación, para que Enzo pudiera registrarse. Combinada con D06 (confirmación de email desactivada) y con emails de ejemplo que están en el repositorio, cualquiera con la URL desplegada podía crear en Supabase la cuenta enzo@guardiaviva.test y quedar como coordinador activo, salteando D30. La misma revisión encontró que la vinculación pisaba sin aviso una vinculación hecha en paralelo (regla 8). La implementación seguía el plan al pie de la letra: el error estaba en el plan, no en el código.
+
+Cómo lo detectamos: la revisión de código de toda la branch, hecha por un subagente con contexto nuevo después de las seis tareas, cruzó la decisión 4 con D06 y con los emails del seed.
+
+Cómo lo corregimos: el equipo eligió exigir el código para vincular un coordinador cargado (422 CODIGO_REQUERIDO) y aceptar el riesgo para los médicos cargados; quedó en D28 y en la decisión 4 del plan. La vinculación pasó a un UPDATE condicionado a auth_id vacío que responde 409 si otra cuenta ganó. Cada corrección empezó con una prueba que fallaba.
+
+Qué aprendimos: aprobar decisiones una por una no alcanza; hay que mirarlas combinadas con las anteriores (acá, la 4 con D06). La revisión final con contexto nuevo es la que ve esos cruces.
+

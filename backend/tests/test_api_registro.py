@@ -89,7 +89,7 @@ def test_email_cargado_vincula_la_cuenta_y_conserva_el_rol(cliente, sesion):
     )
     auth_id = uuid.uuid4()
 
-    r = registrar(cliente, auth_id, email="enzo@guardiaviva.test", nombre="Otro nombre")
+    r = registrar(cliente, auth_id, email="enzo@guardiaviva.test", nombre="Otro nombre", codigoCoordinacion=CODIGO)
 
     assert r.status_code == 200
     assert r.json() == {
@@ -181,3 +181,26 @@ def test_vincular_un_email_que_otra_cuenta_vinculo_recien_es_409(cliente, sesion
     assert r.status_code == 409
     assert r.json()["codigo"] == "EMAIL_YA_REGISTRADO"
     assert sesion.scalar(text("SELECT auth_id FROM usuario WHERE id = :id"), {"id": carlos.id}) == primera
+
+
+@pytest.mark.parametrize("codigo", [None, "   "])
+def test_vincular_un_coordinador_cargado_exige_el_codigo(cliente, sesion, codigo):
+    """Sin confirmación de email (D06), cualquiera puede crear en Supabase la cuenta de un email cargado."""
+    enzo = crear_usuario(sesion, "Enzo", rol=RolUsuario.COORDINADOR, email="enzo@guardiaviva.test", con_cuenta=False)
+
+    r = registrar(cliente, uuid.uuid4(), email="enzo@guardiaviva.test", codigoCoordinacion=codigo)
+
+    assert r.status_code == 422
+    assert r.json()["codigo"] == "CODIGO_REQUERIDO"
+    sesion.refresh(enzo)
+    assert enzo.auth_id is None
+
+
+def test_vincular_un_coordinador_cargado_con_codigo_incorrecto_es_422(cliente, sesion):
+    enzo = crear_usuario(sesion, "Enzo", rol=RolUsuario.COORDINADOR, email="enzo@guardiaviva.test", con_cuenta=False)
+
+    r = registrar(cliente, uuid.uuid4(), email="enzo@guardiaviva.test", codigoCoordinacion="ABC")
+
+    assert r.json()["codigo"] == "CODIGO_INVALIDO"
+    sesion.refresh(enzo)
+    assert enzo.auth_id is None
