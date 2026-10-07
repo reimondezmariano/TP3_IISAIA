@@ -22,7 +22,7 @@ FastAPI + SQLAlchemy 2 + Alembic sobre Postgres. Leer también el CLAUDE.md de l
 5. Configuración de pytest en `pyproject.toml`: `pythonpath = ["."]` (para importar el paquete `scripts`) y un filtro que silencia el aviso de Starlette por usar `httpx` en el TestClient (pide `httpx2`). Pendiente: migrar a httpx2 y quitar el filtro.
 6. `alembic.ini` usa un solo `%` en el formato de log y `path_separator = os`; no volver a `%%`, que imprime el texto literal.
 7. Pruebas con sesión: `crear_usuario` crea usuarios con cuenta de Supabase (`con_cuenta=False` para simular los del seed) y `encabezados(usuario)` arma el `Authorization: Bearer`. La fixture `cliente` verifica tokens con `SECRETO_PRUEBA`; `token_para(...)` arma tokens a medida (vencidos, sin email, otro algoritmo).
-8. Los instantes de dominio (`creada_en` de vacante, postulación y notificación; `ocurrido_en` del evento; `cerrada_en`, `consolidado_en`, etc.) no tienen valor por defecto en la base: se completan con `reloj.ahora()`.
+8. Los instantes de dominio (`creada_en` de vacante, postulación y notificación; `ocurrido_en` del evento; `cerrada_en`, `consolidado_en`, etc.) no tienen valor por defecto en la base: se completan con `reloj.ahora()`. Excepción: `turno.creado_en` es una marca técnica con `DEFAULT now()` (hora real de la base); no usarla en la lógica de dominio como "cuándo se materializó el turno".
 9. `evento_turno` solo admite INSERT: un trigger rechaza UPDATE y DELETE (D22). TRUNCATE sigue funcionando para el seed y las pruebas.
 10. El vencimiento del token se controla con la hora real dentro de PyJWT, no con el reloj inyectable, para que adelantar el reloj de demo no cierre las sesiones.
 
