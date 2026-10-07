@@ -33,7 +33,8 @@ class EventoTurno(Base):
     __tablename__ = "evento_turno"
     __table_args__ = (
         CheckConstraint(
-            "tipo <> 'ALERTA_SIN_COBERTURA' OR datos->>'umbral' IS NOT NULL", name="ck_evento_alerta_umbral"
+            "tipo <> 'ALERTA_SIN_COBERTURA' OR coalesce(datos->>'umbral', '') IN ('48H', '24H', 'INICIO')",
+            name="ck_evento_alerta_umbral",
         ),
         Index("ix_evento_turno_turno", "turno_id", "ocurrido_en"),
     )

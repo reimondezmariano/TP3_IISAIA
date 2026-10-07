@@ -213,3 +213,15 @@ def test_notificacion_nace_sin_leer(sesion, turno, medico):
     sesion.refresh(notificacion)
     assert notificacion.leida_en is None
     assert notificacion.datos == {}
+
+
+@pytest.mark.parametrize("umbral", ["", "48h", "12H", "inicio"])
+def test_alerta_con_umbral_fuera_de_la_lista_es_rechazada(sesion, turno, umbral):
+    """Solo "48H", "24H" e "INICIO": con variantes como "48h", el índice único dejaría repetir el aviso."""
+    alerta = fila_evento(turno, TipoEventoTurno.ALERTA_SIN_COBERTURA, datos={"umbral": umbral})
+    debe_fallar(sesion, alerta, "ck_evento_alerta_umbral")
+
+
+def test_alerta_acepta_los_tres_umbrales(sesion, turno):
+    for umbral in ("48H", "24H", "INICIO"):
+        guardar(sesion, fila_evento(turno, TipoEventoTurno.ALERTA_SIN_COBERTURA, datos={"umbral": umbral}))

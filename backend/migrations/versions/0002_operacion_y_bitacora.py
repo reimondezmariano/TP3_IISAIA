@@ -78,7 +78,9 @@ _UPGRADE = [
         actor_id integer REFERENCES usuario (id),
         ocurrido_en timestamptz NOT NULL,
         datos jsonb NOT NULL DEFAULT '{}'::jsonb,
-        CONSTRAINT ck_evento_alerta_umbral CHECK (tipo <> 'ALERTA_SIN_COBERTURA' OR datos->>'umbral' IS NOT NULL)
+        CONSTRAINT ck_evento_alerta_umbral CHECK (
+            tipo <> 'ALERTA_SIN_COBERTURA' OR coalesce(datos->>'umbral', '') IN ('48H', '24H', 'INICIO')
+        )
     )
     """,
     "CREATE INDEX ix_evento_turno_turno ON evento_turno (turno_id, ocurrido_en)",
