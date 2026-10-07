@@ -8,8 +8,8 @@ from app.dominio.tiempo import exigir_zona
 
 
 class Umbral(Enum):
-    HORAS_48 = "HORAS_48"
-    HORAS_24 = "HORAS_24"
+    HORAS_48 = "48H"
+    HORAS_24 = "24H"
     INICIO = "INICIO"
 
 

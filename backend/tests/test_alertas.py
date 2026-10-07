@@ -55,3 +55,8 @@ def test_turno_terminado_no_alerta():
 def test_instante_sin_zona_es_error():
     with pytest.raises(ValueError):
         pendientes(datetime(2026, 10, 17, 8))
+
+
+def test_los_valores_de_umbral_coinciden_con_la_restriccion_de_la_bitacora():
+    # ck_evento_alerta_umbral (migración 0002) solo admite estos valores en datos->>'umbral'.
+    assert [u.value for u in Umbral] == ["48H", "24H", "INICIO"]
