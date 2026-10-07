@@ -34,3 +34,27 @@ label small { display: block; font-weight: 400; color: var(--suave); margin-top:
 .chico { color: var(--suave); font-size: 0.875rem; }
 .acciones { display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .cargando { text-align: center; color: var(--suave); padding: 2rem 16px; }
+.calendario { max-width: 1200px; margin: 0 auto; padding: 1rem 16px 3rem; }
+.cabecera { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
+.cabecera h2 { margin: 0; font-size: 1.25rem; }
+.navegacion { display: flex; gap: 0.5rem; margin: 1rem 0; }
+.navegacion button { flex: 1; }
+.vacio { text-align: center; color: var(--suave); padding: 1rem; }
+.semana { display: grid; grid-template-columns: 1fr; gap: 0.75rem; }
+.dia { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 12px; padding: 0.75rem; min-width: 0; }
+.dia[aria-current="date"] { border-color: var(--primario); box-shadow: 0 0 0 2px var(--primario) inset; }
+.dia h3 { margin: 0 0 0.5rem; font-size: 0.95rem; text-transform: capitalize; }
+.turno { display: grid; gap: 0.15rem; width: 100%; text-align: left; min-height: 64px; padding: 0.5rem 0.75rem; margin-bottom: 0.5rem; background: #f3f1ea; color: var(--texto); border: 1px solid var(--borde); }
+.turno.mio { background: var(--ok-fondo); border-color: var(--ok); }
+.turno.baja { background: var(--peligro-fondo); border-color: var(--peligro); }
+.turno.vacante { background: var(--alerta-fondo); border-color: var(--alerta); }
+.turno-horario { font-weight: 700; }
+.turno-duracion, .turno-titular { font-size: 0.875rem; color: var(--suave); }
+.insignias { display: flex; flex-wrap: wrap; gap: 0.25rem; }
+.insignia { font-size: 0.75rem; font-weight: 700; padding: 0.1rem 0.5rem; border-radius: 999px; background: #fff; border: 1px solid var(--borde); }
+.insignia.mia { color: var(--ok); border-color: var(--ok); }
+.insignia.baja, .insignia.urgente { color: var(--peligro); border-color: var(--peligro); }
+.insignia.vacante { color: var(--alerta); border-color: var(--alerta); }
+@media (min-width: 900px) {
+  .semana { grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 0.5rem; }
+}
