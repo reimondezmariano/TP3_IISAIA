@@ -65,7 +65,7 @@ def registrar(
     el código: sin confirmación de email (D06), cualquiera podría crear la cuenta con ese email.
     """
     if identidad.email is None:
-        raise ErrorDominio("TOKEN_SIN_EMAIL", "El token de sesión no trae el email de la cuenta.", 401)
+        raise ErrorDominio("TOKEN_SIN_EMAIL", "El token de sesión no trae el email de la cuenta.", 403)
     codigo = (datos.codigo_coordinacion or "").strip()
     if codigo and not es_codigo_de_coordinacion(codigo, get_settings().codigo_coordinacion):
         raise ErrorDominio("CODIGO_INVALIDO", "El código de coordinación no es correcto.", 422)

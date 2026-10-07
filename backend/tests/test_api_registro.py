@@ -145,10 +145,11 @@ def test_cuenta_vinculada_con_otro_email_choca_con_la_restriccion_de_la_base(cli
     assert usuarios_con_cuenta(sesion, ana.auth_id) == 1
 
 
-def test_token_sin_email_es_401(cliente):
+def test_token_sin_email_es_403(cliente):
+    """El token es válido: con 401 la interfaz renovaría la sesión en un bucle sin resolver nada."""
     r = registrar(cliente, uuid.uuid4(), email=None)
 
-    assert r.status_code == 401
+    assert r.status_code == 403
     assert r.json()["codigo"] == "TOKEN_SIN_EMAIL"
 
 
