@@ -31,13 +31,15 @@ def realizador_presunto(
     hay_vacante_abierta: bool,
     sin_cobertura: bool,
 ) -> int | None:
-    """Quién se presume que hizo la guardia (D20); None si se consolida sin realizador (D19)."""
-    if sin_cobertura:
+    """Quién se presume que hizo la guardia (D20); None si se consolida sin realizador (D19).
+
+    Con una vacante abierta no hay realizador presunto, aunque quede un asignado o un titular (defensa de D31).
+    Sin vacante abierta: el asignado vigente y, si no hay, el titular.
+    """
+    if hay_vacante_abierta or sin_cobertura:
         return None
     if asignado_id is not None:
         return asignado_id
-    if hay_vacante_abierta:
-        return None
     return titular_id
 
 

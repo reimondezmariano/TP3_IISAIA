@@ -39,9 +39,26 @@ def test_turno_sin_titular_cubierto_lo_hace_el_asignado():
     assert consolidar([turno(titular=None, asignado=3)], AHORA)[0].realizador_id == 3
 
 
-def test_realizador_presunto_directo():
+def test_realizador_presunto_sin_vacante_abierta_gana_el_asignado_y_si_no_el_titular():
+    assert realizador_presunto(1, 2, False, False) == 2
     assert realizador_presunto(1, None, False, False) == 1
-    assert realizador_presunto(1, 2, True, False) == 2
+
+
+def test_realizador_presunto_vacante_abierta_no_deja_realizador():
+    assert realizador_presunto(1, None, True, False) is None
+
+
+def test_la_vacante_abierta_tiene_prioridad_sobre_el_asignado_vigente():
+    # Defensa de D31: aunque quedara un asignado, con la vacante abierta no hay realizador presunto.
+    assert realizador_presunto(1, 2, True, False) is None
+
+
+def test_titular_que_genero_vacante_y_nadie_la_cubrio_no_realiza_la_guardia():
+    resultado = consolidar([turno(titular=1, asignado=None, vacante=True)], AHORA)
+    assert resultado == [Consolidacion("1:2026-10-17", None, AHORA)]
+
+
+def test_sin_cobertura_no_deja_realizador():
     assert realizador_presunto(1, 2, False, True) is None
 
 
