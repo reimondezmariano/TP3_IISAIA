@@ -3,9 +3,10 @@
 from collections import Counter
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
+from app.dominio.elegibilidad import Guardia
 from app.dominio.tiempo import exigir_zona
 
 
@@ -40,3 +41,21 @@ def ordenar_candidatos(candidatos: Iterable[Candidato], coberturas: Mapping[int,
     lista = list(candidatos)
     exigir_zona(*(c.postulado_en for c in lista))
     return sorted(lista, key=lambda c: (coberturas.get(c.medico_id, 0), c.postulado_en, c.medico_id))
+
+
+def horas_en_semana(guardias: Iterable[Guardia], dia_referencia: date, zona: ZoneInfo) -> float:
+    """Horas de guardia dentro de la semana (lunes a lunes, en `zona`) de `dia_referencia`.
+
+    Dato informativo de D17: no interviene en el orden. Lo que cruza el borde de la semana se prorratea.
+    """
+    lunes = dia_referencia - timedelta(days=dia_referencia.weekday())
+    inicio_semana = datetime.combine(lunes, time(0), tzinfo=zona)
+    fin_semana = datetime.combine(lunes + timedelta(days=7), time(0), tzinfo=zona)
+    total = timedelta(0)
+    for guardia in guardias:
+        exigir_zona(guardia.inicio, guardia.fin)
+        desde = max(guardia.inicio, inicio_semana)
+        hasta = min(guardia.fin, fin_semana)
+        if hasta > desde:
+            total += hasta - desde
+    return total / timedelta(hours=1)

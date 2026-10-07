@@ -1,9 +1,10 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
 import pytest
 
-from app.dominio.equidad import Candidato, TurnoDelMes, contar_coberturas, ordenar_candidatos
+from app.dominio.elegibilidad import Guardia
+from app.dominio.equidad import Candidato, TurnoDelMes, contar_coberturas, horas_en_semana, ordenar_candidatos
 
 ZONA = ZoneInfo("America/Argentina/Buenos_Aires")
 T0 = datetime(2026, 10, 10, 12, tzinfo=ZONA)
@@ -98,3 +99,42 @@ def test_instante_sin_zona_es_error():
         ordenar_candidatos([Candidato(1, datetime(2026, 10, 10, 12))], {})
     with pytest.raises(ValueError):
         contar_coberturas([TurnoDelMes(datetime(2026, 10, 5, 8), 2, 1)], 2026, 10, ZONA)
+
+
+# --- horas_en_semana (dato informativo de D17) ---
+# Semana del lunes 12/10/2026 al domingo 18/10.
+
+
+def g(dia_ini, hora_ini, dia_fin, hora_fin, mes_ini=10, mes_fin=10):
+    return Guardia(
+        datetime(2026, mes_ini, dia_ini, hora_ini, tzinfo=ZONA),
+        datetime(2026, mes_fin, dia_fin, hora_fin, tzinfo=ZONA),
+    )
+
+
+def test_suma_las_guardias_de_la_semana():
+    assert horas_en_semana([g(13, 8, 13, 16), g(15, 8, 15, 20)], date(2026, 10, 14), ZONA) == 20.0
+
+
+def test_ignora_guardias_de_otra_semana():
+    assert horas_en_semana([g(6, 8, 6, 16), g(20, 8, 20, 16)], date(2026, 10, 14), ZONA) == 0.0
+
+
+def test_guardia_que_cruza_el_domingo_se_prorratea():
+    cruza = g(18, 20, 19, 8)
+    assert horas_en_semana([cruza], date(2026, 10, 14), ZONA) == 4.0
+    assert horas_en_semana([cruza], date(2026, 10, 19), ZONA) == 8.0
+
+
+def test_la_referencia_puede_ser_cualquier_dia_de_la_semana():
+    guardias = [g(13, 8, 13, 16)]
+    assert horas_en_semana(guardias, date(2026, 10, 12), ZONA) == horas_en_semana(guardias, date(2026, 10, 18), ZONA) == 8.0
+
+
+def test_sin_guardias_son_cero_horas():
+    assert horas_en_semana([], date(2026, 10, 14), ZONA) == 0.0
+
+
+def test_horas_instante_sin_zona_es_error():
+    with pytest.raises(ValueError):
+        horas_en_semana([Guardia(datetime(2026, 10, 13, 8), datetime(2026, 10, 13, 16))], date(2026, 10, 14), ZONA)
