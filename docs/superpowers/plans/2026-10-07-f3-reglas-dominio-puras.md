@@ -27,7 +27,7 @@
 2. "Anticipación menor a 24 h" (D15) es estricta: exactamente 24 h no es urgente.
 3. Cobertura para D17: turno del mes calendario (zona del servicio, por fecha de inicio) con asignado distinto del titular, incluso si el turno no tiene titular (baja, D24).
 4. Una alerta (D19) se emite solo si el instante del umbral cae dentro del período en que la vacante estuvo abierta y mientras el turno no terminó. Una vacante abierta 10 h antes del inicio no dispara las de 48 h ni 24 h.
-5. Realizador presunto (D20): `sin_cobertura` → ninguno; asignado si hay; si no, ninguno si hay vacante abierta; si no, el titular.
+5. **Resuelto con el equipo (D31).** Realizador presunto (D20): con una vacante abierta o `sin_cobertura`, ninguno (D19); si no, el asignado vigente; si no hay asignado, el titular. Esto reemplaza la prioridad original (asignado antes que vacante abierta). La regla de fondo, borrar el asignado en la misma transacción que genera la vacante y registrarlo en la bitácora con VACANTE_GENERADA, se implementa en el endpoint de generar vacante, que es la próxima etapa; la prioridad de la consolidación es solo una defensa.
 6. La elegibilidad (D16) cubre solo las dos reglas de D16 (titular y guardia superpuesta). Rol y estado del usuario (D23) los filtra quien arme la lista de candidatos.
 
 ## Foco de revisión
