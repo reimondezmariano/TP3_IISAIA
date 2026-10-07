@@ -37,16 +37,17 @@ describe("Calendario", () => {
   test("arranca en la semana de 'ahora' del servidor (lunes a domingo) y muestra los turnos en su día", async () => {
     const api = montar({ turnosPorDesde: { "2026-10-05": SEMANA_ACTUAL } });
     expect(await screen.findByText("5 al 11 de octubre de 2026")).toBeVisible();
+    expect(await screen.findAllByTestId("turno")).toHaveLength(3);
     expect(api.get).toHaveBeenCalledWith("/api/turnos", { desde: "2026-10-05", hasta: "2026-10-11" });
     expect(document.querySelectorAll("[data-fecha]")).toHaveLength(7);
-    expect(await within(document.querySelector('[data-fecha="2026-10-05"]')).findAllByTestId("turno")).toHaveLength(1);
+    expect(within(document.querySelector('[data-fecha="2026-10-05"]')).getAllByTestId("turno")).toHaveLength(1);
     expect(within(document.querySelector('[data-fecha="2026-10-07"]')).getByText("20:00 – 08:00 (+1 día)")).toBeVisible();
     expect(within(document.querySelector('[data-fecha="2026-10-11"]')).getByText("BAJA")).toBeVisible();
   });
 
   test("resalta el día de hoy según el servidor", async () => {
     montar({ turnosPorDesde: { "2026-10-05": SEMANA_ACTUAL } });
-    await screen.findByText("5 al 11 de octubre de 2026");
+    await screen.findAllByTestId("turno");
     expect(document.querySelector('[data-fecha="2026-10-07"]')).toHaveAttribute("aria-current", "date");
   });
 
