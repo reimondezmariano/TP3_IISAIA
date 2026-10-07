@@ -1,3 +1,4 @@
+import uuid
 from datetime import date, datetime, time
 from zoneinfo import ZoneInfo
 
@@ -17,6 +18,7 @@ from app.modelos import (
     VersionHorario,
 )
 from app.repos.horarios import versiones_en_rango
+from fabricas import crear_usuario
 from scripts.seed import cargar_datos_ejemplo, describir_destino, main
 
 ZONA = ZoneInfo("America/Argentina/Buenos_Aires")
@@ -138,3 +140,38 @@ def test_seed_vacia_las_tablas_operativas(sesion):
 
     for modelo in (Turno, Vacante, Postulacion, EventoTurno, Notificacion):
         assert contar(sesion, modelo) == 0
+
+
+def coordinador(sesion) -> Usuario:
+    return sesion.scalar(select(Usuario).where(Usuario.rol == RolUsuario.COORDINADOR))
+
+
+def test_seed_conserva_los_vinculos_con_supabase(sesion):
+    cargar_datos_ejemplo(sesion)
+    enzo = coordinador(sesion)
+    cuenta = uuid.uuid4()
+    enzo.auth_id = cuenta
+    enzo.email = enzo.email.upper()  # el vínculo se busca sin distinguir mayúsculas
+    sesion.flush()
+
+    conservados = cargar_datos_ejemplo(sesion)
+
+    assert conservados == 1
+    enzo = coordinador(sesion)
+    assert enzo.auth_id == cuenta
+    assert enzo.email == "enzo@guardiaviva.test"
+    con_cuenta = sesion.scalar(select(func.count()).select_from(Usuario).where(Usuario.auth_id.is_not(None)))
+    assert con_cuenta == 1
+
+
+def test_seed_sin_vinculos_previos_no_vincula_nada(sesion):
+    assert cargar_datos_ejemplo(sesion) == 0
+    assert sesion.scalar(select(func.count()).select_from(Usuario).where(Usuario.auth_id.is_not(None))) == 0
+
+
+def test_seed_borra_usuarios_que_no_son_de_ejemplo_aunque_tengan_cuenta(sesion):
+    cargar_datos_ejemplo(sesion)
+    crear_usuario(sesion, "Registrada desde la app", email="nueva@prueba.test")
+
+    assert cargar_datos_ejemplo(sesion) == 0
+    assert sesion.scalar(select(func.count()).select_from(Usuario)) == 11
