@@ -50,7 +50,7 @@ Ejecución: "Ejecutá el plan de F2 cimientos." Seis tareas en la misma sesión 
 Fecha: 7/10/2026.
 Herramienta: Claude Code con Superpowers (writing-plans y executing-plans).
 Prompt: "Leé backend/CLAUDE.md y el documento de decisiones de arquitectura en docs, especialmente D15 a D22 y D27. En esta primera etapa implementá solo funciones puras en backend/app/dominio, sin base de datos y con pruebas pytest: elegibilidad de postulantes (D16), orden de candidatos por equidad (D17), consolidación (D20), umbrales de alerta 48 h, 24 h e inicio (D19) y vacante urgente (D15). No crees modelos ni migraciones: los está haciendo Florencia en feature/f2-cimientos. Usá Superpowers: plan en docs/superpowers/plans, branch feature/f3-reglas-dominio, un commit por tarea."
-Resultado: plan en `docs/superpowers/plans/2026-10-07-f3-reglas-dominio-puras.md` y branch `feature/f3-reglas-dominio`, con un módulo por regla en `backend/app/dominio/` y sus pruebas. El plan lista los supuestos que cierran lo que las decisiones dejan abierto. Ejecución inline en una sola sesión.
+Resultado: plan en `docs/superpowers/plans/2026-10-07-f3-reglas-dominio-puras.md` y branch `feature/f3-reglas-dominio`, con un módulo por regla en `backend/app/dominio/` y sus pruebas. El plan lista los supuestos que cierran lo que las decisiones dejan abierto. Ejecución inline en una sola sesión, con revisión de toda la branch por un subagente. Tras la revisión: "Resolvimos con el equipo el supuesto 5 del plan" (la vacante abierta tiene prioridad sobre el asignado y el titular), que dio la decisión D31. Al traer main (PR #7) se alinearon los valores de `Umbral` con la restricción de la migración 0002. Pull request #8.
 
 ## Próximas entradas
 
