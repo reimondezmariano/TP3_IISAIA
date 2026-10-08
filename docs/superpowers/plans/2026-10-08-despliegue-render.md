@@ -102,7 +102,7 @@ La guía está escrita para alguien que nunca usó Render, con estas secciones y
 
 1. **Qué es cada pieza:** Supabase guarda los datos y las cuentas; Render es la computadora en internet donde corre la app.
 2. **Supabase (una sola vez), en el panel:** (a) Authentication, Sign In / Providers, Email: apagar "Confirm email" y guardar (D06). (b) Authentication, URL Configuration: poner la dirección de Render en "Site URL" cuando se conozca. (c) Project Settings, API: copiar la URL del proyecto y la clave pública (anon). (d) Project Settings, Database: copiar la cadena del Session pooler.
-3. **Migraciones desde tu computadora, con cuidado:** (a) Poner la cadena de Supabase en `DATABASE_URL` de `backend/.env` (el archivo no se sube a git). (b) Mostrar a qué base apunta y en qué versión está: `cd backend && .venv/Scripts/alembic current` → debe decir `0001`. (c) Aplicar: `.venv/Scripts/alembic upgrade head` → debe terminar en `0004`. (d) Volver `DATABASE_URL` a la base local si se va a trabajar con ella. Se hace con el PR #12 mergeado y, si ya está, el PR #13 (que no trae migraciones).
+3. **Migraciones desde tu computadora, con cuidado:** (a) Poner la cadena de Supabase en `DATABASE_URL` de `backend/.env` (el archivo no se sube a git). (b) Mostrar a qué base apunta y en qué versión está: `cd backend && .venv/Scripts/alembic current` → debe decir `0001`. (c) Aplicar: `.venv/Scripts/alembic upgrade head` → debe terminar en la última versión pendiente (hoy `0004`). (d) Volver `DATABASE_URL` a la base local si se va a trabajar con ella. **Se hace una sola vez, al final:** cuando estén mergeados la etapa 3 de F3 y todo lo demás que cambie el esquema, y no antes. Así Supabase recibe todas las migraciones pendientes de una vez (hoy 0002, 0003 y 0004; si la etapa 3 o el semáforo agregan alguna, también esa) y no queda a medio migrar.
 4. **Datos de ejemplo:** `.venv/Scripts/python -m scripts.seed --confirmar` apuntando a Supabase. Advertencia en negrita: borra los datos que haya.
 5. **Render, en el panel:** New, Blueprint, elegir el repositorio y la rama `main`; Render lee `render.yaml`. Cargar a mano las variables de la lista de la tarea 3 (de dónde sale cada una). Esperar el primer despliegue (varios minutos) y abrir la dirección `https://guardia-viva-….onrender.com`.
 6. **Después de desplegar:** poner esa dirección en "Site URL" de Supabase; probar registro, login y calendario; cómo reiniciar la demo; cómo despertar el servicio antes de presentar.
@@ -118,7 +118,7 @@ La guía está escrita para alguien que nunca usó Render, con estas secciones y
 
 ## Lo que tenés que hacer vos (resumen en lenguaje simple)
 
-Nada de esto lo hace el agente, y nada se hace hasta que apruebes el plan y estén mergeados el PR #12 (ya está) y este:
+Nada de esto lo hace el agente. El código de las tareas 1 a 4 se puede mergear antes, pero lo que toca Supabase (los puntos 1 y 2) se hace recién cuando estén mergeados la etapa 3 y todo lo demás que cambie el esquema, una sola vez:
 
 1. **En Supabase:** apagar "Confirm email" y guardar; anotar la URL del proyecto, la clave pública (anon) y la cadena del Session pooler.
 2. **En tu computadora:** poner la cadena del Session pooler en `backend/.env`, correr dos comandos de Alembic (ver cuál es la versión actual antes de migrar) y, solo si querés los datos de ejemplo, el seed. Yo te dejo los comandos exactos en la guía.
