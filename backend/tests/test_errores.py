@@ -1,4 +1,5 @@
 from datetime import date, time
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -11,8 +12,12 @@ from app.modelos import VersionHorario
 from fabricas import crear_horario_de_prueba, guardar
 
 
+# Sin frontend/dist: si existe, se monta en "/" y tapa las rutas de prueba agregadas después.
+SIN_FRONTEND = Path("no-existe")
+
+
 def _cliente_con_ruta_de_prueba() -> TestClient:
-    app = crear_app()
+    app = crear_app(SIN_FRONTEND)
 
     @app.get("/api/prueba/error")
     def _falla():
@@ -51,7 +56,7 @@ def test_ruta_inexistente_responde_404_con_formato_unico():
 
 
 def _cliente_que_lanza(error: Exception) -> TestClient:
-    app = crear_app()
+    app = crear_app(SIN_FRONTEND)
 
     @app.get("/api/prueba/base")
     def _falla_la_base():
