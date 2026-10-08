@@ -9,16 +9,39 @@ const turno = {
   titular: { id: 3, nombre: "Carlos Ruiz" },
 };
 const estadoBase = { tipo: "NORMAL", etiqueta: null, urgente: false, postulantes: [], postulado: false, acciones: [] };
-const acciones = () => ({ avisarAusencia: vi.fn(), retirarAviso: vi.fn(), postularme: vi.fn(), retirarPostulacion: vi.fn() });
+const acciones = () => ({ avisarAusencia: vi.fn(async () => {}), retirarAviso: vi.fn(async () => {}), postularme: vi.fn(), retirarPostulacion: vi.fn() });
 const montar = (estado, acc = acciones(), onCerrar = vi.fn()) => {
   render(<DetalleTurno turno={turno} estado={{ ...estadoBase, ...estado }} acciones={acc} onCerrar={onCerrar} />);
   return { acc, onCerrar };
 };
 
 describe("DetalleTurno", () => {
-  test("rotula que las acciones son simuladas", () => {
-    montar({});
-    expect(screen.getByTestId("rotulo-simulado")).toHaveTextContent("Simulado");
+  test("rotula como simuladas solo las postulaciones", () => {
+    montar({ acciones: ["POSTULARME"] });
+    expect(screen.getByTestId("rotulo-simulado")).toHaveTextContent("postulaciones");
+  });
+
+  test("avisar o retirar la ausencia no lleva el rótulo de simulado", () => {
+    montar({ acciones: ["AVISAR_AUSENCIA"] });
+    expect(screen.queryByTestId("rotulo-simulado")).toBeNull();
+  });
+
+  test("si el servidor rechaza el aviso, se muestra su mensaje y se conserva el motivo", async () => {
+    const acc = acciones();
+    acc.avisarAusencia.mockRejectedValue(new Error("El turno ya empezó: no se puede generar una vacante."));
+    montar({ acciones: ["AVISAR_AUSENCIA"] }, acc);
+    await userEvent.type(screen.getByLabelText(/Motivo/), "Congreso");
+    await userEvent.click(screen.getByRole("button", { name: "Avisar ausencia" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("El turno ya empezó");
+    expect(screen.getByLabelText(/Motivo/)).toHaveValue("Congreso");
+  });
+
+  test("si el servidor rechaza el retiro, se muestra su mensaje", async () => {
+    const acc = acciones();
+    acc.retirarAviso.mockRejectedValue(new Error("La vacante ya no está abierta."));
+    montar({ acciones: ["RETIRAR_AVISO"] }, acc);
+    await userEvent.click(screen.getByRole("button", { name: "Retirar aviso" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("ya no está abierta");
   });
 
   test("Avisar ausencia pide motivo (visible solo para coordinadores) y lo manda", async () => {
