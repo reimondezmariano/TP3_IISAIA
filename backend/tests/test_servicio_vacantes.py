@@ -107,14 +107,24 @@ def test_la_urgencia_llega_al_medico_con_baja_hasta_su_ultimo_dia_y_no_despues(s
     assert ya_de_baja.id not in notificados
 
 
-def test_vacante_con_mas_de_24_h_no_notifica(sesion, reloj):
+def test_vacante_con_mas_de_24_h_avisa_vacante_abierta_a_los_medicos_activos(sesion, reloj):
     carlos = crear_usuario(sesion, "Carlos")
-    crear_usuario(sesion, "Mariano")
+    mariano = crear_usuario(sesion, "Mariano")
+    florencia = crear_usuario(sesion, "Florencia")
+    crear_usuario(sesion, "Enzo", rol=RolUsuario.COORDINADOR)
+    crear_usuario(sesion, "Nuevo", estado=EstadoUsuario.PENDIENTE)
+    crear_usuario(sesion, "Ya de baja", estado=EstadoUsuario.BAJA, fecha_baja=date(2026, 10, 11))
     horario = crear_horario_de_prueba(sesion, carlos.id)
 
-    generar(sesion, reloj, horario.id, LEJANO, carlos)
+    resultado = generar(sesion, reloj, horario.id, LEJANO, carlos)
 
-    assert sesion.scalar(select(func.count()).select_from(Notificacion)) == 0
+    assert resultado.urgente is False
+    notificaciones = list(sesion.scalars(select(Notificacion)))
+    assert {n.usuario_id for n in notificaciones} == {mariano.id, florencia.id}
+    assert {n.tipo for n in notificaciones} == {"VACANTE_ABIERTA"}
+    assert {n.mensaje for n in notificaciones} == {"Vacante: guardia del 20/10 a las 08:00."}
+    assert all(n.turno_id == resultado.turno.id and n.creada_en == reloj.ahora() for n in notificaciones)
+    assert all(n.datos == {"turnoId": f"{horario.id}:{LEJANO}", "vacanteId": resultado.vacante.id} for n in notificaciones)
 
 
 def test_un_tercero_no_puede_generar(sesion, reloj):
