@@ -44,4 +44,13 @@ describe("useTurnosSemana", () => {
     renderHook(() => useTurnosSemana(api, "2026-10-05", { alCuentaCambiada }));
     await waitFor(() => expect(alCuentaCambiada).toHaveBeenCalledTimes(1));
   });
+
+  test("refrescar vuelve a pedir sin pasar por 'cargando'", async () => {
+    const api = { get: vi.fn().mockResolvedValueOnce([{ id: "antes" }]).mockResolvedValue([{ id: "despues" }]) };
+    const { result } = renderHook(() => useTurnosSemana(api, "2026-10-05", { alCuentaCambiada: vi.fn() }));
+    await waitFor(() => expect(result.current.turnos).toEqual([{ id: "antes" }]));
+    act(() => result.current.refrescar());
+    expect(result.current.estado).toBe("ok");
+    await waitFor(() => expect(result.current.turnos).toEqual([{ id: "despues" }]));
+  });
 });

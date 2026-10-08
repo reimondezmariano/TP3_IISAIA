@@ -147,3 +147,24 @@ test("en pantalla de celular el calendario no desborda horizontalmente", async (
   const desborda = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
   expect(desborda).toBe(false);
 });
+
+test("semáforo: cada tarjeta toma su color de la vacante de GET /api/turnos y hay leyenda (D08, D24)", async ({ page }) => {
+  await simularSupabase(page);
+  const generadaPor = { id: 3, nombre: "Carlos Ruiz" };
+  await simularApi(page, {
+    me: ME,
+    turnos: [
+      TURNOS[0],
+      { ...TURNOS[1], vacante: { id: 12, urgente: false, generadaPor } },
+      { ...turno(4, "2026-10-08", "08:00", "16:00", "2026-10-08", generadaPor), vacante: { id: 13, urgente: true, generadaPor } },
+      TURNOS[2],
+    ],
+  });
+  await ingresar(page);
+  await expect(page.getByRole("list", { name: "Colores del calendario" })).toBeVisible();
+  await expect(page.locator('[data-turno-id="1:2026-10-09"]')).toHaveAttribute("data-semaforo", "cubierta");
+  await expect(page.locator('[data-turno-id="2:2026-10-10"]')).toHaveAttribute("data-semaforo", "vacante");
+  await expect(page.locator('[data-turno-id="4:2026-10-08"]')).toHaveAttribute("data-semaforo", "urgente");
+  await expect(page.locator('[data-turno-id="3:2026-10-11"]')).toHaveAttribute("data-semaforo", "baja");
+  await expect(page.locator('[data-turno-id="3:2026-10-11"]')).toHaveCSS("border-left-color", "rgb(179, 38, 30)");
+});
