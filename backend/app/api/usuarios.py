@@ -84,6 +84,7 @@ class CambioUsuarioOut(Esquema):
     usuario: UsuarioStaffOut
     horarios_sin_titular: list[int]
     turnos_afectados: list[TurnoAfectadoOut]
+    coberturas_reabiertas: list[TurnoAfectadoOut]
 
 
 def cambio_out(db: Session, resultado: ResultadoCambio, dia: date) -> CambioUsuarioOut:
@@ -93,6 +94,7 @@ def cambio_out(db: Session, resultado: ResultadoCambio, dia: date) -> CambioUsua
         usuario=usuario_out(usuario, versiones),
         horarios_sin_titular=resultado.horarios_sin_titular,
         turnos_afectados=[turno_afectado_out(t) for t in resultado.turnos_afectados],
+        coberturas_reabiertas=[turno_afectado_out(t) for t in resultado.coberturas_reabiertas],
     )
 
 
@@ -102,14 +104,14 @@ def modificar(
     datos: CambioUsuarioIn,
     db: Session = Depends(get_db),
     reloj: Reloj = Depends(get_reloj),
-    _coordinador: Usuario = Depends(requiere_coordinador),
+    coordinador: Usuario = Depends(requiere_coordinador),
 ) -> CambioUsuarioOut:
     """Activa a un médico pendiente (D26, D30) y/o cambia el rol (D23), en ese orden."""
     if datos.estado is None and datos.rol is None:
         raise ErrorDominio("SIN_CAMBIOS", "No se pidió ningún cambio.")
     dia = hoy(reloj)
     if datos.rol is not None:
-        resultado = cambiar_rol(db, usuario_id, datos.rol, dia, activar_antes=datos.estado is not None)
+        resultado = cambiar_rol(db, usuario_id, datos.rol, coordinador, reloj, activar_antes=datos.estado is not None)
     else:
         resultado = activar(db, usuario_id)
     db.commit()
@@ -126,10 +128,10 @@ def baja(
     datos: BajaIn,
     db: Session = Depends(get_db),
     reloj: Reloj = Depends(get_reloj),
-    _coordinador: Usuario = Depends(requiere_coordinador),
+    coordinador: Usuario = Depends(requiere_coordinador),
 ) -> CambioUsuarioOut:
-    """Da de baja a un médico: sus horarios quedan sin titular desde el día siguiente (D24)."""
+    """Da de baja a un médico: sus horarios quedan sin titular y sus coberturas se reabren desde el día siguiente (D24)."""
     dia = hoy(reloj)
-    resultado = dar_de_baja(db, usuario_id, datos.fecha_baja, dia)
+    resultado = dar_de_baja(db, usuario_id, datos.fecha_baja, coordinador, reloj)
     db.commit()
     return cambio_out(db, resultado, dia)

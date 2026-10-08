@@ -7,11 +7,13 @@ from sqlalchemy.exc import OperationalError
 
 from app.errores import ErrorDominio
 from app.modelos import EstadoUsuario, RolUsuario, Usuario, VersionHorario
+from app.reloj import RelojFijo
 from app.servicios.plantilla import abrir_version
 from app.servicios.usuarios import cambiar_rol, dar_de_baja
 from fabricas import HOY, ZONA, bloqueado_hasta_commit, crear_horario_de_prueba, crear_usuario, encabezados
 
 AHORA = datetime(2026, 10, 12, 9, 0, tzinfo=ZONA)
+RELOJ = RelojFijo(AHORA)
 
 
 @pytest.mark.commit_real
@@ -40,8 +42,8 @@ def test_dos_coordinadores_no_pueden_quitarse_el_rol_a_la_vez(fabrica_sesiones):
         ana_id, beto_id = ana.id, beto.id
 
     with fabrica_sesiones() as s1, fabrica_sesiones() as s2:
-        cambiar_rol(s1, beto_id, RolUsuario.MEDICO, HOY)  # Ana le quita el rol a Beto
-        resultado = bloqueado_hasta_commit(s1, lambda: cambiar_rol(s2, ana_id, RolUsuario.MEDICO, HOY))
+        cambiar_rol(s1, beto_id, RolUsuario.MEDICO, s1.get(Usuario, ana_id), RELOJ)  # Ana le quita el rol a Beto
+        resultado = bloqueado_hasta_commit(s1, lambda: cambiar_rol(s2, ana_id, RolUsuario.MEDICO, s2.get(Usuario, beto_id), RELOJ))
 
     assert isinstance(resultado.get("error"), ErrorDominio)
     assert resultado["error"].codigo == "ULTIMO_COORDINADOR"
@@ -52,16 +54,17 @@ def test_baja_no_le_quita_el_horario_a_quien_lo_recibio_mientras_esperaba(fabric
     with fabrica_sesiones() as s:
         carlos = crear_usuario(s, "Carlos Lugones")
         paula = crear_usuario(s, "Paula Méndez")
+        enzo = crear_usuario(s, "Enzo", rol=RolUsuario.COORDINADOR)
         horario_id = crear_horario_de_prueba(s, carlos.id).id
         s.commit()
-        carlos_id, paula_id = carlos.id, paula.id
+        carlos_id, paula_id, coordinador_id = carlos.id, paula.id, enzo.id
 
     with fabrica_sesiones() as s1, fabrica_sesiones() as s2:
         # designa a Paula
         abrir_version(s1, horario_id, {"medico_id": paula_id}, date(2026, 10, 13), HOY, AHORA, ZONA)
 
         def baja_de_carlos():
-            resultado = dar_de_baja(s2, carlos_id, date(2026, 10, 19), HOY)
+            resultado = dar_de_baja(s2, carlos_id, date(2026, 10, 19), s2.get(Usuario, coordinador_id), RELOJ)
             s2.commit()
             return resultado
 

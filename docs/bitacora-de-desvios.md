@@ -117,3 +117,13 @@ Cómo lo corregimos:
 Queda pendiente un menor: cuando la consolidación cierra una vacante abierta, usa la hora de la consolidación (no la del fin del turno) en `sin_cobertura_en`, `cerrada_en` y `ocurrido_en`. Si nadie abre la app por días, esa hora queda lejos del fin del turno.
 
 Qué aprendimos: un supuesto sobre la plantilla ("nada empieza antes de hoy") no alcanza cuando "hoy" ya tiene turnos en curso: el límite real es el instante, no la fecha. Y una herramienta de demo que mueve el tiempo tiene que guardar su estado junto con la historia que produce, para que el reinicio vuelva todo atrás a la vez.
+
+## 2026-10-08. Tarea 11 de F5: el plan reabría las coberturas antes de bloquear los horarios
+
+Qué pasó: el paso 5 de la tarea 11 del plan de F5 decía llamar a `_reabrir_coberturas` antes de `dejar_sin_titular`. Eso bloquea turnos antes que horarios, al revés del orden de la convención 19 de `backend/CLAUDE.md` (usuario, horario, consolidación, turno, vacante), que se escribió en F4, después del plan. Además, la firma real de `generar_vacante` recibe el id "horarioId:fecha" y la zona, no el turno.
+
+Cómo lo detectamos: al ejecutar el paso 1 (confirmar la función de Mariano) y contrastarla con `backend/CLAUDE.md` antes de escribir el código.
+
+Cómo lo corregimos: la baja y el cambio a coordinador reabren al final, después de dejar los horarios sin titular y de cambiar estado o rol. `coberturas_desde` bloquea los turnos por (horario, fecha), como `bloquear_turnos` (convención 20). La firma real quedó anotada en el paso 1 del plan.
+
+Qué aprendimos: una tarea marcada como dependiente envejece mientras espera; hay que contrastarla con las convenciones que se sumaron después, no solo con la función de la que depende.
