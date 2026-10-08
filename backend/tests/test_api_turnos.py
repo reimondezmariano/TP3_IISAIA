@@ -40,6 +40,7 @@ def test_turnos_formato_exacto(cliente, sesion):
             "fin": "2026-10-17T20:00:00-03:00",
             "duracionHoras": 12,
             "titular": {"id": florencia.id, "nombre": "Florencia Lucca"},
+            "vacante": None,
         }
     ]
 
@@ -99,3 +100,36 @@ def test_sin_horarios_devuelve_lista_vacia(cliente):
     r = cliente.get("/api/turnos", params={"desde": "2026-10-12", "hasta": "2026-10-18"})
     assert r.status_code == 200
     assert r.json() == []
+
+
+def test_turno_con_vacante_abierta_trae_id_urgencia_y_generador(cliente, sesion, reloj):
+    carlos = crear_usuario(sesion, "Carlos Lugones")
+    horario_martes = horario(sesion, carlos.id, dia=2, hora=time(8), dur=12)
+    cliente.headers.update(encabezados(carlos))
+    # Reloj fijo: lunes 12/10 09:00. El martes 13/10 está a 23 h (urgente); el del 20/10 no.
+    urgente = cliente.post(f"/api/turnos/{horario_martes.id}:2026-10-13/vacantes", json={"motivo": "privado"}).json()
+    lejano = cliente.post(f"/api/turnos/{horario_martes.id}:2026-10-20/vacantes", json={}).json()
+
+    turnos = cliente.get("/api/turnos", params={"desde": "2026-10-12", "hasta": "2026-10-20"}).json()
+
+    por_fecha = {t["fecha"]: t for t in turnos}
+    assert por_fecha["2026-10-13"]["vacante"] == {
+        "id": urgente["id"],
+        "urgente": True,
+        "generadaPor": {"id": carlos.id, "nombre": "Carlos Lugones"},
+    }
+    assert por_fecha["2026-10-20"]["vacante"]["id"] == lejano["id"]
+    assert por_fecha["2026-10-20"]["vacante"]["urgente"] is False
+    assert "motivo" not in por_fecha["2026-10-13"]["vacante"]
+
+
+def test_la_vacante_retirada_o_cubierta_no_aparece(cliente, sesion, reloj):
+    carlos = crear_usuario(sesion, "Carlos Lugones")
+    horario_martes = horario(sesion, carlos.id, dia=2, hora=time(8), dur=12)
+    cliente.headers.update(encabezados(carlos))
+    vacante = cliente.post(f"/api/turnos/{horario_martes.id}:2026-10-20/vacantes", json={}).json()
+    cliente.post(f"/api/vacantes/{vacante['id']}/retiro")
+
+    [turno] = cliente.get("/api/turnos", params={"desde": "2026-10-20", "hasta": "2026-10-20"}).json()
+
+    assert turno["vacante"] is None

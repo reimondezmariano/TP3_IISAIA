@@ -4,14 +4,17 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.api.esquemas import Esquema
+from app.api.esquemas_operacion import PersonaOut
 from app.auth import usuario_actual
 from app.config import get_settings
 from app.db import get_db
 from app.dominio.calendario import TurnoCalculado, calcular_turnos
+from app.dominio.vacantes import es_urgente
 from app.errores import ErrorDominio
-from app.modelos import Usuario
+from app.modelos import Turno, Usuario, Vacante
 from app.reloj import Reloj, get_reloj
 from app.repos.horarios import versiones_en_rango
+from app.repos.turnos import vacantes_abiertas_en_rango
 from app.servicios.consolidacion import ponerse_al_dia
 
 router = APIRouter()
@@ -24,6 +27,14 @@ class TitularOut(Esquema):
     nombre: str
 
 
+class VacanteAbiertaOut(Esquema):
+    """Resumen de la vacante abierta de un turno. El motivo no va acá (D25): está en POST/GET de vacantes."""
+
+    id: int
+    urgente: bool
+    generada_por: PersonaOut
+
+
 class TurnoOut(Esquema):
     id: str
     horario_id: int
@@ -32,10 +43,19 @@ class TurnoOut(Esquema):
     fin: datetime
     duracion_horas: int
     titular: TitularOut | None
+    vacante: VacanteAbiertaOut | None
 
 
-def _a_salida(turno: TurnoCalculado) -> TurnoOut:
+def _a_salida(turno: TurnoCalculado, abierta: tuple[Vacante, Turno, Usuario] | None) -> TurnoOut:
     titular = TitularOut(id=turno.titular.id, nombre=turno.titular.nombre) if turno.titular else None
+    vacante = None
+    if abierta is not None:
+        vacante_db, turno_db, generador = abierta
+        vacante = VacanteAbiertaOut(
+            id=vacante_db.id,
+            urgente=es_urgente(turno_db.inicio, vacante_db.creada_en),
+            generada_por=PersonaOut(id=generador.id, nombre=generador.nombre),
+        )
     return TurnoOut(
         id=turno.id,
         horario_id=turno.horario_id,
@@ -44,6 +64,7 @@ def _a_salida(turno: TurnoCalculado) -> TurnoOut:
         fin=turno.fin,
         duracion_horas=turno.duracion_horas,
         titular=titular,
+        vacante=vacante,
     )
 
 
@@ -68,4 +89,5 @@ def listar_turnos(
     db.commit()
     versiones = versiones_en_rango(db, desde, hasta)
     turnos = calcular_turnos(versiones, desde, hasta, zona)
-    return [_a_salida(turno) for turno in turnos]
+    abiertas = vacantes_abiertas_en_rango(db, desde, hasta)
+    return [_a_salida(turno, abiertas.get((turno.horario_id, turno.fecha))) for turno in turnos]
