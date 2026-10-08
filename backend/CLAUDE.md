@@ -33,7 +33,7 @@ FastAPI + SQLAlchemy 2 + Alembic sobre Postgres. Leer también el CLAUDE.md de l
 15. Un deadlock (40P01) o una violación de exclusión (23P01) que no se capturó responde 409 (`CONFLICTO_CONCURRENTE`, `CONFLICTO_DE_VERSION`) desde `app/api/manejadores.py`.
 16. Consolidación perezosa (D20): `ponerse_al_dia(sesion, reloj, zona)` de `app/servicios/consolidacion.py` consolida y emite alertas dentro de la transacción de quien llama; lo usan `GET /turnos` y `POST /consolidacion` (y `GET /indicadores/sin-cobertura` consolida). `GET /notificaciones` solo emite alertas. La marca `consolidacion_estado` se bloquea en cada consolidación y el seed la vacía.
 17. Notificaciones: crearlas siempre con `notificar(...)` de `app/servicios/notificaciones.py`, en la transacción de la acción (D22), y elegir destinatarios con `destinatarios(sesion, rol, hoy(reloj), excepto=...)`. Los tipos están en `TipoNotificacion` (`app/dominio/notificaciones.py`).
-18. Orden de bloqueos completo: `usuario`, `horario_pactado`, `consolidacion_estado`, `turno`, `vacante`.
+18. Orden de bloqueos completo: `usuario`, `horario_pactado`, `consolidacion_estado`, `turno`, `vacante`. La consolidación (`consolidar_pendientes`, `ponerse_al_dia`) se llama al principio de la transacción, antes de bloquear cualquier usuario u horario: cada turno que inserta toma FOR KEY SHARE sobre su horario, su versión y sus usuarios, y eso choca con el FOR UPDATE de `bloquear_horario` y `bloquear_usuario`. Una operación que ya bloqueó un horario no consolida en la misma transacción.
 
 ## Comandos (desde backend/)
 
