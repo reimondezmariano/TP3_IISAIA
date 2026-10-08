@@ -75,6 +75,10 @@ def cambiar_rol(
         if usuario.estado != EstadoUsuario.PENDIENTE:
             raise ErrorDominio("YA_ACTIVO", "El usuario ya está activo.", 409)
         usuario.estado = EstadoUsuario.ACTIVO
+    if rol == RolUsuario.COORDINADOR and usuario.estado != EstadoUsuario.ACTIVO:
+        raise ErrorDominio(
+            "USUARIO_PENDIENTE", "Activá al usuario antes de hacerlo coordinador, o en el mismo pedido.", 409
+        )
     if usuario.rol == rol:
         raise ErrorDominio("SIN_CAMBIOS", "El usuario ya tiene ese rol.")
     if rol == RolUsuario.MEDICO:

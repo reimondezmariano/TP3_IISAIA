@@ -70,3 +70,10 @@ def test_un_medico_no_cambia_roles(cliente, sesion, reloj):
     medico = crear_usuario(sesion, "Carlos Lugones")
     r = cliente.patch(f"/api/usuarios/{medico.id}", json={"rol": "COORDINADOR"}, headers=encabezados(medico))
     assert (r.status_code, r.json()["codigo"]) == (403, "SIN_PERMISO")
+
+
+def test_un_pendiente_no_pasa_a_coordinador_sin_activarse(cliente, sesion, como_coordinador):
+    pendiente = crear_usuario(sesion, "Sin activar", estado=EstadoUsuario.PENDIENTE)
+    r = cliente.patch(f"/api/usuarios/{pendiente.id}", json={"rol": "COORDINADOR"})
+    assert (r.status_code, r.json()["codigo"]) == (409, "USUARIO_PENDIENTE")
+    assert [u["rol"] for u in cliente.get("/api/usuarios").json() if u["id"] == pendiente.id] == ["MEDICO"]
