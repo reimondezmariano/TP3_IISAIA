@@ -2,10 +2,13 @@
 
 **Grupo 7** — Ana María Florencia Lucca, Carlos Alejandro Lugones, Mariano Ezequiel Reimondez
 
-Reemplazo del grupo de WhatsApp + planilla de Excel que hoy usa el servicio hospitalario
-para gestionar guardias, por una aplicación (móvil + web) con calendario en tiempo real,
-plantilla base de guardia, semáforo de vacantes (rojo/amarillo/verde) y notificaciones
-push propias. Ver la especificación completa en
+Guardia Viva reemplaza el grupo de WhatsApp y la planilla Excel con que un servicio
+hospitalario de 10 a 12 médicos gestiona sus guardias. Es una aplicación web responsive,
+pensada para instalarse en el celular, con un calendario compartido calculado desde los
+horarios pactados de cada médico, vacantes y postulaciones para cubrir ausencias, un
+semáforo que muestra qué turnos están en riesgo, y notificaciones dentro de la app (las
+vacantes urgentes se muestran además como aviso emergente). El diseño está en
+[`CLAUDE.md`](CLAUDE.md); el documento de partida, en
 [`prompt_tp_final_v02.md`](prompt_tp_final_v02.md).
 
 ## Estado actual
@@ -68,14 +71,14 @@ Dos marcas destacan de dónde salió el cambio:
 
 ### Reglas operativas
 
-- **D15. Una vacante por turno**, con carga de varias fechas en una acción para vacaciones y congresos. Motivo: cada turno se cubre por separado; las vacantes con menos de 24 h se marcan urgentes.
+- **D15. Una vacante por turno.** Motivo: cada turno puede cubrirlo una persona distinta, así que una ausencia de varios días son vacantes independientes; para vacaciones y congresos la interfaz permite marcar varias fechas en una sola acción. Las vacantes con menos de 24 h se marcan urgentes para que las vea todo el servicio.
 - **D16. Postulación al turno, no a la vacante.** Motivo: si el asignado cancela, los candidatos anteriores siguen activos como reserva para cancelaciones de último momento.
 - **D17. Candidatos ordenados por equidad** (quien cubrió menos vacantes en el mes). [Validación] Descartado: ranking por horas de descanso con advertencia por menos de 12 h; en el servicio no hay prioridad por descanso y el médico propuso repartir la carga extra en forma pareja.
 - **D18. Un solo endpoint de asignación** para elegir candidato, asignar directo o reasignar. Motivo: es la misma acción ("esta persona cubre este turno"); el backend distingue los casos para la bitácora.
 - **D19. Turno sin cobertura con alertas a 48 h, 24 h y al inicio**, e indicador de horas sin cobertura por mes. [Validación] Hoy, cuando nadie cubre, los demás trabajan el doble y no queda registro; el indicador lo hace visible.
 - **D20. Consolidación perezosa e idempotente.** Descartado: un proceso programado. Motivo: tolera caídas del servidor. [Revisión] Un cambio de plantilla que empieza hoy con el turno de hoy ya en curso responde 422 en lugar de guardar historia incorrecta.
 - **D21. Rectificación con motivo obligatorio.** Descartado: sobrescribir el realizador (modelo C1). Motivo: queda un evento con el valor anterior.
-- **D22. Bitácora solo de agregar, en la misma transacción que el cambio.** Descartado: registrar también consultas, logins y cambios de plantilla. Motivo: solo se registran acciones y lo que ninguna entidad conserva.
+- **D22. Bitácora solo de agregar, en la misma transacción que el cambio.** Descartado: registrar también consultas, logins y cambios de plantilla. Motivo: se registran solo acciones y lo que ninguna entidad conserva, y siempre en la misma transacción que el cambio, para que la bitácora nunca quede distinta del estado (por eso se descartó el modelo C4).
 - **D25. Motivo de ausencia visible solo para coordinadores.** Motivo: puede incluir información personal o de salud.
 - **D31. Generar una vacante borra al asignado en la misma transacción.** Descartado: conservar el asignado mientras la vacante está abierta; cada consulta tendría que acordarse de ignorarlo, y un olvido atribuiría la guardia a quien canceló.
 
@@ -84,7 +87,7 @@ Dos marcas destacan de dónde salió el cambio:
 - **D26. Pantalla de staff completa para el coordinador** (activar, cargar y modificar horarios, cambiar rol, dar de baja, designar titular). Los datos de ejemplo se cargan por script, y el alta de usuarios es por registro (D30).
 - **D27. Reloj de demo inyectable.** Motivo: mostrar consolidación y alertas sin esperar horas; las pruebas usan el mismo mecanismo. [Revisión] Descartado: guardar el desfase en memoria; volver a la hora real dejaba historia consolidada en el futuro, así que el desfase pasó a la base y el seed lo reinicia.
 - **D28. Usuarios de demo cargados por seed y vinculados por email.** [Revisión] Descartado: vincular cualquier usuario cargado sin código; con la confirmación de email desactivada, cualquiera podía registrarse con el email del coordinador de ejemplo y quedar como coordinador. Vincular un coordinador cargado exige el código de coordinación.
-- **D29. Fuera de alcance:** coberturas parciales, intercambios entre médicos, push nativo y mail. Motivo: el README evalúa la aplicación de punta a punta, no el canal de notificaciones (D05).
+- **D29. Fuera de alcance:** coberturas parciales, intercambios entre médicos, push nativo y mail. Motivo: coberturas parciales e intercambios directos quedan afuera por el plazo y por el criterio del modelo más simple: en el servicio cada horario es de un solo médico y se cubre completo. Push nativo y mail quedan afuera porque el README evalúa la aplicación de punta a punta, no el canal de notificaciones (D05).
 
 Otros hallazgos de revisión que no cambiaron una decisión, pero sí el código: carreras entre dar de baja y designar titular (F5), un deadlock posible en el cambio de rol (F5) y un médico dado de baja que quedaba como realizador presunto (F4). Los puntos menores que quedan pendientes también están en la bitácora.
 
