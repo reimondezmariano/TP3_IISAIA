@@ -146,7 +146,9 @@ def guardar_turno(
     return turno
 
 
-def bloqueado_hasta_commit(primera: Session, accion: Callable[[], Any]) -> dict:
+def bloqueado_hasta_commit(
+    primera: Session, accion: Callable[[], Any], antes_de_confirmar: Callable[[], Any] | None = None
+) -> dict:
     """Corre `accion` en otro hilo, verifica que espera los bloqueos de `primera`, confirma `primera`
     y devuelve lo que pasó en el hilo: {"valor": ...} o {"error": excepción}."""
     resultado: dict = {}
@@ -161,6 +163,8 @@ def bloqueado_hasta_commit(primera: Session, accion: Callable[[], Any]) -> dict:
     hilo.start()
     hilo.join(timeout=0.5)
     assert hilo.is_alive(), "la segunda transacción no esperó el bloqueo de la primera"
+    if antes_de_confirmar is not None:
+        antes_de_confirmar()  # mira la base mientras la segunda espera
     primera.commit()
     hilo.join(timeout=10)
     assert not hilo.is_alive(), "la segunda transacción no terminó"

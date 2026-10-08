@@ -56,17 +56,25 @@ def dar_de_baja(sesion: Session, usuario_id: int, fecha_baja: date, hoy: date) -
     return ResultadoCambio(usuario, horarios, afectados)
 
 
-def cambiar_rol(sesion: Session, usuario_id: int, rol: RolUsuario, hoy: date) -> ResultadoCambio:
+def cambiar_rol(
+    sesion: Session, usuario_id: int, rol: RolUsuario, hoy: date, activar_antes: bool = False
+) -> ResultadoCambio:
     """Roles excluyentes (D23). Siempre queda al menos un coordinador activo.
 
     Un médico que pasa a coordinador deja sus horarios sin titular desde mañana, en la misma transacción:
-    hoy todavía hace su guardia (decisión 4 del plan de F5).
+    hoy todavía hace su guardia (decisión 4 del plan de F5). Con `activar_antes`, activa al usuario pendiente
+    sobre la fila ya bloqueada junto con los coordinadores: llamar antes a `activar` lo bloquearía fuera del
+    orden por id y podría cerrar un ciclo con otro cambio de rol.
     """
     usuario, coordinadores = bloquear_con_coordinadores(sesion, usuario_id)
     if usuario is None:
         raise ErrorDominio("USUARIO_NO_ENCONTRADO", "No existe ese usuario.", 404)
     if usuario.estado == EstadoUsuario.BAJA:
         raise ErrorDominio("USUARIO_DADO_DE_BAJA", "El usuario está dado de baja.", 409)
+    if activar_antes:
+        if usuario.estado != EstadoUsuario.PENDIENTE:
+            raise ErrorDominio("YA_ACTIVO", "El usuario ya está activo.", 409)
+        usuario.estado = EstadoUsuario.ACTIVO
     if usuario.rol == rol:
         raise ErrorDominio("SIN_CAMBIOS", "El usuario ya tiene ese rol.")
     if rol == RolUsuario.MEDICO:

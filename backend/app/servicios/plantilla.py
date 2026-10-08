@@ -103,12 +103,14 @@ def dejar_sin_titular(
 ) -> tuple[list[int], list[TurnoAfectado]]:
     """Abre en `desde` una versión sin titular en cada horario del médico (D23, D24).
 
-    Quien llama ya bloqueó al médico: nadie puede designarlo titular mientras tanto. Cada horario se bloquea
-    antes de mirar sus versiones, así un cambio simultáneo de otro coordinador no se pierde.
+    Quien llama ya bloqueó al médico: nadie puede designarlo titular mientras tanto. La lista de horarios se
+    lee sin bloquearlos, así que cada uno se vuelve a mirar después de bloquearlo: si mientras tanto otro
+    coordinador designó a alguien más, ese horario ya no es del médico y no se toca (regla 8).
     """
     validar_desde(desde, hoy)
-    horario_ids = sorted({v.horario_id for v in versiones_del_medico_desde(sesion, medico_id, desde)})
-    for horario_id in horario_ids:
+    candidatos = sorted({v.horario_id for v in versiones_del_medico_desde(sesion, medico_id, desde)})
+    horario_ids = []
+    for horario_id in candidatos:
         versiones = bloquear_horario(sesion, horario_id)
         futura = next((v for v in versiones if v.medico_id == medico_id and v.vigente_desde >= desde), None)
         if futura is not None:
@@ -118,5 +120,9 @@ def dejar_sin_titular(
                 f"{futura.vigente_desde:%d/%m/%Y}: cambiala antes de continuar.",
                 409,
             )
+        rige = next((v for v in versiones if a_vigencia(v).rige(desde)), None)
+        if rige is None or rige.medico_id != medico_id:
+            continue
         _partir(sesion, horario_id, versiones, {"medico_id": None}, desde)
+        horario_ids.append(horario_id)
     return horario_ids, turnos_afectados(sesion, horario_ids, desde)

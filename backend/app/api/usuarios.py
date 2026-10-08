@@ -108,9 +108,10 @@ def modificar(
     if datos.estado is None and datos.rol is None:
         raise ErrorDominio("SIN_CAMBIOS", "No se pidió ningún cambio.")
     dia = hoy(reloj)
-    resultado = activar(db, usuario_id) if datos.estado is not None else None
     if datos.rol is not None:
-        resultado = cambiar_rol(db, usuario_id, datos.rol, dia)
+        resultado = cambiar_rol(db, usuario_id, datos.rol, dia, activar_antes=datos.estado is not None)
+    else:
+        resultado = activar(db, usuario_id)
     db.commit()
     return cambio_out(db, resultado, dia)
 
