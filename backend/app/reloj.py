@@ -1,6 +1,6 @@
 """Reloj inyectable (D27). Es el único módulo que consulta la hora del sistema."""
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Protocol
 from zoneinfo import ZoneInfo
 
@@ -36,3 +36,8 @@ class RelojFijo:
 
 def get_reloj() -> Reloj:
     return RelojSistema(get_settings().zona)
+
+
+def hoy(reloj: Reloj) -> date:
+    """Fecha de "ahora" en la zona del servicio (D13). Toda regla que compare con hoy usa esta función."""
+    return reloj.ahora().astimezone(get_settings().zona).date()

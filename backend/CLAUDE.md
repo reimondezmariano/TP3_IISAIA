@@ -7,11 +7,12 @@ FastAPI + SQLAlchemy 2 + Alembic sobre Postgres. Leer también el CLAUDE.md de l
 1. `app/dominio/`: lógica pura, sin base de datos ni FastAPI. Se prueba con pruebas unitarias.
 2. `app/modelos/`: tablas SQLAlchemy. El esquema real lo define la migración de Alembic (SQL escrito a mano); los modelos deben coincidir con ella.
 3. `app/repos/`: consultas. No hacen commit; trabajan dentro de la transacción de quien llama.
-4. `app/api/`: routers bajo el prefijo `/api`. Los esquemas de respuesta usan alias camelCase.
-5. `app/errores.py`: `ErrorDominio(codigo, mensaje, status)`. `app/api/manejadores.py` lo convierte en `{"codigo", "mensaje"}`.
-6. `app/reloj.py`: reloj inyectable (D27). Nada fuera de ese archivo consulta la hora del sistema; una prueba lo verifica.
-7. `app/auth.py`: verificación del token de Supabase Auth (D06) y dependencias de permisos: `identidad_actual` (token válido), `usuario_registrado` (solo GET /me), `usuario_actual` (cuenta ACTIVA; la exige todo endpoint salvo /health, /me y /registro) y `requiere_coordinador`.
-8. `scripts/seed.py`: datos de ejemplo. Al recargar conserva, por email, las cuentas de Supabase Auth de los usuarios de ejemplo; los usuarios que no son de ejemplo se borran.
+4. `app/servicios/`: operaciones que combinan reglas de `app/dominio/` y consultas de `app/repos/` (staff y plantilla). No hacen commit; lo hace el router.
+5. `app/api/`: routers bajo el prefijo `/api`. Los esquemas de respuesta usan alias camelCase.
+6. `app/errores.py`: `ErrorDominio(codigo, mensaje, status)`. `app/api/manejadores.py` lo convierte en `{"codigo", "mensaje"}`.
+7. `app/reloj.py`: reloj inyectable (D27). Nada fuera de ese archivo consulta la hora del sistema; una prueba lo verifica.
+8. `app/auth.py`: verificación del token de Supabase Auth (D06) y dependencias de permisos: `identidad_actual` (token válido), `usuario_registrado` (solo GET /me), `usuario_actual` (cuenta ACTIVA, o BAJA hasta su `fecha_baja` inclusive; la exige todo endpoint salvo /health, /me y /registro) y `requiere_coordinador`.
+9. `scripts/seed.py`: datos de ejemplo. Al recargar conserva, por email, las cuentas de Supabase Auth de los usuarios de ejemplo; los usuarios que no son de ejemplo se borran.
 
 ## Convenciones
 
@@ -25,6 +26,11 @@ FastAPI + SQLAlchemy 2 + Alembic sobre Postgres. Leer también el CLAUDE.md de l
 8. Los instantes de dominio (`creada_en` de vacante, postulación y notificación; `ocurrido_en` del evento; `cerrada_en`, `consolidado_en`, etc.) no tienen valor por defecto en la base: se completan con `reloj.ahora()`. Excepción: `turno.creado_en` es una marca técnica con `DEFAULT now()` (hora real de la base); no usarla en la lógica de dominio como "cuándo se materializó el turno".
 9. `evento_turno` solo admite INSERT: un trigger rechaza UPDATE y DELETE (D22). TRUNCATE sigue funcionando para el seed y las pruebas.
 10. El vencimiento del token se controla con la hora real dentro de PyJWT, no con el reloj inyectable, para que adelantar el reloj de demo no cierre las sesiones.
+11. Orden de bloqueos (regla 8): primero filas de `usuario`, después filas de `horario_pactado`. Varios usuarios se bloquean en un solo SELECT ordenado por id (`bloquear_con_coordinadores`). Un horario se bloquea con `bloquear_horario`, que relee sus versiones.
+12. "Hoy" es `hoy(reloj)` de `app/reloj.py`, en la zona del servicio. Ningún cambio de plantilla empieza antes de hoy. Una versión que todavía no rige se modifica en el lugar; una que ya rige solo se parte (D10).
+13. Fábricas de F5: `crear_horario_de_prueba`, `guardar_turno` (turno materializado con la foto de su versión), `bloqueado_hasta_commit` (pruebas `commit_real` de bloqueos), `HOY` y la fixture `como_coordinador`.
+14. Una cuenta BAJA entra hasta su `fecha_baja` inclusive (D24); `ck_usuario_fecha_baja` obliga a que estado BAJA y fecha vayan juntos.
+15. Un deadlock (40P01) o una violación de exclusión (23P01) que no se capturó responde 409 (`CONFLICTO_CONCURRENTE`, `CONFLICTO_DE_VERSION`) desde `app/api/manejadores.py`.
 
 ## Comandos (desde backend/)
 

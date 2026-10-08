@@ -3,7 +3,8 @@
 El frontend inicia sesión contra Supabase Auth y manda el token de acceso en Authorization: Bearer.
 El backend solo verifica el token: nunca ve ni guarda contraseñas.
 Dependencias, de menor a mayor exigencia: identidad_actual (token válido), usuario_registrado
-(token vinculado a un Usuario), usuario_actual (Usuario ACTIVO), requiere_coordinador.
+(token vinculado a un Usuario), usuario_actual (Usuario ACTIVO, o BAJA hasta su fecha de baja inclusive),
+requiere_coordinador.
 """
 
 import uuid
@@ -20,6 +21,7 @@ from app.config import get_settings
 from app.db import get_db
 from app.errores import ErrorDominio
 from app.modelos import EstadoUsuario, RolUsuario, Usuario
+from app.reloj import Reloj, get_reloj, hoy
 from app.repos.usuarios import buscar_por_auth_id
 
 AUDIENCIA = "authenticated"
@@ -127,11 +129,15 @@ def usuario_registrado(
     return usuario
 
 
-def usuario_actual(usuario: Usuario = Depends(usuario_registrado)) -> Usuario:
-    """Usuario con acceso: estado ACTIVO (D23, D30). Lo exige todo endpoint salvo /health, /me y /registro."""
+def usuario_actual(usuario: Usuario = Depends(usuario_registrado), reloj: Reloj = Depends(get_reloj)) -> Usuario:
+    """Usuario con acceso (D23, D30). Lo exige todo endpoint salvo /health, /me y /registro.
+
+    Una baja (D24) deja entrar hasta la fecha de baja inclusive: el estado pasa a BAJA al registrarla,
+    pero el médico todavía trabaja hasta ese día.
+    """
     if usuario.estado == EstadoUsuario.PENDIENTE:
         raise ErrorDominio("CUENTA_PENDIENTE", "Un coordinador tiene que activar tu cuenta.", 403)
-    if usuario.estado == EstadoUsuario.BAJA:
+    if usuario.estado == EstadoUsuario.BAJA and usuario.fecha_baja < hoy(reloj):
         raise ErrorDominio("CUENTA_DADA_DE_BAJA", "La cuenta está dada de baja.", 403)
     return usuario
 

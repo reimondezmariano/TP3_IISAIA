@@ -55,7 +55,7 @@ Todos los endpoints van bajo el prefijo `/api` (por ejemplo, `GET /api/turnos`);
 2. Calendario: GET /turnos?desde&hasta, GET /turnos/{turnoId} (detalle y línea de tiempo).
 3. Vacantes y postulaciones: POST /turnos/{turnoId}/vacantes, POST /vacantes/lote, POST /vacantes/{id}/retiro, POST /turnos/{turnoId}/postulaciones, POST /postulaciones/{id}/retiro, GET /turnos/{turnoId}/candidatos.
 4. Coordinación: PUT /turnos/{turnoId}/asignacion, POST /turnos/{turnoId}/sin-cobertura, POST /turnos/{turnoId}/rectificacion, POST /consolidacion, GET /indicadores/sin-cobertura.
-5. Staff y plantilla: GET y POST /usuarios, PATCH /usuarios/{id}, POST /usuarios/{id}/baja, GET /horarios, POST /horarios, POST /horarios/{id}/versiones.
+5. Staff y plantilla (solo coordinadores): GET /usuarios, PATCH /usuarios/{id} (activar, cambiar rol), POST /usuarios/{id}/baja, GET /horarios, POST /horarios, POST /horarios/{id}/versiones (modificar o designar titular; devuelve los turnos afectados), POST /horarios/{id}/cierre. Las altas de usuarios son por registro (D30).
 6. Notificaciones: GET /notificaciones, POST /notificaciones/{id}/leida.
 7. Solo en modo demo: POST /demo/reloj.
 

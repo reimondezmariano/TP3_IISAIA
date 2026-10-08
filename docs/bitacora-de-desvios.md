@@ -49,3 +49,27 @@ Cómo lo corregimos: todavía no; se anotan para F5 (seguridad y staff) o F6 (in
 
 Qué aprendimos: separar en la revisión lo que bloquea el merge de lo que se puede anotar deja el pull request chico sin perder los hallazgos.
 
+## 2026-10-07. La revisión de F5 encontró carreras en la baja y un callejón sin salida en la plantilla
+
+Qué pasó: la revisión de toda la branch feature/f5-staff-backend reprodujo tres problemas importantes contra la base de pruebas. Primero, si un coordinador designaba un titular nuevo mientras otro daba de baja al titular anterior, la baja dejaba sin titular al recién designado: leía los horarios del médico antes de bloquearlos y no los volvía a mirar. Segundo, un médico con una versión que todavía no empezó no podía darse de baja ni pasar a coordinador, y esa versión no se podía corregir por ninguna ruta: el plan (decisiones 4 y 7) no previó el caso. Tercero, un PATCH con estado y rol bloqueaba al usuario antes que a los coordinadores, contra el orden de bloqueos del propio plan, y podía terminar en un deadlock que llegaba como 500.
+
+Cómo lo detectamos: revisión de código de toda la branch por un subagente con contexto nuevo, con foco pedido en el orden de los bloqueos. El revisor escribió sondas de concurrencia propias fuera del repositorio.
+
+Cómo lo corregimos: cada corrección empezó con una prueba que fallaba (dos de ellas commit_real, con dos transacciones reales). La baja vuelve a mirar cada horario después de bloquearlo. El PATCH activa dentro de cambiar_rol, sobre las filas ya bloqueadas en orden. Para el segundo, el equipo eligió que una versión que todavía no rige se modifique en el lugar (ajuste en D10). Además, por pedido del equipo, pasar a coordinador exige un usuario activo y un deadlock o choque de versiones responde 409.
+
+Qué aprendimos: las pruebas de concurrencia del plan cubrían las carreras que el plan había imaginado; las que encontró la revisión mezclaban dos operaciones distintas (designar y dar de baja). Conviene pensar las carreras por pares de operaciones, no por operación.
+
+## 2026-10-07. Menores de la revisión de F5 que quedan pendientes
+
+Qué pasó: la revisión de F5 marcó cinco puntos menores. Se corrigieron dos (cambio a coordinador solo con usuario activo; deadlock y choque de versiones como 409). Los otros tres quedan pendientes:
+
+1. La fábrica de pruebas `bloqueado_hasta_commit` verifica que la segunda transacción espera con un `join(timeout=0.5)`: prueba que el hilo no terminó, no que esté esperando un bloqueo. En una máquina lenta la prueba podría pasar sin probar la espera (falso positivo, no falla al azar). Corrección propuesta: consultar `pg_blocking_pids` o `pg_stat_activity` hasta ver la espera por bloqueo.
+2. El docstring de `test_dos_coordinadores_no_pueden_quitarse_el_rol_a_la_vez` atribuye la garantía a que Postgres vuelve a evaluar el WHERE (EvalPlanQual), pero el filtro en Python con `populate_existing` daría el mismo resultado. Corrección propuesta: ajustar el texto a lo que la prueba realmente demuestra.
+3. Los permisos (`requiere_coordinador`) se leen antes de tomar los bloqueos: un coordinador al que otro le quita el rol puede terminar una acción que ya había empezado. La garantía de "al menos un coordinador activo" no se ve afectada. Es una ventana de milisegundos, común a toda la API.
+
+Cómo lo detectamos: revisión de código de toda la branch feature/f5-staff-backend.
+
+Cómo lo corregimos: todavía no; quedan anotados para después del Demo Day o para cuando se toque ese código.
+
+Qué aprendimos: igual que en F2, separar lo que bloquea el merge de lo que se puede anotar mantiene el pull request chico sin perder los hallazgos.
+

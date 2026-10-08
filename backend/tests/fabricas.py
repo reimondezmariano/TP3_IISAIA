@@ -1,14 +1,21 @@
+import datetime as dt
+import threading
 import time
 import uuid
-from datetime import timedelta
+from collections.abc import Callable
+from datetime import date, datetime, timedelta
 from itertools import count
+from typing import Any
+from zoneinfo import ZoneInfo
 
 import jwt
 import pytest
+from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.modelos import EstadoUsuario, RolUsuario, Usuario
+from app.modelos import EstadoUsuario, HorarioPactado, RolUsuario, Turno, Usuario, VersionHorario
+from app.repos.horarios import DatosVersion, crear_horario
 
 _secuencia = count(1)
 
@@ -20,12 +27,16 @@ def crear_usuario(
     estado: EstadoUsuario = EstadoUsuario.ACTIVO,
     email: str | None = None,
     con_cuenta: bool = True,
+    fecha_baja: date | None = None,
 ) -> Usuario:
+    if estado == EstadoUsuario.BAJA and fecha_baja is None:
+        fecha_baja = date(2000, 1, 1)  # baja vieja: ya no entra con ningún reloj
     usuario = Usuario(
         nombre=nombre,
         email=email or f"usuario{next(_secuencia)}@prueba.test",
         rol=rol,
         estado=estado,
+        fecha_baja=fecha_baja,
         auth_id=uuid.uuid4() if con_cuenta else None,
     )
     sesion.add(usuario)
@@ -76,3 +87,85 @@ def token_para(
 
 def encabezados(usuario) -> dict[str, str]:
     return {"Authorization": f"Bearer {token_para(usuario.auth_id, email=usuario.email)}"}
+
+
+ZONA = ZoneInfo("America/Argentina/Buenos_Aires")
+HOY = date(2026, 10, 12)  # fecha del RelojFijo de conftest (lunes 12/10/2026 09:00)
+
+
+def crear_horario_de_prueba(
+    sesion: Session,
+    medico_id: int | None,
+    dia: int = 2,
+    hora: dt.time = dt.time(8),
+    dur: int = 12,
+    frec: int = 1,
+    ancla: date = date(2026, 9, 7),
+    desde: date = date(2026, 9, 7),
+    hasta: date | None = None,
+) -> HorarioPactado:
+    """Por defecto: martes de 08:00 a 20:00 todas las semanas, vigente desde el 7/9."""
+    datos = DatosVersion(
+        medico_id=medico_id,
+        dia_semana=dia,
+        hora_inicio=hora,
+        duracion_horas=dur,
+        frecuencia_semanas=frec,
+        fecha_ancla=ancla,
+    )
+    return crear_horario(sesion, datos, desde, hasta)
+
+
+def guardar_turno(
+    sesion: Session,
+    horario_id: int,
+    fecha: date,
+    asignado_id: int | None = None,
+    consolidado_en: datetime | None = None,
+) -> Turno:
+    """Turno materializado con la foto de la versión que rige `fecha` (D11), como lo guardaría F2b."""
+    version = sesion.scalars(
+        select(VersionHorario).where(
+            VersionHorario.horario_id == horario_id,
+            VersionHorario.vigente_desde <= fecha,
+            or_(VersionHorario.vigente_hasta.is_(None), VersionHorario.vigente_hasta > fecha),
+        )
+    ).one()
+    inicio = datetime.combine(fecha, version.hora_inicio, tzinfo=ZONA)
+    turno = Turno(
+        horario_id=horario_id,
+        fecha=fecha,
+        version_id=version.id,
+        inicio=inicio,
+        fin=inicio + timedelta(hours=version.duracion_horas),
+        titular_id=version.medico_id,
+        asignado_id=asignado_id,
+        consolidado_en=consolidado_en,
+    )
+    guardar(sesion, turno)
+    return turno
+
+
+def bloqueado_hasta_commit(
+    primera: Session, accion: Callable[[], Any], antes_de_confirmar: Callable[[], Any] | None = None
+) -> dict:
+    """Corre `accion` en otro hilo, verifica que espera los bloqueos de `primera`, confirma `primera`
+    y devuelve lo que pasó en el hilo: {"valor": ...} o {"error": excepción}."""
+    resultado: dict = {}
+
+    def correr() -> None:
+        try:
+            resultado["valor"] = accion()
+        except Exception as exc:  # noqa: BLE001 - la prueba inspecciona la excepción
+            resultado["error"] = exc
+
+    hilo = threading.Thread(target=correr)
+    hilo.start()
+    hilo.join(timeout=0.5)
+    assert hilo.is_alive(), "la segunda transacción no esperó el bloqueo de la primera"
+    if antes_de_confirmar is not None:
+        antes_de_confirmar()  # mira la base mientras la segunda espera
+    primera.commit()
+    hilo.join(timeout=10)
+    assert not hilo.is_alive(), "la segunda transacción no terminó"
+    return resultado

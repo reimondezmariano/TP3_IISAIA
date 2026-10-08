@@ -1,4 +1,5 @@
 import uuid
+from datetime import date
 
 import pytest
 
@@ -69,3 +70,17 @@ def test_turnos_acepta_cualquier_rol_activo(cliente, sesion, rol):
     r = cliente.get("/api/turnos", params={"desde": "2026-10-12", "hasta": "2026-10-18"}, headers=encabezados(usuario))
 
     assert r.status_code == 200
+
+
+def test_baja_programada_sigue_entrando_hasta_su_fecha_inclusive(cliente, sesion, reloj):
+    # reloj: lunes 12/10/2026 09:00. D24: activo hasta la fecha de baja inclusive.
+    medico = crear_usuario(sesion, "Se va hoy", estado=EstadoUsuario.BAJA, fecha_baja=date(2026, 10, 12))
+    r = cliente.get("/api/turnos", params={"desde": "2026-10-12", "hasta": "2026-10-12"}, headers=encabezados(medico))
+    assert r.status_code == 200
+
+
+def test_baja_cumplida_ya_no_entra(cliente, sesion, reloj):
+    medico = crear_usuario(sesion, "Se fue ayer", estado=EstadoUsuario.BAJA, fecha_baja=date(2026, 10, 11))
+    r = cliente.get("/api/turnos", params={"desde": "2026-10-12", "hasta": "2026-10-12"}, headers=encabezados(medico))
+    assert r.status_code == 403
+    assert r.json()["codigo"] == "CUENTA_DADA_DE_BAJA"
