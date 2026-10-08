@@ -12,11 +12,7 @@ from app.api.esquemas_operacion import (
     AsignacionOut,
     AsignarIn,
     CandidatosOut,
-    GenerarVacanteIn,
-    LoteVacantesIn,
-    LoteVacantesOut,
     PostulacionOut,
-    VacanteOut,
 )
 from app.auth import requiere_coordinador, usuario_actual
 from app.dominio.calendario import parsear_id_turno
@@ -30,38 +26,6 @@ ENCABEZADO_EJEMPLO = "X-Respuesta-Ejemplo"
 def _ejemplo(respuesta: Response, nombre: str):
     respuesta.headers[ENCABEZADO_EJEMPLO] = "true"
     return EJEMPLOS[nombre]
-
-
-@router.post("/turnos/{turno_id}/vacantes", response_model=VacanteOut, status_code=201)
-def generar_vacante(
-    turno_id: str,
-    datos: GenerarVacanteIn,
-    respuesta: Response,
-    _usuario: Usuario = Depends(usuario_actual),
-) -> VacanteOut:
-    """Genera una vacante sobre el turno (D15). La puede generar el titular, el asignado o un coordinador."""
-    parsear_id_turno(turno_id)
-    return _ejemplo(respuesta, "VacanteOut")
-
-
-@router.post("/vacantes/lote", response_model=LoteVacantesOut, status_code=201)
-def generar_lote(
-    datos: LoteVacantesIn,
-    respuesta: Response,
-    _coordinador: Usuario = Depends(requiere_coordinador),
-) -> LoteVacantesOut:
-    """Una vacante por turno, todo o nada, hasta 31 turnos (D15)."""
-    for turno_id in datos.turno_ids:
-        parsear_id_turno(turno_id)
-    return _ejemplo(respuesta, "LoteVacantesOut")
-
-
-@router.post("/vacantes/{vacante_id}/retiro", response_model=VacanteOut)
-def retirar_vacante(
-    vacante_id: int, respuesta: Response, _usuario: Usuario = Depends(usuario_actual)
-) -> VacanteOut:
-    """Retira una vacante abierta: quien la generó o un coordinador (D15)."""
-    return _ejemplo(respuesta, "VacanteOut")
 
 
 @router.post("/turnos/{turno_id}/postulaciones", response_model=PostulacionOut, status_code=201)
