@@ -64,6 +64,13 @@ Resultado: plan en `docs/superpowers/plans/2026-10-07-f5-staff-backend.md`, con 
 Ejecución: "Ejecutalo en esta sesión, tarea por tarea y un commit por tarea. La tarea 11 no la hagas hasta que la función de Mariano esté en main. Al terminar las tareas 1 a 10, hacé la revisión de código de toda la branch, con atención especial al orden de los bloqueos en el cambio de rol y en la baja." Tareas 1 a 10 con executing-plans; la 11 queda pendiente.
 Revisión: la revisión de toda la branch encontró tres problemas importantes (una baja que pisaba una designación concurrente, un deadlock en PATCH y un callejón sin salida con versiones futuras). Los dos primeros se corrigieron con pruebas de concurrencia. Corrección del equipo: "Elijo la opción recomendada: permitir modificar en el lugar una versión que todavía no rige, con su prueba. De los menores, corregí también estos dos, cada uno con su prueba: que un cambio a coordinador exija que el usuario esté activo, y que un deadlock o choque de versiones responda 409 y no 500. Los otros tres menores anotalos en la bitácora de desvíos como pendientes." Pull request #10 (la tarea 11 queda para un pull request posterior).
 
+## 7. F3: vacantes, postulaciones, candidatos y asignación
+
+Fecha: 8/10/2026.
+Herramienta: Claude Code con Superpowers (writing-plans y executing-plans).
+Prompt (mensaje del equipo): "primero revisar y mergear mi PR #10. Después, endpoints de vacantes, postulaciones, candidatos y asignación, con D31 y excluyendo coordinadores y médicos dados de baja. Si podés, publicá primero los endpoints con respuestas de ejemplo así Carlos conecta las pantallas. Avisame cuando esté la función de generar vacante, que la necesito para cerrar staff."
+Resultado: plan en `docs/superpowers/plans/2026-10-08-f3-vacantes-postulaciones-asignacion.md`, en tres etapas con un pull request cada una: contrato con ejemplos, generar vacante (lote y retiro) y postulaciones con candidatos y asignación. Incluye 11 supuestos que D15 a D31 dejaban abiertos, aprobados por el equipo antes de ejecutar. Etapa 1 en la branch feature/f3-contrato-api.
+
 ## Próximas entradas
 
 Copiar acá el prompt con que arranca cada funcionalidad (F2 a F6) y cualquier prompt de corrección que haya cambiado el rumbo.

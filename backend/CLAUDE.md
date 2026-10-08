@@ -31,6 +31,7 @@ FastAPI + SQLAlchemy 2 + Alembic sobre Postgres. Leer también el CLAUDE.md de l
 13. Fábricas de F5: `crear_horario_de_prueba`, `guardar_turno` (turno materializado con la foto de su versión), `bloqueado_hasta_commit` (pruebas `commit_real` de bloqueos), `HOY` y la fixture `como_coordinador`.
 14. Una cuenta BAJA entra hasta su `fecha_baja` inclusive (D24); `ck_usuario_fecha_baja` obliga a que estado BAJA y fecha vayan juntos.
 15. Un deadlock (40P01) o una violación de exclusión (23P01) que no se capturó responde 409 (`CONFLICTO_CONCURRENTE`, `CONFLICTO_DE_VERSION`) desde `app/api/manejadores.py`.
+16. `app/api/operacion.py` publica el contrato de vacantes, postulaciones, candidatos y asignación con respuestas de ejemplo (`EJEMPLOS` de `app/api/esquemas_operacion.py`) y el encabezado `X-Respuesta-Ejemplo: true`. No toca la base. Cada ruta se reemplaza por la real en las etapas 2 y 3 del plan `docs/superpowers/plans/2026-10-08-f3-vacantes-postulaciones-asignacion.md`, y el módulo se elimina al terminar. Sus pruebas (`test_api_operacion_ejemplos.py`) no necesitan Postgres.
 
 ## Comandos (desde backend/)
 
