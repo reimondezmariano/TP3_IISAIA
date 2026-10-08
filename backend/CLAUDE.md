@@ -10,7 +10,7 @@ FastAPI + SQLAlchemy 2 + Alembic sobre Postgres. Leer también el CLAUDE.md de l
 4. `app/servicios/`: operaciones que combinan reglas de `app/dominio/` y consultas de `app/repos/` (staff y plantilla). No hacen commit; lo hace el router.
 5. `app/api/`: routers bajo el prefijo `/api`. Los esquemas de respuesta usan alias camelCase.
 6. `app/errores.py`: `ErrorDominio(codigo, mensaje, status)`. `app/api/manejadores.py` lo convierte en `{"codigo", "mensaje"}`.
-7. `app/reloj.py`: reloj inyectable (D27). Nada fuera de ese archivo consulta la hora del sistema; una prueba lo verifica.
+7. `app/reloj.py`: reloj inyectable (D27). Nada fuera de ese archivo consulta la hora del sistema; una prueba lo verifica. En modo demo (`MODO_DEMO=true`) `get_reloj` suma el desfase que fija `POST /api/demo/reloj` (en memoria: reiniciar el servidor vuelve a la hora real). Después de `scripts.seed`, volver a la hora real con `{"ahora": null}`.
 8. `app/auth.py`: verificación del token de Supabase Auth (D06) y dependencias de permisos: `identidad_actual` (token válido), `usuario_registrado` (solo GET /me), `usuario_actual` (cuenta ACTIVA, o BAJA hasta su `fecha_baja` inclusive; la exige todo endpoint salvo /health, /me y /registro) y `requiere_coordinador`.
 9. `scripts/seed.py`: datos de ejemplo. Al recargar conserva, por email, las cuentas de Supabase Auth de los usuarios de ejemplo; los usuarios que no son de ejemplo se borran.
 
@@ -31,6 +31,9 @@ FastAPI + SQLAlchemy 2 + Alembic sobre Postgres. Leer también el CLAUDE.md de l
 13. Fábricas de F5: `crear_horario_de_prueba`, `guardar_turno` (turno materializado con la foto de su versión), `bloqueado_hasta_commit` (pruebas `commit_real` de bloqueos), `HOY` y la fixture `como_coordinador`.
 14. Una cuenta BAJA entra hasta su `fecha_baja` inclusive (D24); `ck_usuario_fecha_baja` obliga a que estado BAJA y fecha vayan juntos.
 15. Un deadlock (40P01) o una violación de exclusión (23P01) que no se capturó responde 409 (`CONFLICTO_CONCURRENTE`, `CONFLICTO_DE_VERSION`) desde `app/api/manejadores.py`.
+16. Consolidación perezosa (D20): `ponerse_al_dia(sesion, reloj, zona)` de `app/servicios/consolidacion.py` consolida y emite alertas dentro de la transacción de quien llama; lo usan `GET /turnos` y `POST /consolidacion` (y `GET /indicadores/sin-cobertura` consolida). `GET /notificaciones` solo emite alertas. La marca `consolidacion_estado` se bloquea en cada consolidación y el seed la vacía.
+17. Notificaciones: crearlas siempre con `notificar(...)` de `app/servicios/notificaciones.py`, en la transacción de la acción (D22), y elegir destinatarios con `destinatarios(sesion, rol, hoy(reloj), excepto=...)`. Los tipos están en `TipoNotificacion` (`app/dominio/notificaciones.py`).
+18. Orden de bloqueos completo: `usuario`, `horario_pactado`, `consolidacion_estado`, `turno`, `vacante`.
 
 ## Comandos (desde backend/)
 

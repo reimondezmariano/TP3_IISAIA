@@ -64,6 +64,17 @@ Resultado: plan en `docs/superpowers/plans/2026-10-07-f5-staff-backend.md`, con 
 Ejecución: "Ejecutalo en esta sesión, tarea por tarea y un commit por tarea. La tarea 11 no la hagas hasta que la función de Mariano esté en main. Al terminar las tareas 1 a 10, hacé la revisión de código de toda la branch, con atención especial al orden de los bloqueos en el cambio de rol y en la baja." Tareas 1 a 10 con executing-plans; la 11 queda pendiente.
 Revisión: la revisión de toda la branch encontró tres problemas importantes (una baja que pisaba una designación concurrente, un deadlock en PATCH y un callejón sin salida con versiones futuras). Los dos primeros se corrigieron con pruebas de concurrencia. Corrección del equipo: "Elijo la opción recomendada: permitir modificar en el lugar una versión que todavía no rige, con su prueba. De los menores, corregí también estos dos, cada uno con su prueba: que un cambio a coordinador exija que el usuario esté activo, y que un deadlock o choque de versiones responda 409 y no 500. Los otros tres menores anotalos en la bitácora de desvíos como pendientes." Pull request #10 (la tarea 11 queda para un pull request posterior).
 
+## 7. F4: historia y alertas, backend
+
+Fecha: 8/10/2026.
+Herramienta: Claude Code con Superpowers (writing-plans y executing-plans; sin brainstorming ni spec propio: el plan se apoya en las decisiones de arquitectura).
+Prompt:
+
+> Escribí con Superpowers el plan de la fase F4 "historia y alertas, backend": consolidación perezosa e idempotente antes de responder el calendario y endpoint para forzarla (D20), turno sin cobertura (D19), alertas escalonadas a coordinadores a las 48 h, 24 h y al inicio (D19), endpoints de notificaciones para listar y marcar como leídas (D05), indicador de horas sin cobertura por mes, y el reloj de demo (D27). Usá las funciones puras de Mariano que ya están en backend/app/dominio (consolidacion.py y alertas.py). Exponé una función de servicio para crear notificaciones, que Mariano va a usar desde sus endpoints de vacantes. No toques los endpoints de vacantes, postulaciones ni asignación, que son de Mariano. Si el PR #10 ya está mergeado, creá la branch feature/f4-historia-alertas desde main; si no, creala desde feature/f5-staff-backend. Si necesitás migración, numerala después de la 0003. Escribí el plan, commitealo y mostrámelo. No ejecutes ninguna tarea hasta que te lo pida.
+
+Resultado: plan en `docs/superpowers/plans/2026-10-08-f4-historia-alertas-backend.md` y branch `feature/f4-historia-alertas` (desde main, con el PR #10 ya mergeado), con 10 tareas y 12 decisiones propias. Las decisiones se copian a `docs/bitacora-de-desvios.md` al abrir el pull request.
+Ejecución: "Apruebo el plan. Ejecutalo en esta sesión, tarea por tarea y un commit por tarea. Al terminar, hacé la revisión de código de toda la branch con atención especial a que la consolidación sea idempotente y no guarde historia incorrecta, corregí lo crítico y lo importante, traé main y corré toda la suite. No abras el pull request hasta que te lo pida."
+
 ## Próximas entradas
 
 Copiar acá el prompt con que arranca cada funcionalidad (F2 a F6) y cualquier prompt de corrección que haya cambiado el rumbo.
