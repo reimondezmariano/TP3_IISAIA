@@ -40,7 +40,8 @@ def generar_vacante(
 
     La generan el titular, el asignado vigente o un coordinador, hasta el inicio del turno. Si el turno tenía
     un asignado se borra en esta misma transacción y queda en el evento VACANTE_GENERADA (D31, D08 punto 4).
-    Una vacante urgente (menos de 24 h) avisa a los médicos activos (D05). El turno queda bloqueado hasta el
+    Una vacante urgente (menos de 24 h) avisa a los médicos activos (D05); una que no es urgente también, con
+    VACANTE_ABIERTA (solo campanita). El turno queda bloqueado hasta el
     commit, así que dos pedidos simultáneos no abren dos vacantes.
     """
     ahora = reloj.ahora()
@@ -73,6 +74,8 @@ def generar_vacante(
     sesion.flush()
     if urgente:
         _avisar_urgencia(sesion, turno, vacante, turno_id, actor, zona, ahora)
+    else:
+        _avisar_vacante(sesion, turno, vacante, turno_id, actor, zona, ahora)
     return ResultadoVacante(vacante, turno, urgente, asignado_anterior_id)
 
 
@@ -84,6 +87,20 @@ def _avisar_urgencia(sesion: Session, turno: Turno, vacante: Vacante, turno_id: 
         destinatarios(sesion, RolUsuario.MEDICO, ahora.astimezone(zona).date(), excepto=[actor.id]),
         TipoNotificacion.VACANTE_URGENTE,
         f"Vacante urgente: guardia del {inicio:%d/%m} a las {inicio:%H:%M}.",
+        ahora,
+        turno=turno,
+        datos={"turnoId": turno_id, "vacanteId": vacante.id},
+    )
+
+
+def _avisar_vacante(sesion: Session, turno: Turno, vacante: Vacante, turno_id: str, actor: Usuario, zona, ahora) -> None:
+    """Vacante que no es urgente: a la campanita de los mismos destinatarios que la urgente, sin aviso emergente."""
+    inicio = turno.inicio.astimezone(zona)
+    notificar(
+        sesion,
+        destinatarios(sesion, RolUsuario.MEDICO, ahora.astimezone(zona).date(), excepto=[actor.id]),
+        TipoNotificacion.VACANTE_ABIERTA,
+        f"Vacante: guardia del {inicio:%d/%m} a las {inicio:%H:%M}.",
         ahora,
         turno=turno,
         datos={"turnoId": turno_id, "vacanteId": vacante.id},

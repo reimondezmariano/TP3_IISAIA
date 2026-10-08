@@ -1,15 +1,17 @@
 """Turnos guardados (D09, D11). No hacen commit; trabajan dentro de la transacción de quien llama."""
 
 from collections.abc import Iterable
+from dataclasses import dataclass
 from datetime import date, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import and_, select
+from sqlalchemy.orm import aliased
 from sqlalchemy.dialects.postgresql import insert
 
 from app.dominio.calendario import calcular_turnos, formatear_id_turno, parsear_id_turno
 from app.errores import ErrorDominio
-from app.modelos import EstadoVacante, Turno, Usuario, Vacante
+from app.modelos import EstadoVacante, Postulacion, Turno, Usuario, Vacante
 from app.repos.horarios import TurnoAfectado, _titular, versiones_en_rango
 
 
@@ -113,3 +115,33 @@ def vacantes_abiertas_en_rango(sesion, desde: date, hasta: date) -> dict[tuple[i
         )
     ).all()
     return {(turno.horario_id, turno.fecha): (vacante, turno, generador) for vacante, turno, generador in filas}
+
+
+@dataclass(frozen=True)
+class NovedadesTurno:
+    asignado: Usuario | None
+    sin_cobertura: bool
+    postulacion_propia_id: int | None
+
+
+def novedades_en_rango(sesion, desde: date, hasta: date, usuario_id: int) -> dict[tuple[int, date], NovedadesTurno]:
+    """Asignado vigente, marca de sin cobertura y postulación activa de `usuario_id` de los turnos guardados
+    que empiezan entre desde-1 y hasta, por (horario_id, fecha). Un turno sin fila no tiene novedades (D11)."""
+    asignado = aliased(Usuario)
+    filas = sesion.execute(
+        select(Turno, asignado, Postulacion.id)
+        .outerjoin(asignado, Turno.asignado_id == asignado.id)
+        .outerjoin(
+            Postulacion,
+            and_(
+                Postulacion.turno_id == Turno.id,
+                Postulacion.medico_id == usuario_id,
+                Postulacion.retirada_en.is_(None),
+            ),
+        )
+        .where(Turno.fecha >= desde - timedelta(days=1), Turno.fecha <= hasta)
+    ).all()
+    return {
+        (turno.horario_id, turno.fecha): NovedadesTurno(asignado_db, turno.sin_cobertura_en is not None, postulacion_id)
+        for turno, asignado_db, postulacion_id in filas
+    }
