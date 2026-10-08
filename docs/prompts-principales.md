@@ -83,6 +83,14 @@ Resultado: plan en `docs/superpowers/plans/2026-10-08-f4-historia-alertas-backen
 Ejecución: "Apruebo el plan. Ejecutalo en esta sesión, tarea por tarea y un commit por tarea. Al terminar, hacé la revisión de código de toda la branch con atención especial a que la consolidación sea idempotente y no guarde historia incorrecta, corregí lo crítico y lo importante, traé main y corré toda la suite. No abras el pull request hasta que te lo pida."
 Revisión: la revisión de toda la branch encontró tres problemas importantes: un cambio de plantilla desde hoy reescribía, borraba o inventaba el turno de hoy ya empezado; `{"ahora": null}` en el reloj de demo dejaba historia consolidada en el futuro; y el orden de bloqueos documentado invitaba a un deadlock. Además, un menor se subió a importante: un turno guardado de un médico dado de baja se consolidaba con él como realizador. Se corrigieron los cuatro (los tres primeros con su prueba; el del orden de bloqueos, en la documentación). El desfase del reloj de demo pasó a guardarse en la base, un cambio a la decisión 9 del plan. Se trajo main (PR #9) y pasan las suites del backend, de Vitest y de Playwright.
 
+## 9. Despliegue en Render con Supabase
+
+Fecha: 8/10/2026.
+Herramienta: Claude Code con Superpowers (writing-plans y executing-plans).
+Prompt (mensaje del equipo): "git checkout main y git pull. Con Superpowers, escribí el plan para publicar la app en Render (plan gratis) desde main, en la branch feature/despliegue: un solo servicio web donde FastAPI sirve también la compilación del frontend (D05), conectado a la base de Supabase. Incluí los archivos de configuración de Render, los comandos de build y arranque, la lista de variables de entorno para cargar a mano en el panel de Render (sin valores secretos en el repo) y los pasos para aplicar en Supabase todas las migraciones pendientes. Explicame en lenguaje simple qué tengo que hacer yo en los paneles de Render y Supabase. Solo el plan, mostrámelo antes de ejecutar."
+Corrección del equipo: las migraciones en Supabase se aplican una sola vez, al final, cuando estén mergeados la etapa 3 y todo lo demás; el plan se ajustó.
+Resultado: plan en `docs/superpowers/plans/2026-10-08-despliegue-render.md` y, tras aprobarlo, cuatro tareas: FastAPI sirve `frontend/dist` si existe, `Dockerfile` en dos etapas (verificado: imagen sin `.env`, usuario sin privilegios, `/api/health` y la pantalla responden), `render.yaml` sin valores secretos y la guía `docs/despliegue.md`. Lo que toca Supabase y Render lo hace una persona.
+
 ## Próximas entradas
 
 Copiar acá el prompt con que arranca cada funcionalidad (F2 a F6) y cualquier prompt de corrección que haya cambiado el rumbo.

@@ -1,4 +1,7 @@
+from pathlib import Path
+
 from fastapi import APIRouter, FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from app.api import (
     coordinacion,
@@ -14,8 +17,11 @@ from app.api import (
 )
 from app.api.manejadores import registrar_manejadores
 
+# D05: en producción el backend sirve la compilación del frontend (un solo despliegue).
+CARPETA_FRONTEND = Path(__file__).resolve().parents[2] / "frontend" / "dist"
 
-def crear_app() -> FastAPI:
+
+def crear_app(carpeta_frontend: Path | None = None) -> FastAPI:
     app = FastAPI(title="Guardia Viva", version="0.1.0")
     registrar_manejadores(app)
 
@@ -31,6 +37,10 @@ def crear_app() -> FastAPI:
     api.include_router(notificaciones.router)
     api.include_router(demo.router)
     app.include_router(api)
+    carpeta = CARPETA_FRONTEND if carpeta_frontend is None else carpeta_frontend
+    if carpeta.is_dir():
+        # Después de /api: lo que no existe bajo /api responde 404 con formato, no la página del frontend.
+        app.mount("/", StaticFiles(directory=carpeta, html=True), name="frontend")
     return app
 
 
