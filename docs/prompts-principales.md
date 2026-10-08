@@ -91,6 +91,13 @@ Prompt (mensaje del equipo): "git checkout main y git pull. Con Superpowers, esc
 Corrección del equipo: las migraciones en Supabase se aplican una sola vez, al final, cuando estén mergeados la etapa 3 y todo lo demás; el plan se ajustó.
 Resultado: plan en `docs/superpowers/plans/2026-10-08-despliegue-render.md` y, tras aprobarlo, cuatro tareas: FastAPI sirve `frontend/dist` si existe, `Dockerfile` en dos etapas (verificado: imagen sin `.env`, usuario sin privilegios, `/api/health` y la pantalla responden), `render.yaml` sin valores secretos y la guía `docs/despliegue.md`. Lo que toca Supabase y Render lo hace una persona.
 
+## 10. F6: semáforo y pasada visual del calendario
+
+Fecha: 8/10/2026.
+Herramienta: Claude Code (cambio chico, sin el flujo completo de Superpowers).
+Prompt: "Hacé git checkout main y git pull. En la branch feature/f6-diseno, ejecutá sin esperar aprobación, un commit por tarea: 1. Semáforo en las tarjetas del calendario (D08): un color por estado, cubierta, vacante abierta, vacante urgente y BAJA (rojo con la etiqueta BAJA, D24), usando el dato vacante de GET /api/turnos, con una leyenda de colores arriba del calendario. 2. Pasada visual tomando como referencia el prototipo HTML del equipo (D05): encabezado con el nombre Guardia Viva, tipografía y colores coherentes, tarjetas compactas para que el horario no se parta en varios renglones, y que se vea bien en un celular de 375 px. Tocá solo los estilos generales, el encabezado y las tarjetas del calendario. No toques el detalle de la guardia, staff ni notificaciones, que los está cambiando Carlos. No toques backend/. Al terminar, corré Vitest y Playwright, traé main, subí y abrí el pull request. No mergees."
+Resultado: semáforo calculado en `frontend/src/lib/semaforo.js` con la vacante real de GET /api/turnos (las tarjetas dejan de usar las vacantes simuladas; el detalle las sigue usando). Al avisar o retirar una ausencia, la semana se vuelve a pedir sin pasar por "cargando". Pasada visual con IBM Plex Sans y la paleta del prototipo, sin copiar su código; siete columnas desde 1280 px para que el horario no se parta. Pruebas e2e del semáforo y del horario en un renglón de 375 a 1440 px.
+
 ## Próximas entradas
 
 Copiar acá el prompt con que arranca cada funcionalidad (F2 a F6) y cualquier prompt de corrección que haya cambiado el rumbo.

@@ -10,7 +10,7 @@ React + Vite, en JavaScript. Experiencia del médico (F4): login y registro con 
 4. `src/lib/vacantes.js` y `src/pantallas/useAusencias.js`: vacantes reales (`POST /turnos/{id}/vacantes`, retiro). El servidor no informa qué vacantes están abiertas, así que las que se generan desde este navegador se recuerdan en `localStorage` (por usuario) para poder retirarlas; en otro dispositivo no aparece "Retirar aviso". `POST /vacantes/lote` es solo de coordinadores: el médico con varias fechas llama a la ruta de una vacante por fecha (no es todo o nada) y se le informa cuáles fallaron.
 5. `src/notificaciones/`: `useNotificaciones` consulta `GET /notificaciones` cada 12 s; `Campanita` y `AvisoUrgente` (vacantes urgentes, D05, D15).
 6. `src/staff/`: pantalla de staff (D26): personas, horarios y designar titular en los horarios BAJA; muestra los turnos afectados que devuelve el servidor.
-7. `src/simulado/`: solo quedan simuladas las postulaciones y las vacantes ajenas.
+7. `src/simulado/`: solo quedan simuladas las postulaciones y las vacantes ajenas. Las tarjetas del calendario ya no las usan: su color sale de `src/lib/semaforo.js` (D08) con la `vacante` real de GET /api/turnos; el detalle de la guardia todavía usa lo simulado.
 
 ## Convenciones
 
