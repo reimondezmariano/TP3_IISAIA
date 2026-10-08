@@ -212,6 +212,19 @@ Rama nueva desde `main` actualizado: `feature/f3-generar-vacante`.
 
 # Etapa 3: postulaciones, candidatos y asignación (PR 3)
 
+## Ajustes a la etapa 3 después de F4 y de las reglas del equipo (9/10/2026)
+
+Rama `feature/f3-etapa3`, desde `main` con los PR #12 (F4) y #13 (etapa 2). Estos ajustes completan las tareas 9 a 14 de abajo y prevalecen sobre ellas donde difieran:
+
+1. **Orden de bloqueos (convención 19):** `usuario`, `horario_pactado`, `consolidacion_estado`, `turno`, `vacante`. `asignar` bloquea primero al médico elegido (`bloquear_usuario`), después el turno (`materializar_turno`) y por último la vacante. Postular y candidatos no bloquean usuarios.
+2. **No consolidar:** ninguna de estas operaciones llama a `ponerse_al_dia`; rechazan con 409 `TURNO_TERMINADO` lo que ya terminó (`ahora >= fin`) o está consolidado.
+3. **Turno marcado sin cobertura (D19, regla de Florencia):** al asignarlo, en la misma transacción se pone `sin_cobertura_en` en vacío y la vacante `SIN_COBERTURA` pasa a `CUBIERTA` con `cerrada_en = ahora`; el evento de asignación lleva `datos.sin_cobertura_levantada = true`. Un turno marcado sin cobertura cuenta como asignable aunque no tenga vacante ABIERTA, y admite postulaciones (supuestos 4 y 7).
+4. **Aviso al asignado:** `notificar` de F4 con un tipo nuevo `TipoNotificacion.TURNO_ASIGNADO` (lista cerrada de `app/dominio/notificaciones.py`, la columna es texto y no necesita migración), destinatario el médico asignado, `datos = {"turnoId", "caso"}`. No se avisa a los demás candidatos (fuera de este plan).
+5. **Habilitación (regla de Florencia, supuesto 5):** nadie que sea coordinador, PENDIENTE o BAJA con `fecha_baja` anterior a la fecha del turno se postula ni se lista como candidato ni se asigna.
+6. **Bitácora:** `CANDIDATO_ELEGIDO` lleva `posicion`, `candidatos` y `asignado_id`; `ASIGNACION_DIRECTA`, `asignado_id`; `REASIGNACION`, `asignado_id` y `asignado_anterior_id`; `POSTULACION_CREADA` y `POSTULACION_RETIRADA`, `postulacion_id` y `medico_id`.
+7. **Motivo de la vacante (D25):** en las respuestas de asignación el motivo de la vacante cerrada se muestra solo a coordinadores; como la asignación es de coordinadores, se ve siempre. Cuando termine esta etapa no queda ninguna ruta con respuesta de ejemplo y se elimina `app/api/operacion.py`.
+
+
 Rama nueva desde `main` actualizado (con el PR 2 mergeado): `feature/f3-postulaciones-asignacion`.
 
 ### Task 9: Reglas puras de habilitación y de caso de asignación
