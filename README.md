@@ -10,11 +10,32 @@ push propias. Ver la especificación completa en
 
 ## Estado actual
 
-**Etapa en curso: diseño de frontend.** Todavía no hay backend ni persistencia real —
-el prototipo corre con datos de ejemplo en memoria, pensado para validar los flujos e
-interacciones antes de definir el modelo de datos y la API.
+**Etapa en curso: funcionalidades de coordinación e interfaz (F3 a F6), con miras al Demo Day del 14/10/2026.**
 
-Prototipo interactivo: **[Guardia Viva](https://claude.ai/artifact/3T56cETi81zUAJxqujU7hv)**
+Aplicación publicada: **PENDIENTE: dirección publicada en Render** <!-- Reemplazar por la URL de Render -->
+
+Arquitectura (detalle en [`CLAUDE.md`](CLAUDE.md) y [`docs/decisiones-arquitectura.md`](docs/decisiones-arquitectura.md)):
+
+- **Backend** en [`backend/`](backend/): Python con FastAPI, SQLAlchemy y Alembic. Expone la API bajo `/api`, con el contrato OpenAPI navegable en `/docs`.
+- **Base de datos** en Supabase (Postgres), con RLS activado sin políticas; el backend se conecta con credenciales propias. La concurrencia se resuelve con restricciones de la base.
+- **Autenticación** con Supabase Auth (email y contraseña) y registro con código de coordinación.
+- **Frontend** en [`frontend/`](frontend/): React con Vite, web responsive pensada para instalarse en el celular (PWA). En producción el backend sirve la compilación, así que hay un solo despliegue.
+- **Despliegue** en Render, con redespliegue en cada merge a `main` (ver [`docs/despliegue.md`](docs/despliegue.md)).
+
+Qué funciona hoy:
+
+- Registro, login, activación de médicos pendientes y `GET /api/me`.
+- Plantilla de horarios pactados versionados y calendario calculado (`GET /api/turnos`).
+- Generar vacantes (de a una o en lote) y retirarlas.
+- Consolidación de turnos terminados, turno sin cobertura, alertas escalonadas, notificaciones, indicador de horas sin cobertura y reloj de demo.
+- API de staff: usuarios, horarios, baja de médicos y cambio de rol, con reapertura de las coberturas aceptadas.
+- Interfaz del médico: login, registro y calendario semanal.
+
+Todavía no:
+
+- Postulaciones, candidatos y asignación responden datos de ejemplo (encabezado `X-Respuesta-Ejemplo: true`); la lógica real está en curso.
+- Rectificación y detalle del turno (`GET /api/turnos/{turnoId}`).
+- En la interfaz, las vacantes todavía se simulan en el navegador; faltan las pantallas del coordinador (candidatos, staff), el aviso emergente y el manifiesto de la PWA.
 
 ## Qué decidí yo
 
@@ -69,59 +90,49 @@ Otros hallazgos de revisión que no cambiaron una decisión, pero sí el código
 
 ## Historial de versiones
 
-### v1 — Especificación funcional
-Documento de partida (`prompt_tp_final_v02.md`) con el diseño completo del sistema:
-- Dominio: equipo de 10-12 médicos, turnos de duración variable (6/7/8/12/24 h) que
-  pueden cruzar la medianoche, superposición de turnos.
-- Plantilla base de guardia (titular fijo por día/horario, con soporte para rotación
-  entre dos o más titulares) como dato de fondo, distinto de la gestión de vacantes.
-- Semáforo de tres estados (rojo/amarillo/verde) y regla de priorización de candidatos
-  por horas de descanso desde la última guardia efectivamente realizada.
-- Roles médico/coordinador con control de permisos doble (visual + servidor).
-- Alta, baja e inactivación de médicos sin borrar historial.
-- Notificaciones push propias de la app (se descartó WhatsApp Business API).
-- Requisito de persistencia sobre un recurso de Google Drive (mecanismo concreto
-  todavía abierto).
-- Pendientes explícitos: diseño visual definitivo, modelo de datos completo, mecanismo
-  técnico de push, y si hace falta un Data Warehouse.
+### v1. Especificación funcional
 
-### v2 — Primer prototipo de frontend interactivo ("Guardia Viva")
-A partir de la v1, se construyó un prototipo funcional de la interfaz, con foco en
-validar la experiencia antes de tocar backend:
+Documento de partida ([`prompt_tp_final_v02.md`](prompt_tp_final_v02.md)): equipo de 10 a 12 médicos, turnos de duración variable que pueden cruzar la medianoche, plantilla base de guardia, semáforo de vacantes, roles médico y coordinador, y notificaciones propias de la app. Pedía persistir sobre un recurso de Google Drive, con el mecanismo todavía abierto.
 
-- **Vista mensual** tipo Google Calendar/Apple Calendar, con indicador visual (punto
-  rojo/amarillo) en los días con novedades, sin listar los turnos completos en el
-  casillero del día.
-- **Vista diaria** como línea de tiempo horizontal de 24 h, con una fila por turno,
-  barras superpuestas coloreadas por estado, línea de "ahora", y control de **zoom**
-  (+/−) para ajustar la densidad horaria — al estilo Google Calendar.
-- **Transición mes → día**: tocar un día en la vista mensual "hace zoom" a su detalle,
-  con botón para volver.
-- **Simulador de tres roles en una sola pantalla**: paneles de Médico 1 (Valentina
-  Ríos), Médico 2 (Martín Aguirre) y Coordinadora (Renata Ibarra), cada uno navegando
-  su propio calendario de forma independiente pero compartiendo el mismo estado — una
-  acción en un panel (generar vacante, postularse, confirmar) se refleja al instante
-  en los otros dos, con un toast de aviso por panel y un feed de "Actividad en vivo"
-  compartido arriba de todo. Simula el efecto de las notificaciones push en tiempo real
-  sin necesidad de backend.
-- **Flujos completos implementados**: generar vacante → postularse → confirmar
-  candidato por el coordinador (con lista de candidatos ordenada por horas de descanso
-  desde la última guardia, incluyendo el caso de médico sin guardias previas) → retirar
-  postulación.
-- **Datos de ejemplo**: 11 médicos, plantilla semanal con las 5 duraciones de turno de
-  la consigna (6, 7, 8, 12, 24 h), turnos que cruzan la medianoche, y un caso de
-  titular en rotación (jueves 08–16, alternando semana por medio) para probar ese
-  mecanismo.
-- **Fuera de alcance de esta versión** (a propósito, para no desviar el foco de
-  frontend): alta/baja/inactivación de médicos, edición de la plantilla base desde la
-  UI, y toda la persistencia — hoy es sólo estado en memoria del navegador.
+### v2. Prototipo de interfaz en HTML ("Guardia Viva")
+
+Prototipo interactivo, solo con datos en memoria del navegador, para validar los flujos antes de definir el modelo: vista mensual con indicadores, vista diaria como línea de tiempo de 24 h con zoom, y un simulador de tres roles (dos médicos y una coordinadora) en una sola pantalla que compartían el estado. Implementaba generar vacante, postularse, confirmar candidato y retirar postulación.
+
+Prototipo: **[Guardia Viva](https://claude.ai/artifact/3T56cETi81zUAJxqujU7hv)**. Hoy es solo referencia visual: el frontend actual no reutiliza su código (D05).
+
+Lo que cambió después de esta versión: Google Drive se reemplazó por Supabase (D02); la rotación de titulares, el coordinador que hace guardias y el orden de candidatos por descanso se eliminaron al validar con un médico del servicio (ver "Qué decidí yo").
+
+### v3. Arquitectura y validación (1 al 4 de octubre de 2026)
+
+| PR | Etapa |
+|---|---|
+| [#1](https://github.com/reimondezmariano/TP3_IISAIA/pull/1) | Documentos de arquitectura en `docs/` (decisiones D01 a D28 del brainstorming) |
+| [#2](https://github.com/reimondezmariano/TP3_IISAIA/pull/2) | Ajustes al modelo tras validar con Carlos, médico del servicio |
+| [#3](https://github.com/reimondezmariano/TP3_IISAIA/pull/3) | Bitácora de desvíos |
+| [#4](https://github.com/reimondezmariano/TP3_IISAIA/pull/4) | Cierre de la planificación: frontend React, staff, código de coordinación, guion y prompts |
+| [#5](https://github.com/reimondezmariano/TP3_IISAIA/pull/5) | Guion del Demo Day |
+
+### v4. Implementación (desde el 5 de octubre de 2026)
+
+Cada funcionalidad sigue el flujo de Superpowers (spec, plan, implementación por subagentes, revisión de código) en su propia branch; los planes están en [`docs/superpowers/plans`](docs/superpowers/plans).
+
+| PR | Etapa |
+|---|---|
+| [#6](https://github.com/reimondezmariano/TP3_IISAIA/pull/6) | F0 y F1: esqueleto, plantilla y calendario calculado |
+| [#7](https://github.com/reimondezmariano/TP3_IISAIA/pull/7) | F2: cimientos (Supabase Auth, registro, `GET /me` y modelo operativo) |
+| [#8](https://github.com/reimondezmariano/TP3_IISAIA/pull/8) | F3, primera etapa: reglas de dominio puras |
+| [#10](https://github.com/reimondezmariano/TP3_IISAIA/pull/10) | F5: staff, backend (usuarios, horarios, baja y cambio de rol) |
+| [#9](https://github.com/reimondezmariano/TP3_IISAIA/pull/9) | F4: frontend del médico (login, registro y calendario semanal) |
+| [#11](https://github.com/reimondezmariano/TP3_IISAIA/pull/11) | F3, etapa 1: contrato de vacantes, postulaciones y asignación con respuestas de ejemplo |
+| [#12](https://github.com/reimondezmariano/TP3_IISAIA/pull/12) | F4: historia y alertas, backend (consolidación, sin cobertura, alertas, notificaciones, indicador y reloj de demo) |
+| [#13](https://github.com/reimondezmariano/TP3_IISAIA/pull/13) | F3, etapa 2: generar vacante, lote y retiro |
+| [#14](https://github.com/reimondezmariano/TP3_IISAIA/pull/14) | Despliegue: un solo servicio en Render con la compilación del frontend |
+| [#15](https://github.com/reimondezmariano/TP3_IISAIA/pull/15) | F5, tarea 11: la baja y el cambio a coordinador reabren las coberturas aceptadas |
 
 ## Próximos pasos
 
-- Pulir diseño visual definitivo (colores, tipografía, disposición) sobre esta base.
-- Definir el modelo de datos completo (entidades, atributos, relaciones), incluyendo
-  cómo modelar la plantilla base y su relación con los turnos generados por excepción.
-- Diseñar el contrato de API (siguiendo la misma lógica que el TP2 con OpenAPI).
-- Definir el mecanismo técnico de notificaciones push (proveedor, payload, tokens).
-- Resolver la implementación de persistencia sobre Google Drive y justificarla.
-- Evaluar si el TP final requiere vincularse a un Data Warehouse.
+1. F3: postulaciones, candidatos ordenados por equidad (D17) y asignación con lógica real, reemplazando las respuestas de ejemplo.
+2. F4: rectificación y detalle del turno con su línea de tiempo.
+3. F6: conectar las vacantes de la interfaz a la API, pantallas del coordinador (candidatos, staff, indicador), aviso emergente de vacantes urgentes y manifiesto de la PWA.
+4. Aplicar las migraciones a Supabase desde `main` y publicar la dirección de Render en este README.
+5. Cierre: pruebas en celulares, README final y ensayo de la demo con el script de reinicio (12 y 13/10).
