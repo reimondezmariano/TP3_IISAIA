@@ -172,3 +172,22 @@ describe("Calendario con ausencias", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 });
+
+describe("Calendario del coordinador: panel de cobertura", () => {
+  const coordinador = { id: 9, nombre: "Enzo", rol: "COORDINADOR", estado: "ACTIVO" };
+  const ajeno = turno(1, "2026-10-09", "08:00", "16:00", { id: 3, nombre: "Carlos" });
+
+  test("no pide candidatos para un turno normal sin vacante", async () => {
+    const api = montar({ usuario: coordinador, turnosPorDesde: { "2026-10-05": [ajeno] } });
+    await userEvent.click(await screen.findByTestId("turno"));
+    expect(screen.queryByRole("region", { name: "Cobertura del turno" })).toBeNull();
+    expect(api.get).not.toHaveBeenCalledWith(expect.stringContaining("/candidatos"));
+  });
+
+  test("con vacante abierta muestra el panel de cobertura", async () => {
+    const conVacante = { ...ajeno, vacante: { id: 30, urgente: false, generadaPor: { id: 3, nombre: "Carlos" } } };
+    montar({ usuario: coordinador, turnosPorDesde: { "2026-10-05": [conVacante] } });
+    await userEvent.click(await screen.findByTestId("turno"));
+    expect(await screen.findByRole("region", { name: "Cobertura del turno" })).toBeVisible();
+  });
+});

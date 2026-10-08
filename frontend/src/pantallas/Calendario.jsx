@@ -60,6 +60,21 @@ function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }
   // Se guarda el id y se busca en la lista vigente: al recargar, el detalle muestra la vacante nueva.
   const [seleccionadoId, setSeleccionadoId] = useState(null);
   const seleccionado = turnos.find((t) => t.id === seleccionadoId) ?? null;
+  // El panel de cobertura solo se pide para turnos con vacante o BAJA, y se mantiene abierto aunque la acción
+  // cierre la vacante (así sigue visible el resultado). `version` vuelve a pedir el indicador del mes.
+  const [panelPara, setPanelPara] = useState(null);
+  const [version, setVersion] = useState(0);
+  const abrir = (t) => {
+    setSeleccionadoId(t.id);
+    setPanelPara(t.vacante || t.titular === null ? t.id : null);
+  };
+  const estadoSel = seleccionado ? estadoDe(seleccionado) : null;
+  const verPanel = seleccionado && usuario.rol === "COORDINADOR" && estadoSel.tipo !== "PASADO" &&
+    (panelPara === seleccionado.id || seleccionado.vacante || seleccionado.titular === null);
+  const trasCobertura = async () => {
+    await refrescar();
+    setVersion((v) => v + 1);
+  };
   const [variasFechas, setVariasFechas] = useState(false);
   useEffect(() => setSeleccionadoId(null), [lunes]);
 
@@ -72,7 +87,7 @@ function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }
         </div>
         <button type="button" className="secundario" onClick={cerrarSesion}>Cerrar sesión</button>
       </header>
-      {usuario.rol === "COORDINADOR" && <IndicadorSinCobertura api={api} ahora={ahora} />}
+      {usuario.rol === "COORDINADOR" && <IndicadorSinCobertura key={version} api={api} ahora={ahora} />}
       <nav className="navegacion" aria-label="Semana">
         <button type="button" onClick={() => setLunes(sumarDias(lunes, -7))}>Semana anterior</button>
         <button type="button" className="secundario" onClick={() => setLunes(lunesDe(hoy))}>Hoy</button>
@@ -95,7 +110,7 @@ function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }
             <section key={dia} className="dia" data-fecha={dia} aria-current={dia === hoy ? "date" : undefined}>
               <h3>{etiquetaDia(dia)}</h3>
               {porDia[dia].map((turno) => (
-                <TarjetaTurno key={turno.id} turno={turno} usuario={usuario} estado={estadoDe(turno)} onAbrir={(t) => setSeleccionadoId(t.id)} />
+                <TarjetaTurno key={turno.id} turno={turno} usuario={usuario} estado={estadoDe(turno)} onAbrir={abrir} />
               ))}
             </section>
           ))}
@@ -104,9 +119,9 @@ function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }
       {seleccionado && (
         <DetalleTurno
           turno={seleccionado}
-          estado={estadoDe(seleccionado)}
+          estado={estadoSel}
           acciones={acciones}
-          panel={usuario.rol === "COORDINADOR" && estadoDe(seleccionado).tipo !== "PASADO" ? <PanelCobertura api={api} turnoId={seleccionado.id} /> : null}
+          panel={verPanel ? <PanelCobertura api={api} turnoId={seleccionado.id} alCambiar={trasCobertura} /> : null}
           onCerrar={() => setSeleccionadoId(null)}
         />
       )}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ErrorApi } from "../lib/api.js";
 import { rangoSemana } from "../lib/fechas.js";
 
@@ -7,6 +7,8 @@ const CUENTA_CAMBIADA = ["CUENTA_PENDIENTE", "CUENTA_DADA_DE_BAJA"];
 export function useTurnosSemana(api, lunes, { alCuentaCambiada }) {
   const [resultado, setResultado] = useState({ estado: "cargando", turnos: [], error: null });
   const [intento, setIntento] = useState(0);
+  const lunesVigente = useRef(lunes);
+  lunesVigente.current = lunes;
 
   useEffect(() => {
     let vigente = true; // si cambia la semana o se desmonta, la respuesta se descarta
@@ -32,7 +34,7 @@ export function useTurnosSemana(api, lunes, { alCuentaCambiada }) {
   const refrescar = useCallback(async () => {
     try {
       const turnos = await api.get("/api/turnos", rangoSemana(lunes));
-      setResultado({ estado: "ok", turnos, error: null });
+      if (lunesVigente.current === lunes) setResultado({ estado: "ok", turnos, error: null }); // si ya se cambió de semana, se descarta
     } catch {
       // se conservan los turnos anteriores
     }

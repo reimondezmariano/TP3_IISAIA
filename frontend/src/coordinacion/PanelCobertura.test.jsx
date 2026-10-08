@@ -25,12 +25,12 @@ const USUARIOS = [
   { id: 9, nombre: "Enzo Coord", email: "z@x.com", rol: "COORDINADOR", estado: "ACTIVO" },
 ];
 
-function montar({ get, put = vi.fn(), post = vi.fn() } = {}) {
+function montar({ get, put = vi.fn(), post = vi.fn(), alCambiar } = {}) {
   const api = {
     get: get ?? vi.fn(async (ruta) => (ruta.endsWith("/candidatos") ? CANDIDATOS : USUARIOS)),
     put, post,
   };
-  render(<PanelCobertura api={api} turnoId={TURNO} />);
+  render(<PanelCobertura api={api} turnoId={TURNO} alCambiar={alCambiar} />);
   return api;
 }
 
@@ -133,5 +133,28 @@ describe("PanelCobertura", () => {
   test("sin candidatos postulados lo dice", async () => {
     montar({ get: vi.fn(async (ruta) => (ruta.endsWith("/candidatos") ? { turnoId: TURNO, mes: "2026-10", candidatos: [] } : USUARIOS)) });
     expect(await screen.findByText("Nadie se postuló todavía.")).toBeVisible();
+  });
+
+  test("después de asignar o de marcar sin cobertura avisa que hay que recargar el calendario", async () => {
+    const alCambiar = vi.fn();
+    const put = vi.fn(async () => ({ turnoId: TURNO, asignado: persona(4, "Bruno Paz"), caso: "CANDIDATO_ELEGIDO", vacante: null }));
+    const post = vi.fn(async () => ({ turnoId: TURNO, sinCoberturaEn: "x", vacanteId: 3 }));
+    montar({ put, post, alCambiar });
+    const filas = await screen.findAllByTestId("candidato");
+    await userEvent.click(within(filas[0]).getByRole("button", { name: "Elegir" }));
+    await screen.findByRole("status");
+    expect(alCambiar).toHaveBeenCalledTimes(1);
+    await userEvent.click(screen.getByRole("button", { name: "Marcar sin cobertura" }));
+    await vi.waitFor(() => expect(alCambiar).toHaveBeenCalledTimes(2));
+  });
+
+  test("si el servidor rechaza la asignación no se recarga nada", async () => {
+    const alCambiar = vi.fn();
+    const put = vi.fn().mockRejectedValue(new ErrorApi(409, "TURNO_SIN_VACANTE", "El turno no tiene una vacante abierta."));
+    montar({ put, alCambiar });
+    const filas = await screen.findAllByTestId("candidato");
+    await userEvent.click(within(filas[0]).getByRole("button", { name: "Elegir" }));
+    await screen.findByRole("alert");
+    expect(alCambiar).not.toHaveBeenCalled();
   });
 });

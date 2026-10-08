@@ -1,10 +1,16 @@
 // Service worker básico: guarda el shell de la app para abrirla sin conexión. Nunca toca /api/ (los datos
 // siempre vienen del servidor) ni pedidos que no sean GET del mismo origen.
-const VERSION = "guardia-viva-v1";
+const VERSION = "guardia-viva-v2";
 const SHELL = ["/", "/manifest.webmanifest", "/icono-192.png", "/icono-512.png"];
 
 self.addEventListener("install", (evento) => {
-  evento.waitUntil(caches.open(VERSION).then((cache) => cache.addAll(SHELL)).then(() => self.skipWaiting()));
+  // un recurso que no se pueda traer no impide instalar: el shell se completa con lo que haya
+  evento.waitUntil(
+    caches
+      .open(VERSION)
+      .then((cache) => Promise.all(SHELL.map((ruta) => cache.add(ruta).catch(() => {}))))
+      .then(() => self.skipWaiting()),
+  );
 });
 
 self.addEventListener("activate", (evento) => {
@@ -26,7 +32,8 @@ self.addEventListener("fetch", (evento) => {
     evento.respondWith(fetch(pedido).catch(() => caches.match("/")));
     return;
   }
-  // archivos compilados (con hash en el nombre): caché primero
+  // solo los archivos compilados (/assets/, con hash en el nombre) van con caché primero; el resto va a la red
+  if (!url.pathname.startsWith("/assets/")) return;
   evento.respondWith(
     caches.match(pedido).then(
       (guardado) =>

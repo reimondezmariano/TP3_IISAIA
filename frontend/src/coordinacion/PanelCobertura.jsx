@@ -11,7 +11,7 @@ const plural = (n, uno, varios) => `${n} ${n === 1 ? uno : varios}`;
 
 // Panel del coordinador dentro del detalle de un turno: candidatos ordenados por equidad (D17), asignación
 // directa o reasignación (D18) y marca de sin cobertura (D19). El servidor valida todo; acá solo se muestra.
-export default function PanelCobertura({ api, turnoId }) {
+export default function PanelCobertura({ api, turnoId, alCambiar = () => {} }) {
   const [candidatos, setCandidatos] = useState({ estado: "cargando", datos: null, error: null });
   const [medicos, setMedicos] = useState([]);
   const [elegido, setElegido] = useState("");
@@ -54,6 +54,7 @@ export default function PanelCobertura({ api, turnoId }) {
     const fallo = await ejecutar(async () => {
       const resultado = await asignar(api, turnoId, medico.id, reasignar);
       setAviso(`${resultado.asignado.nombre} cubre este turno.`);
+      await alCambiar();
     });
     if (fallo?.codigo === "YA_TIENE_ASIGNADO") setAReasignar(medico);
   }
@@ -62,6 +63,7 @@ export default function PanelCobertura({ api, turnoId }) {
     ejecutar(async () => {
       await marcarSinCobertura(api, turnoId);
       setAviso("El turno quedó marcado sin cobertura.");
+      await alCambiar();
     });
 
   const elegible = (id) => medicos.find((m) => m.id === Number(id));
