@@ -82,7 +82,7 @@ def test_baja_respeta_una_version_futura_de_otro_medico(cliente, sesion, como_co
     ]
 
 
-def test_baja_con_una_version_futura_propia(cliente, sesion, como_coordinador):
+def test_baja_con_una_version_futura_propia_la_deja_sin_titular_en_el_lugar(cliente, sesion, como_coordinador):
     carlos = crear_usuario(sesion, "Carlos Lugones")
     h = crear_horario_de_prueba(sesion, carlos.id)
     nueva_version(
@@ -91,9 +91,29 @@ def test_baja_con_una_version_futura_propia(cliente, sesion, como_coordinador):
                      frecuencia_semanas=1, fecha_ancla=date(2026, 9, 7)),
         date(2026, 11, 3),
     )
+
     r = cliente.post(f"/api/usuarios/{carlos.id}/baja", json={"fechaBaja": "2026-10-12"})
-    assert (r.status_code, r.json()["codigo"]) == (409, "VERSION_FUTURA_DEL_MEDICO")
-    assert cliente.get("/api/usuarios").json()[0]["estado"] == "ACTIVO"  # no quedó nada a medias
+
+    assert r.status_code == 200
+    assert r.json()["horariosSinTitular"] == [h.id]
+    [x] = [x for x in cliente.get("/api/horarios").json() if x["id"] == h.id]
+    assert [(v["medico"] and v["medico"]["id"], v["horaInicio"], v["vigenteDesde"], v["vigenteHasta"]) for v in x["versiones"]] == [
+        (carlos.id, "08:00:00", "2026-09-07", "2026-10-13"),
+        (None, "08:00:00", "2026-10-13", "2026-11-03"),
+        (None, "09:00:00", "2026-11-03", None),
+    ]
+
+
+def test_baja_de_quien_tiene_un_horario_que_todavia_no_empezo(cliente, sesion, como_coordinador):
+    carlos = crear_usuario(sesion, "Carlos Lugones")
+    h = crear_horario_de_prueba(sesion, carlos.id, desde=date(2026, 11, 3))
+
+    r = cliente.post(f"/api/usuarios/{carlos.id}/baja", json={"fechaBaja": "2026-10-12"})
+
+    assert r.status_code == 200
+    assert r.json()["horariosSinTitular"] == [h.id]
+    [x] = [x for x in cliente.get("/api/horarios").json() if x["id"] == h.id]
+    assert [(v["medico"], v["vigenteDesde"]) for v in x["versiones"]] == [(None, "2026-11-03")]
 
 
 def test_baja_de_un_pendiente(cliente, sesion, como_coordinador):

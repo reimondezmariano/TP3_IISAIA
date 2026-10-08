@@ -109,10 +109,41 @@ def test_cambio_en_el_pasado(cliente, sesion, como_coordinador):
     assert (r.status_code, r.json()["codigo"]) == (422, "FECHA_PASADA")
 
 
-def test_ya_hay_una_version_que_empieza_ese_dia(cliente, sesion, como_coordinador):
-    h = crear_horario_de_prueba(sesion, crear_usuario(sesion, "Carlos Lugones").id, desde=date(2026, 10, 20))
-    r = cliente.post(f"/api/horarios/{h.id}/versiones", json={"desde": "2026-10-20", "horaInicio": "09:00"})
+def test_version_que_empieza_hoy_ya_rige_y_no_se_modifica_en_el_lugar(cliente, sesion, como_coordinador):
+    h = crear_horario_de_prueba(sesion, crear_usuario(sesion, "Carlos Lugones").id, desde=date(2026, 10, 12))
+    r = cliente.post(f"/api/horarios/{h.id}/versiones", json={"desde": "2026-10-12", "horaInicio": "09:00"})
     assert (r.status_code, r.json()["codigo"]) == (409, "VERSION_EN_ESA_FECHA")
+
+
+def test_version_que_todavia_no_rige_se_modifica_en_el_lugar(cliente, sesion, como_coordinador):
+    carlos = crear_usuario(sesion, "Carlos Lugones")
+    h = crear_horario_de_prueba(sesion, carlos.id, desde=date(2026, 10, 20))
+    [antes] = versiones(cliente, h.id)
+
+    r = cliente.post(f"/api/horarios/{h.id}/versiones", json={"desde": "2026-10-20", "horaInicio": "09:00"})
+
+    assert r.status_code == 201
+    [despues] = versiones(cliente, h.id)  # nunca rigió: no hay historia que conservar (D10)
+    assert despues["id"] == antes["id"] == r.json()["version"]["id"]
+    assert (despues["horaInicio"], despues["vigenteDesde"], despues["vigenteHasta"]) == ("09:00:00", "2026-10-20", None)
+
+
+def test_version_programada_se_modifica_en_el_lugar_sin_tocar_la_anterior(cliente, sesion, como_coordinador):
+    carlos = crear_usuario(sesion, "Carlos Lugones")
+    h = crear_horario_de_prueba(sesion, carlos.id)
+    programada = DatosVersion(
+        medico_id=carlos.id, dia_semana=2, hora_inicio=time(10), duracion_horas=12,
+        frecuencia_semanas=1, fecha_ancla=date(2026, 9, 7),
+    )
+    nueva_version(sesion, h.id, programada, date(2026, 11, 3))
+
+    r = cliente.post(f"/api/horarios/{h.id}/versiones", json={"desde": "2026-11-03", "medicoId": None})
+
+    assert r.status_code == 201
+    assert [(v["medico"] and v["medico"]["id"], v["horaInicio"], v["vigenteDesde"], v["vigenteHasta"]) for v in versiones(cliente, h.id)] == [
+        (carlos.id, "08:00:00", "2026-09-07", "2026-11-03"),
+        (None, "10:00:00", "2026-11-03", None),
+    ]
 
 
 def test_horario_cerrado_no_admite_versiones(cliente, sesion, como_coordinador):

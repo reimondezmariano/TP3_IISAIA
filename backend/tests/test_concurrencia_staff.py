@@ -19,9 +19,10 @@ def test_dos_cambios_simultaneos_desde_la_misma_fecha(fabrica_sesiones):
         s.commit()
 
     with fabrica_sesiones() as s1, fabrica_sesiones() as s2:
-        abrir_version(s1, horario_id, {"hora_inicio": time(9)}, date(2026, 10, 20), HOY)
+        # Desde hoy: la versión que abre el primero ya rige, así que el segundo no puede modificarla en el lugar.
+        abrir_version(s1, horario_id, {"hora_inicio": time(9)}, HOY, HOY)
         resultado = bloqueado_hasta_commit(
-            s1, lambda: abrir_version(s2, horario_id, {"hora_inicio": time(10)}, date(2026, 10, 20), HOY)
+            s1, lambda: abrir_version(s2, horario_id, {"hora_inicio": time(10)}, HOY, HOY)
         )
 
     assert isinstance(resultado.get("error"), ErrorDominio)

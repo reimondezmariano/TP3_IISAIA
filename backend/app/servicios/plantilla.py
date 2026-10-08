@@ -11,7 +11,13 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.dominio.plantilla import hay_version_posterior, validar_desde, validar_fecha_ancla, version_que_cubre
+from app.dominio.plantilla import (
+    hay_version_posterior,
+    validar_desde,
+    validar_fecha_ancla,
+    version_a_modificar,
+    version_que_cubre,
+)
 from app.errores import ErrorDominio
 from app.modelos import EstadoUsuario, HorarioPactado, RolUsuario, Usuario, VersionHorario
 from app.repos.horarios import (
@@ -21,6 +27,7 @@ from app.repos.horarios import (
     bloquear_horario,
     crear_horario,
     datos_de,
+    modificar_version,
     nueva_version,
     turnos_afectados,
     versiones_del_medico_desde,
@@ -50,15 +57,27 @@ class ResultadoVersion:
 
 
 def _partir(
-    sesion: Session, horario_id: int, versiones: list[VersionHorario], cambios: Mapping[str, Any], desde: date
+    sesion: Session,
+    horario_id: int,
+    versiones: list[VersionHorario],
+    cambios: Mapping[str, Any],
+    desde: date,
+    hoy: date,
 ) -> VersionHorario:
-    """Abre en `desde` una versión con `cambios`; lo demás se copia de la versión que rige ese día."""
-    cubre_id = version_que_cubre([a_vigencia(v) for v in versiones], desde, horario_id).version_id
-    actuales = datos_de(next(v for v in versiones if v.id == cubre_id))
+    """Aplica `cambios` desde `desde`; lo demás se copia de la versión que rige ese día.
+
+    Parte esa versión y abre otra, salvo que empiece justo en `desde` y todavía no rija: entonces la modifica
+    en el lugar (D10).
+    """
+    vigencia, en_el_lugar = version_a_modificar([a_vigencia(v) for v in versiones], desde, horario_id, hoy)
+    version = next(v for v in versiones if v.id == vigencia.version_id)
+    actuales = datos_de(version)
     nuevos = replace(actuales, **cambios)
     if nuevos == actuales:
         raise ErrorDominio("SIN_CAMBIOS", "La versión nueva es igual a la que rige ese día.")
     validar_fecha_ancla(nuevos.fecha_ancla)
+    if en_el_lugar:
+        return modificar_version(sesion, version, nuevos)
     return nueva_version(sesion, horario_id, nuevos, desde)
 
 
@@ -75,7 +94,7 @@ def abrir_version(
     versiones = bloquear_horario(sesion, horario_id)
     if versiones is None:
         raise ErrorDominio("HORARIO_NO_ENCONTRADO", "No existe ese horario.", 404)
-    version = _partir(sesion, horario_id, versiones, cambios, desde)
+    version = _partir(sesion, horario_id, versiones, cambios, desde, hoy)
     return ResultadoVersion(version, turnos_afectados(sesion, [horario_id], desde))
 
 
@@ -101,7 +120,8 @@ def cerrar_horario(sesion: Session, horario_id: int, desde: date, hoy: date) -> 
 def dejar_sin_titular(
     sesion: Session, medico_id: int, desde: date, hoy: date
 ) -> tuple[list[int], list[TurnoAfectado]]:
-    """Abre en `desde` una versión sin titular en cada horario del médico (D23, D24).
+    """Deja sin titular, desde `desde`, cada horario del médico (D23, D24): parte la versión que rige ese día y
+    pasa a sin titular, en el lugar, las versiones propias que todavía no rigen.
 
     Quien llama ya bloqueó al médico: nadie puede designarlo titular mientras tanto. La lista de horarios se
     lee sin bloquearlos, así que cada uno se vuelve a mirar después de bloquearlo: si mientras tanto otro
@@ -112,17 +132,15 @@ def dejar_sin_titular(
     horario_ids = []
     for horario_id in candidatos:
         versiones = bloquear_horario(sesion, horario_id)
-        futura = next((v for v in versiones if v.medico_id == medico_id and v.vigente_desde >= desde), None)
-        if futura is not None:
-            raise ErrorDominio(
-                "VERSION_FUTURA_DEL_MEDICO",
-                f"El médico es titular de una versión del horario {horario_id} que empieza el "
-                f"{futura.vigente_desde:%d/%m/%Y}: cambiala antes de continuar.",
-                409,
-            )
+        tocado = False
+        # Versiones propias que todavía no rigen (empiezan en `desde` o después): se dejan sin titular en el lugar.
+        for futura in [v for v in versiones if v.medico_id == medico_id and v.vigente_desde >= desde]:
+            _partir(sesion, horario_id, versiones, {"medico_id": None}, futura.vigente_desde, hoy)
+            tocado = True
         rige = next((v for v in versiones if a_vigencia(v).rige(desde)), None)
-        if rige is None or rige.medico_id != medico_id:
-            continue
-        _partir(sesion, horario_id, versiones, {"medico_id": None}, desde)
-        horario_ids.append(horario_id)
+        if rige is not None and rige.medico_id == medico_id:
+            _partir(sesion, horario_id, versiones, {"medico_id": None}, desde, hoy)
+            tocado = True
+        if tocado:
+            horario_ids.append(horario_id)
     return horario_ids, turnos_afectados(sesion, horario_ids, desde)

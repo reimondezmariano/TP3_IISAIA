@@ -10,6 +10,7 @@ from app.dominio.plantilla import (
     lunes_de,
     validar_desde,
     validar_fecha_ancla,
+    version_a_modificar,
     version_que_cubre,
 )
 from app.errores import ErrorDominio
@@ -85,3 +86,19 @@ def test_hay_version_posterior():
 )
 def test_estado_horario(versiones, esperado):
     assert estado_horario(versiones, HOY) == esperado
+
+
+def test_version_que_todavia_no_rige_se_modifica_en_el_lugar():
+    versiones = [v(1, date(2026, 9, 7), date(2026, 11, 2)), v(2, date(2026, 11, 2))]
+    assert version_a_modificar(versiones, date(2026, 11, 2), 7, HOY) == (versiones[1], True)
+
+
+def test_en_otra_fecha_se_parte_la_version_que_rige():
+    versiones = [v(1, date(2026, 9, 7), date(2026, 11, 2)), v(2, date(2026, 11, 2))]
+    assert version_a_modificar(versiones, date(2026, 10, 20), 7, HOY) == (versiones[0], False)
+
+
+def test_version_que_ya_rige_hoy_no_se_modifica_en_el_lugar():
+    # Empieza hoy: ya rige y puede tener turnos de hoy calculados con ella.
+    versiones = [v(1, date(2026, 9, 7), HOY), v(2, HOY)]
+    assert error_de(version_a_modificar, versiones, HOY, 7, HOY) == ("VERSION_EN_ESA_FECHA", 409)

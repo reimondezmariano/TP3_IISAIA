@@ -58,6 +58,21 @@ def version_que_cubre(vigencias: Sequence[Vigencia], desde: date, horario_id: in
     return cubre
 
 
+def version_a_modificar(
+    vigencias: Sequence[Vigencia], desde: date, horario_id: int, hoy: date
+) -> tuple[Vigencia, bool]:
+    """Versión sobre la que se aplica un cambio desde `desde`, y si se modifica en el lugar (D10).
+
+    Una versión que empieza justo en `desde` y todavía no rige (empieza después de hoy) se modifica en el
+    lugar: nunca rigió, así que no tiene historia que conservar. En cualquier otro caso se parte la versión
+    que rige ese día.
+    """
+    rige = next((v for v in vigencias if v.rige(desde)), None)
+    if rige is not None and rige.vigente_desde == desde and desde > hoy:
+        return rige, True
+    return version_que_cubre(vigencias, desde, horario_id), False
+
+
 def hay_version_posterior(vigencias: Sequence[Vigencia], desde: date) -> bool:
     return any(v.vigente_desde > desde for v in vigencias)
 

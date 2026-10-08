@@ -163,6 +163,14 @@ def bloquear_horario(sesion: Session, horario_id: int) -> list[VersionHorario] |
     )
 
 
+def modificar_version(sesion: Session, version: VersionHorario, datos: DatosVersion) -> VersionHorario:
+    """Reemplaza los datos de una versión que todavía no rige (D10): no cambia su vigencia."""
+    for campo, valor in asdict(datos).items():
+        setattr(version, campo, valor)
+    sesion.flush()
+    return version
+
+
 @dataclass(frozen=True)
 class TurnoAfectado:
     id: str
