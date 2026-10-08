@@ -81,3 +81,15 @@ label small { display: block; font-weight: 400; color: var(--suave); margin-top:
 .aviso-urgente { position: fixed; left: 16px; right: 16px; bottom: 16px; z-index: 20; max-width: 420px; margin: 0 auto; background: var(--peligro-fondo); color: var(--peligro); border: 2px solid var(--peligro); border-radius: 12px; padding: 0.75rem 1rem; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25); }
 .aviso-urgente p { margin: 0.25rem 0 0.5rem; }
 .barra-superior { display: flex; justify-content: flex-end; align-items: center; gap: 0.5rem; max-width: 1200px; margin: 0 auto; padding: 0.5rem 16px 0; }
+.barra-superior .campanita { margin-left: auto; }
+.barra-superior .pestanas { margin: 0; }
+.barra-superior .pestanas button { padding: 0 1rem; }
+.barra-superior .pestanas button[aria-pressed="true"] { background: var(--primario); color: var(--sobre-primario); }
+.lista-staff { list-style: none; margin: 0 0 1rem; padding: 0; display: grid; gap: 0.5rem; }
+.fila-usuario { background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 12px; padding: 0.75rem; display: grid; gap: 0.5rem; }
+.fila-usuario p { margin: 0.15rem 0; }
+.horarios-de { margin: 0.25rem 0 0; padding-left: 1.25rem; color: var(--suave); font-size: 0.875rem; }
+select { font: inherit; width: 100%; min-height: 44px; padding: 0.5rem 0.75rem; border: 1px solid var(--borde); border-radius: 8px; background: #fff; color: var(--texto); }
+.resultado { background: var(--ok-fondo); border: 1px solid var(--ok); border-radius: 12px; padding: 0.75rem 1rem; margin-bottom: 1rem; }
+.resultado h3, .resultado h4 { margin: 0.25rem 0; }
+.staff h3 { margin: 1rem 0 0.5rem; }
