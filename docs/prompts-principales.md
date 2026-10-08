@@ -45,6 +45,13 @@ Resultado: plan en `docs/superpowers/plans/2026-10-07-f2-cimientos.md`, con 13 d
 Corrección al aprobar el plan: "Agregá una tarea 6: que el script de datos de ejemplo conserve los vínculos con las cuentas de Supabase al volver a correrse." Se ejecuta en la misma sesión, con revisión de código de toda la branch antes del pull request.
 Ejecución: "Ejecutá el plan de F2 cimientos." Seis tareas en la misma sesión con executing-plans, un commit por tarea, y revisión de toda la branch por un subagente. La revisión encontró que cualquiera podía tomar la cuenta de coordinador de Enzo sin el código (decisión 4 del plan combinada con D06); el equipo eligió exigir el código para vincular un coordinador cargado (cambio en D28). Corrección antes del pull request: "Antes del PR, corregí tres menores con su prueba y un commit cada uno: limitá ck_evento_alerta_umbral a '48H', '24H' e 'INICIO' dentro de la migración 0002; TOKEN_SIN_EMAIL responde 403 en lugar de 401; y anotá en la convención 8 de backend/CLAUDE.md que turno.creado_en es una marca técnica con DEFAULT now(). Los demás menores dejalos anotados en la bitácora de desvíos como pendientes." Pull request #7.
 
+## 5. F3 (primera etapa): reglas de dominio puras
+
+Fecha: 7/10/2026.
+Herramienta: Claude Code con Superpowers (writing-plans y executing-plans).
+Prompt: "Leé backend/CLAUDE.md y el documento de decisiones de arquitectura en docs, especialmente D15 a D22 y D27. En esta primera etapa implementá solo funciones puras en backend/app/dominio, sin base de datos y con pruebas pytest: elegibilidad de postulantes (D16), orden de candidatos por equidad (D17), consolidación (D20), umbrales de alerta 48 h, 24 h e inicio (D19) y vacante urgente (D15). No crees modelos ni migraciones: los está haciendo Florencia en feature/f2-cimientos. Usá Superpowers: plan en docs/superpowers/plans, branch feature/f3-reglas-dominio, un commit por tarea."
+Resultado: plan en `docs/superpowers/plans/2026-10-07-f3-reglas-dominio-puras.md` y branch `feature/f3-reglas-dominio`, con un módulo por regla en `backend/app/dominio/` y sus pruebas. El plan lista los supuestos que cierran lo que las decisiones dejan abierto. Ejecución inline en una sola sesión, con revisión de toda la branch por un subagente. Tras la revisión: "Resolvimos con el equipo el supuesto 5 del plan" (la vacante abierta tiene prioridad sobre el asignado y el titular), que dio la decisión D31. Al traer main (PR #7) se alinearon los valores de `Umbral` con la restricción de la migración 0002. Pull request #8.
+
 ## Próximas entradas
 
 Copiar acá el prompt con que arranca cada funcionalidad (F2 a F6) y cualquier prompt de corrección que haya cambiado el rumbo.
