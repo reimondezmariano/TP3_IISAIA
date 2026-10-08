@@ -1,17 +1,17 @@
 """Contrato de la API de operación: vacantes, postulaciones, candidatos y asignación (D15 a D18, D31).
 
-Los EJEMPLOS son respuestas válidas de cada esquema. Mientras una ruta responda un ejemplo lleva el
-encabezado `X-Respuesta-Ejemplo: true` (app/api/operacion.py); el OpenAPI de /docs los muestra igual.
+Los EJEMPLOS son respuestas válidas de cada esquema: el OpenAPI de /docs los muestra. En la etapa 1 las rutas
+los devolvían con el encabezado `X-Respuesta-Ejemplo: true`; desde la etapa 3 todas las rutas son reales.
 """
 
 from datetime import datetime
-from enum import Enum
 from typing import Any
 from zoneinfo import ZoneInfo
 
 from pydantic import Field
 
 from app.api.esquemas import Esquema
+from app.dominio.asignacion import CasoAsignacion
 from app.dominio.elegibilidad import Motivo
 from app.modelos import EstadoVacante
 
@@ -74,12 +74,6 @@ class CandidatosOut(Esquema):
 class AsignarIn(Esquema):
     medico_id: int
     reasignar: bool = False
-
-
-class CasoAsignacion(str, Enum):
-    CANDIDATO_ELEGIDO = "CANDIDATO_ELEGIDO"
-    ASIGNACION_DIRECTA = "ASIGNACION_DIRECTA"
-    REASIGNACION = "REASIGNACION"
 
 
 class AsignacionOut(Esquema):
