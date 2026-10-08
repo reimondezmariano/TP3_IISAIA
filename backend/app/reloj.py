@@ -34,8 +34,42 @@ class RelojFijo:
         self._instante = self._instante + delta
 
 
-def get_reloj() -> Reloj:
+class RelojDesplazado:
+    """Reloj del modo demo (D27): la hora de otro reloj más un desfase que fija POST /demo/reloj."""
+
+    def __init__(self, base: Reloj, desfase: timedelta) -> None:
+        self._base = base
+        self._desfase = desfase
+
+    def ahora(self) -> datetime:
+        return self._base.ahora() + self._desfase
+
+
+# D27: desfase del reloj de demo. Vive en memoria: la demo corre en un solo proceso y reiniciarlo vuelve a la
+# hora real. Fuera del modo demo no se usa.
+_desfase_demo = timedelta(0)
+
+
+def desfase_demo() -> timedelta:
+    return _desfase_demo
+
+
+def fijar_desfase_demo(desfase: timedelta) -> None:
+    global _desfase_demo
+    _desfase_demo = desfase
+
+
+def get_reloj_sistema() -> Reloj:
+    """Hora real, sin desfase. Solo la usa POST /demo/reloj para calcular el desfase."""
     return RelojSistema(get_settings().zona)
+
+
+def get_reloj() -> Reloj:
+    settings = get_settings()
+    sistema = RelojSistema(settings.zona)
+    if settings.modo_demo:
+        return RelojDesplazado(sistema, _desfase_demo)
+    return sistema
 
 
 def hoy(reloj: Reloj) -> date:
