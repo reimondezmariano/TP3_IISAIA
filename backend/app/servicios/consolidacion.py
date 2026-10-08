@@ -19,6 +19,7 @@ from app.repos.consolidacion import (
     turnos_guardados_por_consolidar,
 )
 from app.repos.horarios import versiones_en_rango
+from app.servicios.alertas import emitir_alertas
 
 
 @dataclass(frozen=True)
@@ -105,3 +106,17 @@ def _consolidar_guardados(sesion: Session, ahora: datetime) -> tuple[int, int]:
         turno.consolidado_en = consolidacion.consolidado_en
     sesion.flush()
     return len(por_id), cerradas
+
+
+@dataclass(frozen=True)
+class ResultadoPuestaAlDia:
+    consolidados: int
+    vacantes_sin_cobertura: int
+    alertas: int
+
+
+def ponerse_al_dia(sesion: Session, reloj: Reloj, zona: ZoneInfo) -> ResultadoPuestaAlDia:
+    """Lo que antes haría un proceso programado (D19, D20): consolidar y después avisar. No hace commit."""
+    consolidacion = consolidar_pendientes(sesion, reloj, zona)
+    alertas = emitir_alertas(sesion, reloj, zona)
+    return ResultadoPuestaAlDia(consolidacion.consolidados, consolidacion.vacantes_sin_cobertura, alertas)
