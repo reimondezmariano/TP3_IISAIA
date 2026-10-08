@@ -15,8 +15,9 @@ from app.auth import VerificadorToken, get_verificador
 from app.config import get_settings
 from app.db import get_db
 from app.main import app
+from app.modelos import RolUsuario
 from app.reloj import RelojFijo, get_reloj
-from fabricas import SECRETO_PRUEBA
+from fabricas import SECRETO_PRUEBA, crear_usuario, encabezados
 
 BACKEND = Path(__file__).resolve().parents[1]
 ZONA = ZoneInfo("America/Argentina/Buenos_Aires")
@@ -119,3 +120,11 @@ def reloj() -> Iterator[RelojFijo]:
     app.dependency_overrides[get_reloj] = lambda: fijo
     yield fijo
     app.dependency_overrides.pop(get_reloj, None)
+
+
+@pytest.fixture
+def como_coordinador(cliente, sesion, reloj):
+    """Enzo, coordinador activo, con su token en el cliente y el reloj fijo en el lunes 12/10/2026."""
+    enzo = crear_usuario(sesion, "Enzo", rol=RolUsuario.COORDINADOR)
+    cliente.headers.update(encabezados(enzo))
+    return enzo

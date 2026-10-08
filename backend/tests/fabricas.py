@@ -1,14 +1,17 @@
+import datetime as dt
 import time
 import uuid
 from datetime import date, timedelta
 from itertools import count
+from zoneinfo import ZoneInfo
 
 import jwt
 import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.modelos import EstadoUsuario, RolUsuario, Usuario
+from app.modelos import EstadoUsuario, HorarioPactado, RolUsuario, Usuario
+from app.repos.horarios import DatosVersion, crear_horario
 
 _secuencia = count(1)
 
@@ -80,3 +83,30 @@ def token_para(
 
 def encabezados(usuario) -> dict[str, str]:
     return {"Authorization": f"Bearer {token_para(usuario.auth_id, email=usuario.email)}"}
+
+
+ZONA = ZoneInfo("America/Argentina/Buenos_Aires")
+HOY = date(2026, 10, 12)  # fecha del RelojFijo de conftest (lunes 12/10/2026 09:00)
+
+
+def crear_horario_de_prueba(
+    sesion: Session,
+    medico_id: int | None,
+    dia: int = 2,
+    hora: dt.time = dt.time(8),
+    dur: int = 12,
+    frec: int = 1,
+    ancla: date = date(2026, 9, 7),
+    desde: date = date(2026, 9, 7),
+    hasta: date | None = None,
+) -> HorarioPactado:
+    """Por defecto: martes de 08:00 a 20:00 todas las semanas, vigente desde el 7/9."""
+    datos = DatosVersion(
+        medico_id=medico_id,
+        dia_semana=dia,
+        hora_inicio=hora,
+        duracion_horas=dur,
+        frecuencia_semanas=frec,
+        fecha_ancla=ancla,
+    )
+    return crear_horario(sesion, datos, desde, hasta)

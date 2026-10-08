@@ -1,10 +1,12 @@
+from collections import defaultdict
 from dataclasses import asdict, dataclass
 from datetime import date, time, timedelta
 
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy import func, or_, select
+from sqlalchemy.orm import Session, selectinload
 
 from app.dominio.calendario import Titular, VersionPlantilla
+from app.dominio.plantilla import Vigencia
 from app.modelos import HorarioPactado, Usuario, VersionHorario
 
 
@@ -75,3 +77,49 @@ def _a_plantilla(version: VersionHorario, medico: Usuario | None) -> VersionPlan
         vigente_desde=version.vigente_desde,
         vigente_hasta=version.vigente_hasta,
     )
+
+
+def _con_versiones():
+    return (
+        select(HorarioPactado)
+        .options(selectinload(HorarioPactado.versiones).selectinload(VersionHorario.medico))
+        .execution_options(populate_existing=True)
+    )
+
+
+def listar_horarios(sesion: Session) -> list[HorarioPactado]:
+    """Todos los horarios, también los cerrados, con sus versiones ordenadas por vigencia."""
+    return list(sesion.scalars(_con_versiones().order_by(HorarioPactado.id)))
+
+
+def obtener_horario(sesion: Session, horario_id: int) -> HorarioPactado | None:
+    return sesion.scalar(_con_versiones().where(HorarioPactado.id == horario_id))
+
+
+def a_vigencia(version: VersionHorario) -> Vigencia:
+    return Vigencia(
+        version_id=version.id,
+        medico_id=version.medico_id,
+        vigente_desde=version.vigente_desde,
+        vigente_hasta=version.vigente_hasta,
+    )
+
+
+def versiones_no_terminadas_por_medico(
+    sesion: Session, hoy: date, medico_id: int | None = None
+) -> dict[int, list[VersionHorario]]:
+    """Versiones con titular que rigen hoy o empiezan después, agrupadas por médico."""
+    consulta = (
+        select(VersionHorario)
+        .where(
+            VersionHorario.medico_id.is_not(None),
+            or_(VersionHorario.vigente_hasta.is_(None), VersionHorario.vigente_hasta > hoy),
+        )
+        .order_by(VersionHorario.vigente_desde, VersionHorario.horario_id)
+    )
+    if medico_id is not None:
+        consulta = consulta.where(VersionHorario.medico_id == medico_id)
+    por_medico: dict[int, list[VersionHorario]] = defaultdict(list)
+    for version in sesion.scalars(consulta):
+        por_medico[version.medico_id].append(version)
+    return por_medico
