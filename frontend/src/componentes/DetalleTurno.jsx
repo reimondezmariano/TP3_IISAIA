@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { etiquetaDia, fechaLocal, horaLocal } from "../lib/fechas.js";
 
-export default function DetalleTurno({ turno, estado, acciones, onCerrar }) {
+export default function DetalleTurno({ turno, estado, acciones, panel = null, onCerrar }) {
   const [motivo, setMotivo] = useState("");
   const [intentoSinMotivo, setIntentoSinMotivo] = useState(false);
   const [accionError, setAccionError] = useState(null);
@@ -68,6 +68,7 @@ export default function DetalleTurno({ turno, estado, acciones, onCerrar }) {
         )}
         {puede("POSTULARME") && <button type="button" disabled={haciendo} onClick={() => ejecutar(() => acciones.postularme(turno.id))}>Postularme</button>}
         {puede("RETIRAR_POSTULACION") && <button type="button" disabled={haciendo} onClick={() => ejecutar(() => acciones.retirarPostulacion(turno.id))}>Retirar postulación</button>}
+        {panel}
         {accionError && <p role="alert" className="error">{accionError}</p>}
         <button type="button" className="secundario" onClick={onCerrar}>Cerrar</button>
       </section>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import PanelCobertura from "../coordinacion/PanelCobertura.jsx";
 import Cargando from "../componentes/Cargando.jsx";
 import AusenciaVarios from "../componentes/AusenciaVarios.jsx";
 import DetalleTurno from "../componentes/DetalleTurno.jsx";
@@ -102,6 +103,7 @@ function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }
           turno={seleccionado}
           estado={estadoDe(seleccionado)}
           acciones={acciones}
+          panel={usuario.rol === "COORDINADOR" && estadoDe(seleccionado).tipo !== "PASADO" ? <PanelCobertura api={api} turnoId={seleccionado.id} /> : null}
           onCerrar={() => setSeleccionado(null)}
         />
       )}
