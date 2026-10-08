@@ -7,8 +7,9 @@ import {
   agruparPorDia, diasDeSemana, etiquetaDia, etiquetaSemana, fechaLocal, lunesDe, sumarDias,
 } from "../lib/fechas.js";
 import { useSesion } from "../sesion/useSesion.js";
-import { useVacantesSimuladas } from "../simulado/useVacantesSimuladas.js";
+import { derivarEstado } from "../lib/estadoTurno.js";
 import { useAusencias } from "./useAusencias.js";
+import { usePostulaciones } from "./usePostulaciones.js";
 import { useTurnosSemana } from "./useTurnosSemana.js";
 
 export default function Calendario() {
@@ -44,8 +45,17 @@ function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }
   const visibles = dias.reduce((total, dia) => total + porDia[dia].length, 0);
   const hoy = fechaLocal(ahora);
   const ausencias = useAusencias(api, usuario);
-  const simulado = useVacantesSimuladas({ usuario, ahora, reales: ausencias.abiertas });
-  const acciones = { ...simulado, avisarAusencia: ausencias.avisar, retirarAviso: ausencias.retirar };
+  const postulaciones = usePostulaciones(api, usuario);
+  const estadoDe = (turno) =>
+    derivarEstado({
+      turno, usuario, ahora,
+      vacanteAbierta: ausencias.abiertas[turno.id] !== undefined,
+      postulado: postulaciones.postuladas[turno.id] !== undefined,
+    });
+  const acciones = {
+    avisarAusencia: ausencias.avisar, retirarAviso: ausencias.retirar,
+    postularme: postulaciones.postular, retirarPostulacion: postulaciones.retirar,
+  };
   const [seleccionado, setSeleccionado] = useState(null);
   const [variasFechas, setVariasFechas] = useState(false);
   useEffect(() => setSeleccionado(null), [lunes]);
@@ -81,7 +91,7 @@ function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }
             <section key={dia} className="dia" data-fecha={dia} aria-current={dia === hoy ? "date" : undefined}>
               <h3>{etiquetaDia(dia)}</h3>
               {porDia[dia].map((turno) => (
-                <TarjetaTurno key={turno.id} turno={turno} usuario={usuario} estado={simulado.estadoDe(turno)} onAbrir={setSeleccionado} />
+                <TarjetaTurno key={turno.id} turno={turno} usuario={usuario} estado={estadoDe(turno)} onAbrir={setSeleccionado} />
               ))}
             </section>
           ))}
@@ -90,7 +100,7 @@ function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }
       {seleccionado && (
         <DetalleTurno
           turno={seleccionado}
-          estado={simulado.estadoDe(seleccionado)}
+          estado={estadoDe(seleccionado)}
           acciones={acciones}
           onCerrar={() => setSeleccionado(null)}
         />

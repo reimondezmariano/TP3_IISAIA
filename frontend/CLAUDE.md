@@ -1,6 +1,6 @@
 # Frontend de Guardia Viva
 
-React + Vite, en JavaScript. Experiencia del médico (F4): login y registro con Supabase Auth, calendario semanal. F6: avisar ausencia y retirarla, notificaciones y pantalla de staff, contra la API real. El prototipo HTML de la raíz (`index.html`) es solo referencia visual y no se reutiliza su código.
+React + Vite, en JavaScript. Experiencia del médico (F4): login y registro con Supabase Auth, calendario semanal. F6: avisar ausencia y retirarla, postularse y retirar la postulación, notificaciones, pantalla de staff y app instalable (PWA), contra la API real. El prototipo HTML de la raíz (`index.html`) es solo referencia visual y no se reutiliza su código.
 
 ## Estructura
 
@@ -10,7 +10,8 @@ React + Vite, en JavaScript. Experiencia del médico (F4): login y registro con 
 4. `src/lib/vacantes.js` y `src/pantallas/useAusencias.js`: vacantes reales (`POST /turnos/{id}/vacantes`, retiro). El servidor no informa qué vacantes están abiertas, así que las que se generan desde este navegador se recuerdan en `localStorage` (por usuario) para poder retirarlas; en otro dispositivo no aparece "Retirar aviso". `POST /vacantes/lote` es solo de coordinadores: el médico con varias fechas llama a la ruta de una vacante por fecha (no es todo o nada) y se le informa cuáles fallaron.
 5. `src/notificaciones/`: `useNotificaciones` consulta `GET /notificaciones` cada 12 s; `Campanita` y `AvisoUrgente` (vacantes urgentes, D05, D15).
 6. `src/staff/`: pantalla de staff (D26): personas, horarios y designar titular en los horarios BAJA; muestra los turnos afectados que devuelve el servidor.
-7. `src/simulado/`: solo quedan simuladas las postulaciones y las vacantes ajenas.
+7. `src/lib/postulaciones.js` y `src/pantallas/usePostulaciones.js`: postularse y retirar la postulación (`POST /turnos/{id}/postulaciones`, `POST /postulaciones/{id}/retiro`). `GET /turnos` no informa qué turnos tienen vacante: el médico ve "Postularme" en cualquier guardia ajena que no empezó y el servidor decide (`TURNO_SIN_VACANTE`). El id de la postulación se recuerda en `localStorage`, igual que el de las vacantes (`lib/recuerdo.js`). `lib/estadoTurno.js` deriva etiqueta, urgencia y acciones.
+8. PWA: `public/manifest.webmanifest`, íconos y `public/sw.js` (guarda el shell, nunca `/api/`); `lib/pwa.js` lo registra solo en producción.
 
 ## Convenciones
 
