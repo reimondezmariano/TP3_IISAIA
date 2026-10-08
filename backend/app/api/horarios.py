@@ -1,18 +1,20 @@
 from datetime import date, datetime, time
+from typing import Any
 
 from fastapi import APIRouter, Depends
-from pydantic import Field
+from pydantic import Field, model_validator
 from sqlalchemy.orm import Session
 
 from app.api.esquemas import Esquema
 from app.auth import requiere_coordinador
+from app.config import get_settings
 from app.db import get_db
 from app.dominio.calendario import Titular
 from app.dominio.plantilla import EstadoHorario, estado_horario, lunes_de
 from app.modelos import HorarioPactado, Usuario, VersionHorario
 from app.reloj import Reloj, get_reloj, hoy
-from app.repos.horarios import DatosVersion, a_vigencia, listar_horarios, obtener_horario
-from app.servicios.plantilla import crear_horario_pactado
+from app.repos.horarios import DatosVersion, TurnoAfectado, a_vigencia, listar_horarios, obtener_horario
+from app.servicios.plantilla import abrir_version, crear_horario_pactado
 
 router = APIRouter()
 
@@ -107,3 +109,70 @@ def crear(
     horario = crear_horario_pactado(db, version, datos.vigente_desde, dia)
     db.commit()
     return horario_out(obtener_horario(db, horario.id), dia)
+
+
+class TurnoAfectadoOut(Esquema):
+    id: str
+    horario_id: int
+    fecha: date
+    inicio: datetime
+    fin: datetime
+    titular: PersonaOut | None
+    asignado: PersonaOut | None
+
+
+def turno_afectado_out(turno: TurnoAfectado) -> TurnoAfectadoOut:
+    zona = get_settings().zona
+    return TurnoAfectadoOut(
+        id=turno.id,
+        horario_id=turno.horario_id,
+        fecha=turno.fecha,
+        inicio=turno.inicio.astimezone(zona),
+        fin=turno.fin.astimezone(zona),
+        titular=persona_out(turno.titular),
+        asignado=persona_out(turno.asignado),
+    )
+
+
+class VersionIn(Esquema):
+    """Solo lo que cambia; lo omitido se copia de la versión que rige en `desde`. medicoId null = sin titular."""
+
+    desde: date
+    medico_id: int | None = None
+    dia_semana: int | None = Field(default=None, ge=1, le=7)
+    hora_inicio: time | None = None
+    duracion_horas: int | None = Field(default=None, ge=1, le=24)
+    frecuencia_semanas: int | None = Field(default=None, ge=1, le=52)
+    fecha_ancla: date | None = None
+
+    @model_validator(mode="after")
+    def _solo_el_medico_admite_null(self) -> "VersionIn":
+        nulos = sorted(c for c in self.model_fields_set if c != "medico_id" and getattr(self, c) is None)
+        if nulos:
+            raise ValueError(f"Solo medicoId admite null; vinieron en null: {', '.join(nulos)}")
+        return self
+
+    def cambios(self) -> dict[str, Any]:
+        return {campo: getattr(self, campo) for campo in self.model_fields_set if campo != "desde"}
+
+
+class VersionNuevaOut(Esquema):
+    version: VersionOut
+    turnos_afectados: list[TurnoAfectadoOut]
+
+
+@router.post("/horarios/{horario_id}/versiones", response_model=VersionNuevaOut, status_code=201)
+def nueva(
+    horario_id: int,
+    datos: VersionIn,
+    db: Session = Depends(get_db),
+    reloj: Reloj = Depends(get_reloj),
+    _coordinador: Usuario = Depends(requiere_coordinador),
+) -> VersionNuevaOut:
+    """Modifica un horario o designa su titular con una versión nueva (D10, D24) y lista los turnos afectados (D12)."""
+    resultado = abrir_version(db, horario_id, datos.cambios(), datos.desde, hoy(reloj))
+    db.commit()
+    return VersionNuevaOut(
+        version=version_out(resultado.version),
+        turnos_afectados=[turno_afectado_out(t) for t in resultado.turnos_afectados],
+    )

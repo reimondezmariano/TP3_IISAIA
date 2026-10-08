@@ -1,16 +1,20 @@
 import datetime as dt
+import threading
 import time
 import uuid
-from datetime import date, timedelta
+from collections.abc import Callable
+from datetime import date, datetime, timedelta
 from itertools import count
+from typing import Any
 from zoneinfo import ZoneInfo
 
 import jwt
 import pytest
+from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.modelos import EstadoUsuario, HorarioPactado, RolUsuario, Usuario
+from app.modelos import EstadoUsuario, HorarioPactado, RolUsuario, Turno, Usuario, VersionHorario
 from app.repos.horarios import DatosVersion, crear_horario
 
 _secuencia = count(1)
@@ -110,3 +114,54 @@ def crear_horario_de_prueba(
         fecha_ancla=ancla,
     )
     return crear_horario(sesion, datos, desde, hasta)
+
+
+def guardar_turno(
+    sesion: Session,
+    horario_id: int,
+    fecha: date,
+    asignado_id: int | None = None,
+    consolidado_en: datetime | None = None,
+) -> Turno:
+    """Turno materializado con la foto de la versión que rige `fecha` (D11), como lo guardaría F2b."""
+    version = sesion.scalars(
+        select(VersionHorario).where(
+            VersionHorario.horario_id == horario_id,
+            VersionHorario.vigente_desde <= fecha,
+            or_(VersionHorario.vigente_hasta.is_(None), VersionHorario.vigente_hasta > fecha),
+        )
+    ).one()
+    inicio = datetime.combine(fecha, version.hora_inicio, tzinfo=ZONA)
+    turno = Turno(
+        horario_id=horario_id,
+        fecha=fecha,
+        version_id=version.id,
+        inicio=inicio,
+        fin=inicio + timedelta(hours=version.duracion_horas),
+        titular_id=version.medico_id,
+        asignado_id=asignado_id,
+        consolidado_en=consolidado_en,
+    )
+    guardar(sesion, turno)
+    return turno
+
+
+def bloqueado_hasta_commit(primera: Session, accion: Callable[[], Any]) -> dict:
+    """Corre `accion` en otro hilo, verifica que espera los bloqueos de `primera`, confirma `primera`
+    y devuelve lo que pasó en el hilo: {"valor": ...} o {"error": excepción}."""
+    resultado: dict = {}
+
+    def correr() -> None:
+        try:
+            resultado["valor"] = accion()
+        except Exception as exc:  # noqa: BLE001 - la prueba inspecciona la excepción
+            resultado["error"] = exc
+
+    hilo = threading.Thread(target=correr)
+    hilo.start()
+    hilo.join(timeout=0.5)
+    assert hilo.is_alive(), "la segunda transacción no esperó el bloqueo de la primera"
+    primera.commit()
+    hilo.join(timeout=10)
+    assert not hilo.is_alive(), "la segunda transacción no terminó"
+    return resultado

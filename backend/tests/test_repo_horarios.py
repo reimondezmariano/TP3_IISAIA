@@ -75,3 +75,17 @@ def test_versiones_en_rango_sin_titular_devuelve_titular_none(sesion):
     crear_horario(sesion, datos(medico_id=None), date(2026, 9, 7))
     [version] = versiones_en_rango(sesion, date(2026, 10, 12), date(2026, 10, 18))
     assert version.titular is None
+
+
+def test_nueva_version_en_medio_hereda_el_fin_de_la_que_parte(sesion):
+    horario = crear_horario(sesion, datos(), date(2026, 9, 7))
+    nueva_version(sesion, horario.id, datos(hora=time(9)), date(2026, 11, 2))
+    nueva_version(sesion, horario.id, datos(hora=time(8)), date(2026, 10, 19))
+    versiones = sesion.scalars(
+        select(VersionHorario).where(VersionHorario.horario_id == horario.id).order_by(VersionHorario.vigente_desde)
+    ).all()
+    assert [(v.vigente_desde, v.vigente_hasta, v.hora_inicio) for v in versiones] == [
+        (date(2026, 9, 7), date(2026, 10, 19), time(7)),
+        (date(2026, 10, 19), date(2026, 11, 2), time(8)),
+        (date(2026, 11, 2), None, time(9)),
+    ]
