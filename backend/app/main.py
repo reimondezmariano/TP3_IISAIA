@@ -1,6 +1,6 @@
 from fastapi import APIRouter, FastAPI
 
-from app.api import health, horarios, sesion, turnos, usuarios
+from app.api import health, horarios, operacion, sesion, turnos, usuarios
 from app.api.manejadores import registrar_manejadores
 
 
@@ -14,6 +14,7 @@ def crear_app() -> FastAPI:
     api.include_router(turnos.router)
     api.include_router(usuarios.router)
     api.include_router(horarios.router)
+    api.include_router(operacion.router)
     app.include_router(api)
     return app
 

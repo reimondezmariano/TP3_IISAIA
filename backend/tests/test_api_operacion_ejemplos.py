@@ -50,3 +50,93 @@ def test_lote_rechaza_lista_vacia_y_mas_de_31():
 def test_asignar_acepta_camel_case_y_reasignar_es_falso_por_defecto():
     datos = esq.AsignarIn.model_validate({"medicoId": 3})
     assert datos.medico_id == 3 and datos.reasignar is False
+
+
+# --- rutas con respuestas de ejemplo (sin base de datos) ---
+
+from fastapi.testclient import TestClient  # noqa: E402
+
+from app.auth import get_verificador, usuario_actual  # noqa: E402
+from app.db import get_db  # noqa: E402
+from app.main import crear_app  # noqa: E402
+from app.modelos import EstadoUsuario, RolUsuario, Usuario  # noqa: E402
+
+TURNO = "7:2026-10-17"
+RUTAS = [
+    # método, ruta, cuerpo, status, esquema de respuesta, solo coordinador
+    ("POST", f"/api/turnos/{TURNO}/vacantes", {"motivo": "Congreso"}, 201, "VacanteOut", False),
+    ("POST", "/api/vacantes/lote", {"turnoIds": [TURNO], "motivo": "Vacaciones"}, 201, "LoteVacantesOut", True),
+    ("POST", "/api/vacantes/12/retiro", None, 200, "VacanteOut", False),
+    ("POST", f"/api/turnos/{TURNO}/postulaciones", None, 201, "PostulacionOut", False),
+    ("POST", "/api/postulaciones/31/retiro", None, 200, "PostulacionOut", False),
+    ("GET", f"/api/turnos/{TURNO}/candidatos", None, 200, "CandidatosOut", True),
+    ("PUT", f"/api/turnos/{TURNO}/asignacion", {"medicoId": 2}, 200, "AsignacionOut", True),
+]
+IDS = [f"{m} {r}" for m, r, *_ in RUTAS]
+
+
+def _usuario(rol: RolUsuario) -> Usuario:
+    return Usuario(id=99, nombre="Prueba", email="prueba@prueba.test", rol=rol, estado=EstadoUsuario.ACTIVO)
+
+
+def _cliente(rol: RolUsuario | None) -> TestClient:
+    app = crear_app()
+    app.dependency_overrides[get_verificador] = lambda: object()  # sin Supabase configurado
+    app.dependency_overrides[get_db] = _base_prohibida
+    if rol is not None:
+        app.dependency_overrides[usuario_actual] = lambda: _usuario(rol)
+    return TestClient(app)
+
+
+def _base_prohibida():
+    raise AssertionError("las rutas de ejemplo no deben tocar la base de datos")
+
+
+def _pedir(cliente: TestClient, metodo: str, ruta: str, cuerpo):
+    return cliente.request(metodo, ruta, json=cuerpo)
+
+
+def test_las_siete_rutas_estan_en_el_openapi():
+    rutas = _cliente(None).get("/openapi.json").json()["paths"]
+    for metodo, ruta, *_ in RUTAS:
+        patron = ruta.replace(TURNO, "{turno_id}").replace("/12/", "/{vacante_id}/").replace("/31/", "/{postulacion_id}/")
+        assert metodo.lower() in rutas[patron], (metodo, patron)
+
+
+@pytest.mark.parametrize(("metodo", "ruta", "cuerpo", "_s", "_e", "_c"), RUTAS, ids=IDS)
+def test_sin_token_responde_401(metodo, ruta, cuerpo, _s, _e, _c):
+    respuesta = _pedir(_cliente(None), metodo, ruta, cuerpo)
+    assert respuesta.status_code == 401
+    assert respuesta.json()["codigo"] == "SIN_SESION"
+
+
+@pytest.mark.parametrize(("metodo", "ruta", "cuerpo", "_s", "_e", "solo_coordinador"), RUTAS, ids=IDS)
+def test_las_rutas_de_coordinacion_rechazan_a_un_medico(metodo, ruta, cuerpo, _s, _e, solo_coordinador):
+    respuesta = _pedir(_cliente(RolUsuario.MEDICO), metodo, ruta, cuerpo)
+    if solo_coordinador:
+        assert respuesta.status_code == 403 and respuesta.json()["codigo"] == "SIN_PERMISO"
+    else:
+        assert respuesta.status_code != 403
+
+
+@pytest.mark.parametrize(("metodo", "ruta", "cuerpo", "status", "esquema", "_c"), RUTAS, ids=IDS)
+def test_la_respuesta_de_ejemplo_valida_y_lleva_el_encabezado(metodo, ruta, cuerpo, status, esquema, _c):
+    respuesta = _pedir(_cliente(RolUsuario.COORDINADOR), metodo, ruta, cuerpo)
+    assert respuesta.status_code == status
+    assert respuesta.headers["X-Respuesta-Ejemplo"] == "true"
+    clase = getattr(esq, esquema)
+    assert clase.model_validate(respuesta.json()) == EJEMPLOS[esquema]
+
+
+@pytest.mark.parametrize("ruta", ["/api/turnos/7-2026-10-17/vacantes", "/api/turnos/7:2026-13-45/candidatos"])
+def test_turno_id_mal_formado_responde_422(ruta):
+    metodo = "POST" if ruta.endswith("vacantes") else "GET"
+    respuesta = _pedir(_cliente(RolUsuario.COORDINADOR), metodo, ruta, {} if metodo == "POST" else None)
+    assert respuesta.status_code == 422
+    assert respuesta.json()["codigo"] == "TURNO_ID_INVALIDO"
+
+
+def test_el_lote_con_un_id_mal_formado_responde_422():
+    respuesta = _pedir(_cliente(RolUsuario.COORDINADOR), "POST", "/api/vacantes/lote", {"turnoIds": ["7:2026-10-17", "xx"]})
+    assert respuesta.status_code == 422
+    assert respuesta.json()["codigo"] == "TURNO_ID_INVALIDO"
