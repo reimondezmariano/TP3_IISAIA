@@ -1,4 +1,4 @@
-from datetime import date, time
+from datetime import date, datetime, time
 
 import pytest
 from psycopg.errors import LockNotAvailable
@@ -9,7 +9,9 @@ from app.errores import ErrorDominio
 from app.modelos import EstadoUsuario, RolUsuario, Usuario, VersionHorario
 from app.servicios.plantilla import abrir_version
 from app.servicios.usuarios import cambiar_rol, dar_de_baja
-from fabricas import HOY, bloqueado_hasta_commit, crear_horario_de_prueba, crear_usuario, encabezados
+from fabricas import HOY, ZONA, bloqueado_hasta_commit, crear_horario_de_prueba, crear_usuario, encabezados
+
+AHORA = datetime(2026, 10, 12, 9, 0, tzinfo=ZONA)
 
 
 @pytest.mark.commit_real
@@ -20,9 +22,9 @@ def test_dos_cambios_simultaneos_desde_la_misma_fecha(fabrica_sesiones):
 
     with fabrica_sesiones() as s1, fabrica_sesiones() as s2:
         # Desde hoy: la versión que abre el primero ya rige, así que el segundo no puede modificarla en el lugar.
-        abrir_version(s1, horario_id, {"hora_inicio": time(9)}, HOY, HOY)
+        abrir_version(s1, horario_id, {"hora_inicio": time(9)}, HOY, HOY, AHORA, ZONA)
         resultado = bloqueado_hasta_commit(
-            s1, lambda: abrir_version(s2, horario_id, {"hora_inicio": time(10)}, HOY, HOY)
+            s1, lambda: abrir_version(s2, horario_id, {"hora_inicio": time(10)}, HOY, HOY, AHORA, ZONA)
         )
 
     assert isinstance(resultado.get("error"), ErrorDominio)
@@ -55,7 +57,8 @@ def test_baja_no_le_quita_el_horario_a_quien_lo_recibio_mientras_esperaba(fabric
         carlos_id, paula_id = carlos.id, paula.id
 
     with fabrica_sesiones() as s1, fabrica_sesiones() as s2:
-        abrir_version(s1, horario_id, {"medico_id": paula_id}, date(2026, 10, 13), HOY)  # designa a Paula
+        # designa a Paula
+        abrir_version(s1, horario_id, {"medico_id": paula_id}, date(2026, 10, 13), HOY, AHORA, ZONA)
 
         def baja_de_carlos():
             resultado = dar_de_baja(s2, carlos_id, date(2026, 10, 19), HOY)

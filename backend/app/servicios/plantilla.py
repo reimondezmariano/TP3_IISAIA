@@ -6,11 +6,14 @@ para que dos operaciones simultáneas no se esperen en cruz.
 
 from collections.abc import Mapping
 from dataclasses import dataclass, replace
-from datetime import date
+from datetime import date, datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.dominio.calendario import calcular_turnos
 from app.dominio.plantilla import (
     hay_version_posterior,
     validar_desde,
@@ -19,7 +22,7 @@ from app.dominio.plantilla import (
     version_que_cubre,
 )
 from app.errores import ErrorDominio
-from app.modelos import EstadoUsuario, HorarioPactado, RolUsuario, Usuario, VersionHorario
+from app.modelos import EstadoUsuario, HorarioPactado, RolUsuario, Turno, Usuario, VersionHorario
 from app.repos.horarios import (
     DatosVersion,
     TurnoAfectado,
@@ -31,6 +34,7 @@ from app.repos.horarios import (
     nueva_version,
     turnos_afectados,
     versiones_del_medico_desde,
+    versiones_en_rango,
 )
 from app.repos.usuarios import bloquear_usuario
 
@@ -43,11 +47,36 @@ def validar_titular(sesion: Session, medico_id: int) -> Usuario:
     return medico
 
 
-def crear_horario_pactado(sesion: Session, datos: DatosVersion, vigente_desde: date, hoy: date) -> HorarioPactado:
+def exigir_turno_de_hoy_sin_empezar(
+    sesion: Session, horario_id: int, desde: date, ahora: datetime, zona: ZoneInfo
+) -> None:
+    """Un cambio desde hoy no alcanza al turno de hoy que ya empezó (D11, D12, D20).
+
+    Si no tiene fila, se calcula desde la plantilla: si el cambio lo reescribiera, la consolidación lo guardaría
+    con otro titular, lo perdería o inventaría uno que no ocurrió. Uno guardado conserva su foto y no importa.
+    Se llama antes y después del cambio.
+    """
+    if desde != ahora.astimezone(zona).date():
+        return
+    if sesion.scalar(select(Turno.id).where(Turno.horario_id == horario_id, Turno.fecha == desde)) is not None:
+        return
+    versiones = [v for v in versiones_en_rango(sesion, desde, desde) if v.horario_id == horario_id]
+    if any(t.fecha == desde and t.inicio <= ahora for t in calcular_turnos(versiones, desde, desde, zona)):
+        raise ErrorDominio(
+            "TURNO_DE_HOY_EMPEZADO",
+            f"El turno de hoy del horario {horario_id} ya empezó: el cambio puede empezar mañana.",
+        )
+
+
+def crear_horario_pactado(
+    sesion: Session, datos: DatosVersion, vigente_desde: date, hoy: date, ahora: datetime, zona: ZoneInfo
+) -> HorarioPactado:
     validar_desde(vigente_desde, hoy)
     validar_fecha_ancla(datos.fecha_ancla)
     validar_titular(sesion, datos.medico_id)
-    return crear_horario(sesion, datos, vigente_desde)
+    horario = crear_horario(sesion, datos, vigente_desde)
+    exigir_turno_de_hoy_sin_empezar(sesion, horario.id, vigente_desde, ahora, zona)
+    return horario
 
 
 @dataclass(frozen=True)
@@ -82,7 +111,13 @@ def _partir(
 
 
 def abrir_version(
-    sesion: Session, horario_id: int, cambios: Mapping[str, Any], desde: date, hoy: date
+    sesion: Session,
+    horario_id: int,
+    cambios: Mapping[str, Any],
+    desde: date,
+    hoy: date,
+    ahora: datetime,
+    zona: ZoneInfo,
 ) -> ResultadoVersion:
     """Renegociación, designación de titular o horario sin titular, desde `desde` (D10, D12, D24).
 
@@ -94,16 +129,21 @@ def abrir_version(
     versiones = bloquear_horario(sesion, horario_id)
     if versiones is None:
         raise ErrorDominio("HORARIO_NO_ENCONTRADO", "No existe ese horario.", 404)
+    exigir_turno_de_hoy_sin_empezar(sesion, horario_id, desde, ahora, zona)
     version = _partir(sesion, horario_id, versiones, cambios, desde, hoy)
+    exigir_turno_de_hoy_sin_empezar(sesion, horario_id, desde, ahora, zona)
     return ResultadoVersion(version, turnos_afectados(sesion, [horario_id], desde))
 
 
-def cerrar_horario(sesion: Session, horario_id: int, desde: date, hoy: date) -> list[TurnoAfectado]:
+def cerrar_horario(
+    sesion: Session, horario_id: int, desde: date, hoy: date, ahora: datetime, zona: ZoneInfo
+) -> list[TurnoAfectado]:
     """El horario deja de regir en `desde` (D24). No borra versiones: corta la vigencia de la que rige ese día."""
     validar_desde(desde, hoy)
     versiones = bloquear_horario(sesion, horario_id)
     if versiones is None:
         raise ErrorDominio("HORARIO_NO_ENCONTRADO", "No existe ese horario.", 404)
+    exigir_turno_de_hoy_sin_empezar(sesion, horario_id, desde, ahora, zona)
     vigencias = [a_vigencia(v) for v in versiones]
     cubre_id = version_que_cubre(vigencias, desde, horario_id).version_id
     if hay_version_posterior(vigencias, desde):
