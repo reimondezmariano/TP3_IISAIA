@@ -1,15 +1,19 @@
 from datetime import date, time
+from typing import Literal
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.api.esquemas import Esquema
+from app.api.horarios import TurnoAfectadoOut, turno_afectado_out
 from app.auth import requiere_coordinador
 from app.db import get_db
+from app.errores import ErrorDominio
 from app.modelos import EstadoUsuario, RolUsuario, Usuario, VersionHorario
 from app.reloj import Reloj, get_reloj, hoy
 from app.repos.horarios import versiones_no_terminadas_por_medico
 from app.repos.usuarios import listar_usuarios
+from app.servicios.usuarios import ResultadoCambio, activar
 
 router = APIRouter()
 
@@ -69,3 +73,39 @@ def listar(
     """Staff con rol, estado y horarios que rigen hoy o empiezan después (D26)."""
     por_medico = versiones_no_terminadas_por_medico(db, hoy(reloj))
     return [usuario_out(u, por_medico.get(u.id, [])) for u in listar_usuarios(db)]
+
+
+class CambioUsuarioIn(Esquema):
+    estado: Literal["ACTIVO"] | None = None  # la baja tiene su propia ruta
+
+
+class CambioUsuarioOut(Esquema):
+    usuario: UsuarioStaffOut
+    horarios_sin_titular: list[int]
+    turnos_afectados: list[TurnoAfectadoOut]
+
+
+def cambio_out(db: Session, resultado: ResultadoCambio, dia: date) -> CambioUsuarioOut:
+    usuario = resultado.usuario
+    versiones = versiones_no_terminadas_por_medico(db, dia, usuario.id).get(usuario.id, [])
+    return CambioUsuarioOut(
+        usuario=usuario_out(usuario, versiones),
+        horarios_sin_titular=resultado.horarios_sin_titular,
+        turnos_afectados=[turno_afectado_out(t) for t in resultado.turnos_afectados],
+    )
+
+
+@router.patch("/usuarios/{usuario_id}", response_model=CambioUsuarioOut)
+def modificar(
+    usuario_id: int,
+    datos: CambioUsuarioIn,
+    db: Session = Depends(get_db),
+    reloj: Reloj = Depends(get_reloj),
+    _coordinador: Usuario = Depends(requiere_coordinador),
+) -> CambioUsuarioOut:
+    """Activa a un médico pendiente (D26, D30)."""
+    if datos.estado is None:
+        raise ErrorDominio("SIN_CAMBIOS", "No se pidió ningún cambio.")
+    resultado = activar(db, usuario_id)
+    db.commit()
+    return cambio_out(db, resultado, hoy(reloj))
