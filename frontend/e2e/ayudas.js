@@ -36,14 +36,15 @@ export async function simularSupabase(page, { usuarios = { "ana@x.com": "secreto
   });
 }
 
-export async function simularApi(page, { me, turnos = [], ahora = "2026-10-07T10:00:00-03:00", registro } = {}) {
+// `extra(url, peticion, json)` resuelve las rutas propias de cada prueba; si devuelve undefined, sigue el flujo común.
+export async function simularApi(page, { me, turnos = [], ahora = "2026-10-07T10:00:00-03:00", registro, extra, notificaciones = [] } = {}) {
   const pedidos = [];
   await page.route("**/api/**", async (ruta) => {
     const peticion = ruta.request();
     const url = new URL(peticion.url());
     const authorization = peticion.headers()["authorization"] ?? null;
     pedidos.push({ metodo: peticion.method(), ruta: url.pathname, consulta: url.search, authorization, cuerpo: peticion.postData() });
-    const json = (status, cuerpo) => ruta.fulfill({ status, contentType: "application/json", body: JSON.stringify(cuerpo) });
+    const json = (status, cuerpo) => ruta.fulfill({ status, contentType: "application/json", body: JSON.stringify(cuerpo) }).then(() => true);
     if (url.pathname === "/api/health") return json(200, { estado: "ok", base: "ok", ahora });
     if (!authorization?.startsWith("Bearer ")) return json(401, { codigo: "SIN_SESION", mensaje: "Falta el token de sesión." });
     if (url.pathname === "/api/me") {
@@ -54,6 +55,9 @@ export async function simularApi(page, { me, turnos = [], ahora = "2026-10-07T10
       const respuesta = registro ? registro(peticion.postDataJSON()) : { status: 201, cuerpo: me };
       return json(respuesta.status, respuesta.cuerpo);
     }
+    if (url.pathname === "/api/notificaciones") return json(200, typeof notificaciones === "function" ? notificaciones() : notificaciones);
+    const propia = extra ? await extra(url, peticion, json) : undefined;
+    if (propia) return;
     if (url.pathname === "/api/turnos") return json(200, typeof turnos === "function" ? turnos(url.searchParams) : turnos);
     return json(404, { codigo: "NO_ENCONTRADO", mensaje: "No existe." });
   });

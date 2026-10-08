@@ -1,6 +1,6 @@
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, test, vi } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import { ErrorApi } from "../lib/api.js";
 import { ContextoSesion } from "../sesion/useSesion.js";
 import Calendario from "./Calendario.jsx";
@@ -15,8 +15,9 @@ const SEMANA_ACTUAL = [
   turno(3, "2026-10-11", "20:00", "08:00", null, "2026-10-12"),
 ];
 
-function montar({ turnosPorDesde = {}, health = { ahora: "2026-10-07T10:00:00-03:00" }, usuario = { id: 1, nombre: "Ana", rol: "MEDICO", estado: "ACTIVO" } } = {}) {
+function montar({ turnosPorDesde = {}, post = vi.fn(async () => ({})), health = { ahora: "2026-10-07T10:00:00-03:00" }, usuario = { id: 1, nombre: "Ana", rol: "MEDICO", estado: "ACTIVO" } } = {}) {
   const api = {
+    post,
     get: vi.fn(async (ruta, consulta) => {
       if (ruta === "/api/health") {
         if (health instanceof Error) throw health;
@@ -91,11 +92,6 @@ describe("Calendario", () => {
     expect(await screen.findByText("No hay guardias esta semana.")).toBeVisible();
   });
 
-  test("el coordinador ve el aviso de que sus pantallas llegan más adelante", async () => {
-    montar({ usuario: { id: 9, nombre: "Enzo", rol: "COORDINADOR", estado: "ACTIVO" }, turnosPorDesde: { "2026-10-05": SEMANA_ACTUAL } });
-    expect(await screen.findByText(/pantallas de coordinación/i)).toBeVisible();
-  });
-
   test("cerrar sesión", async () => {
     const cerrarSesion = vi.fn();
     render(
@@ -108,18 +104,31 @@ describe("Calendario", () => {
   });
 });
 
-describe("Calendario con acciones simuladas", () => {
+describe("Calendario con ausencias", () => {
   const propio = turno(1, "2026-10-09", "08:00", "16:00", { id: 1, nombre: "Ana" });
 
-  test("abrir un turno propio y avisar la ausencia lo marca como vacante (simulado)", async () => {
-    montar({ turnosPorDesde: { "2026-10-05": [propio] } });
+  beforeEach(() => window.localStorage.clear());
+
+  test("avisar la ausencia llama a la API y marca el turno como vacante; retirar la saca", async () => {
+    const post = vi.fn(async (ruta) => (ruta.endsWith("/vacantes") ? { id: 12, turnoId: "1:2026-10-09" } : { id: 12 }));
+    montar({ turnosPorDesde: { "2026-10-05": [propio] }, post });
     await userEvent.click(await screen.findByTestId("turno"));
-    expect(screen.getByTestId("rotulo-simulado")).toBeVisible();
     await userEvent.type(screen.getByLabelText(/Motivo/), "Congreso");
     await userEvent.click(screen.getByRole("button", { name: "Avisar ausencia" }));
-    expect(screen.getAllByText("Vacante").length).toBeGreaterThan(0);
-    await userEvent.click(screen.getByRole("button", { name: "Retirar aviso" }));
-    expect(screen.getByRole("button", { name: "Avisar ausencia" })).toBeVisible();
+    expect(post).toHaveBeenCalledWith("/api/turnos/1:2026-10-09/vacantes", { motivo: "Congreso" });
+    await userEvent.click(await screen.findByRole("button", { name: "Retirar aviso" }));
+    expect(post).toHaveBeenCalledWith("/api/vacantes/12/retiro");
+    expect(await screen.findByRole("button", { name: "Avisar ausencia" })).toBeVisible();
+  });
+
+  test("si el servidor rechaza el aviso, el turno sigue sin vacante y se ve el error", async () => {
+    const post = vi.fn().mockRejectedValue(new ErrorApi(409, "TURNO_YA_EMPEZO", "El turno ya empezó: no se puede generar una vacante."));
+    montar({ turnosPorDesde: { "2026-10-05": [propio] }, post });
+    await userEvent.click(await screen.findByTestId("turno"));
+    await userEvent.type(screen.getByLabelText(/Motivo/), "Congreso");
+    await userEvent.click(screen.getByRole("button", { name: "Avisar ausencia" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("El turno ya empezó");
+    expect(screen.queryByRole("button", { name: "Retirar aviso" })).toBeNull();
   });
 
   test("el coordinador no ve botones de acción en el detalle", async () => {
@@ -129,7 +138,7 @@ describe("Calendario con acciones simuladas", () => {
     });
     await userEvent.click(await screen.findByTestId("turno"));
     expect(screen.getByRole("dialog")).toBeVisible();
-    expect(screen.queryByRole("button", { name: /Postularme|Avisar ausencia/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^(Postularme|Avisar ausencia)$/ })).toBeNull();
   });
 
   test("cambiar de semana cierra el detalle", async () => {

@@ -3,8 +3,8 @@ import { useSesion } from "../sesion/useSesion.js";
 import { useEnvio } from "./useEnvio.js";
 
 export default function CompletarRegistro() {
-  const { completarRegistro, cerrarSesion, aviso } = useSesion();
-  const [nombre, setNombre] = useState("");
+  const { completarRegistro, cerrarSesion, aviso, nombreSugerido } = useSesion();
+  const [nombre, setNombre] = useState(nombreSugerido ?? "");
   const [codigo, setCodigo] = useState("");
   const { enviando, error, enviar } = useEnvio(() => completarRegistro({ nombre, codigo }));
   const mensaje = error ?? aviso;

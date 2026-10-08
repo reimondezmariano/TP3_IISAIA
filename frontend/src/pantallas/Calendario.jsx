@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Cargando from "../componentes/Cargando.jsx";
+import AusenciaVarios from "../componentes/AusenciaVarios.jsx";
 import DetalleTurno from "../componentes/DetalleTurno.jsx";
 import TarjetaTurno from "../componentes/TarjetaTurno.jsx";
 import {
@@ -7,6 +8,7 @@ import {
 } from "../lib/fechas.js";
 import { useSesion } from "../sesion/useSesion.js";
 import { useVacantesSimuladas } from "../simulado/useVacantesSimuladas.js";
+import { useAusencias } from "./useAusencias.js";
 import { useTurnosSemana } from "./useTurnosSemana.js";
 
 export default function Calendario() {
@@ -41,10 +43,12 @@ function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }
   const porDia = useMemo(() => agruparPorDia(turnos, dias), [turnos, dias]);
   const visibles = dias.reduce((total, dia) => total + porDia[dia].length, 0);
   const hoy = fechaLocal(ahora);
-  const simulado = useVacantesSimuladas({ usuario, ahora });
+  const ausencias = useAusencias(api, usuario);
+  const simulado = useVacantesSimuladas({ usuario, ahora, reales: ausencias.abiertas });
+  const acciones = { ...simulado, avisarAusencia: ausencias.avisar, retirarAviso: ausencias.retirar };
   const [seleccionado, setSeleccionado] = useState(null);
+  const [variasFechas, setVariasFechas] = useState(false);
   useEffect(() => setSeleccionado(null), [lunes]);
-  const esCoordinador = usuario.rol === "COORDINADOR";
 
   return (
     <main className="calendario">
@@ -60,7 +64,9 @@ function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }
         <button type="button" className="secundario" onClick={() => setLunes(lunesDe(hoy))}>Hoy</button>
         <button type="button" onClick={() => setLunes(sumarDias(lunes, 7))}>Semana siguiente</button>
       </nav>
-      {esCoordinador && <p className="aviso">Ingresaste como coordinador: las pantallas de coordinación se suman más adelante.</p>}
+      <div className="barra">
+        <button type="button" className="secundario" onClick={() => setVariasFechas(true)}>Avisar ausencia en varias fechas</button>
+      </div>
       {estado === "cargando" && <Cargando />}
       {estado === "error" && (
         <div>
@@ -85,9 +91,12 @@ function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }
         <DetalleTurno
           turno={seleccionado}
           estado={simulado.estadoDe(seleccionado)}
-          acciones={simulado}
+          acciones={acciones}
           onCerrar={() => setSeleccionado(null)}
         />
+      )}
+      {variasFechas && (
+        <AusenciaVarios api={api} usuario={usuario} ahora={ahora} ausencias={ausencias} onCerrar={() => setVariasFechas(false)} />
       )}
     </main>
   );

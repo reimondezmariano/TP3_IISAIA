@@ -90,4 +90,14 @@ describe("crearClienteApi", () => {
     const { api } = cliente({ fetchImpl });
     await expect(api.post("/api/x")).resolves.toBeUndefined();
   });
+
+  test("patch manda PATCH con cuerpo JSON y Bearer", async () => {
+    const { api, fetchImpl } = cliente();
+    await api.patch("/api/usuarios/3", { rol: "COORDINADOR" });
+    const [ruta, opciones] = fetchImpl.mock.calls[0];
+    expect(ruta).toBe("/api/usuarios/3");
+    expect(opciones.method).toBe("PATCH");
+    expect(opciones.headers.Authorization).toBe("Bearer tok-123");
+    expect(JSON.parse(opciones.body)).toEqual({ rol: "COORDINADOR" });
+  });
 });

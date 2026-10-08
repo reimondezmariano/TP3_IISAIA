@@ -1,8 +1,8 @@
 import Cargando from "./componentes/Cargando.jsx";
 import Acceso from "./pantallas/Acceso.jsx";
-import Calendario from "./pantallas/Calendario.jsx";
 import CompletarRegistro from "./pantallas/CompletarRegistro.jsx";
 import CuentaSinAcceso from "./pantallas/CuentaSinAcceso.jsx";
+import Principal from "./pantallas/Principal.jsx";
 import { useSesion } from "./sesion/useSesion.js";
 
 export default function App() {
@@ -18,7 +18,7 @@ export default function App() {
     case "baja":
       return <CuentaSinAcceso />;
     case "activo":
-      return <Calendario />;
+      return <Principal />;
     default:
       return (
         <main className="acceso">
