@@ -12,6 +12,7 @@ class TipoNotificacion(str, Enum):
 
     VACANTE_URGENTE = "VACANTE_URGENTE"  # D05, D15: la crea generar_vacante (F3, Mariano)
     ALERTA_SIN_COBERTURA = "ALERTA_SIN_COBERTURA"  # D19
+    TURNO_ASIGNADO = "TURNO_ASIGNADO"  # D18: al médico a quien el coordinador asigna el turno
 
 
 _CUANDO = {

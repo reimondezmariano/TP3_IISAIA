@@ -18,7 +18,7 @@ from app.repos.guardias import guardias_del_medico, turnos_del_mes
 from app.repos.horarios import versiones_en_rango
 from app.repos.turnos import materializar_turno
 
-_MENSAJE_MOTIVO = {
+MENSAJE_MOTIVO = {
     Motivo.ES_TITULAR: "Sos el titular de este turno: no podés postularte.",
     Motivo.GUARDIA_SUPERPUESTA: "Tenés otra guardia que se superpone con este turno.",
 }
@@ -60,7 +60,7 @@ def postular(sesion: Session, turno_id: str, actor: Usuario, reloj: Reloj, zona:
     guardias = guardias_del_medico(sesion, actor.id, turno.inicio, turno.fin, turno_id, zona)
     motivo = motivo_inelegibilidad(actor.id, turno.titular_id, turno.inicio, turno.fin, guardias)
     if motivo is not None:
-        raise ErrorDominio(motivo.value, _MENSAJE_MOTIVO[motivo], 422)
+        raise ErrorDominio(motivo.value, MENSAJE_MOTIVO[motivo], 422)
 
     reactivada = existente is not None
     if reactivada:
