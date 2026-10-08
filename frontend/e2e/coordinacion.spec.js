@@ -29,6 +29,7 @@ test("el coordinador ve los candidatos por equidad, elige uno, reasigna y marca 
         return json(200, { turnoId: TURNO.id, mes: "2026-10", candidatos: [candidato(1, 4, "Bruno Paz", { horasSemana: 24 }), candidato(2, 5, "Clara Sosa", { coberturasMes: 2, horasSemana: 8 })] });
       }
       if (url.pathname === "/api/usuarios") return json(200, USUARIOS);
+      if (url.pathname === "/api/indicadores/sin-cobertura") return json(200, [{ mes: "2026-10", horas: 20, turnos: 2 }]);
       if (peticion.method() === "PUT" || peticion.method() === "POST") llamadas.push({ metodo: peticion.method(), ruta: url.pathname, cuerpo: peticion.postDataJSON() });
       if (url.pathname === "/api/turnos/2:2026-10-10/asignacion") {
         const { medicoId, reasignar } = peticion.postDataJSON();
@@ -42,6 +43,7 @@ test("el coordinador ve los candidatos por equidad, elige uno, reasigna y marca 
     },
   });
   await ingresar(page);
+  await expect(page.getByTestId("indicador-sin-cobertura")).toContainText("20 h sin cobertura en octubre de 2026 (2 turnos)");
   await page.locator('[data-turno-id="2:2026-10-10"]').click();
   const filas = page.getByTestId("candidato");
   await expect(filas).toHaveCount(2);

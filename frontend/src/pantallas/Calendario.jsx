@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import IndicadorSinCobertura from "../coordinacion/IndicadorSinCobertura.jsx";
 import PanelCobertura from "../coordinacion/PanelCobertura.jsx";
 import Cargando from "../componentes/Cargando.jsx";
 import AusenciaVarios from "../componentes/AusenciaVarios.jsx";
@@ -70,6 +71,7 @@ function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }
         </div>
         <button type="button" className="secundario" onClick={cerrarSesion}>Cerrar sesión</button>
       </header>
+      {usuario.rol === "COORDINADOR" && <IndicadorSinCobertura api={api} ahora={ahora} />}
       <nav className="navegacion" aria-label="Semana">
         <button type="button" onClick={() => setLunes(sumarDias(lunes, -7))}>Semana anterior</button>
         <button type="button" className="secundario" onClick={() => setLunes(lunesDe(hoy))}>Hoy</button>
