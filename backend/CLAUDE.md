@@ -31,17 +31,7 @@ FastAPI + SQLAlchemy 2 + Alembic sobre Postgres. Leer también el CLAUDE.md de l
 13. Fábricas de F5: `crear_horario_de_prueba`, `guardar_turno` (turno materializado con la foto de su versión), `bloqueado_hasta_commit` (pruebas `commit_real` de bloqueos), `HOY` y la fixture `como_coordinador`.
 14. Una cuenta BAJA entra hasta su `fecha_baja` inclusive (D24); `ck_usuario_fecha_baja` obliga a que estado BAJA y fecha vayan juntos.
 15. Un deadlock (40P01) o una violación de exclusión (23P01) que no se capturó responde 409 (`CONFLICTO_CONCURRENTE`, `CONFLICTO_DE_VERSION`) desde `app/api/manejadores.py`.
-16. `app/api/operacion.py` publica el contrato de vacantes, postulaciones, candidatos y asignación con respuestas de ejemplo (`EJEMPLOS` de `app/api/esquemas_operacion.py`) y el encabezado `X-Respuesta-Ejemplo: true`. No toca la base. Cada ruta se reemplaza por la real en las etapas 2 y 3 del plan `docs/superpowers/plans/2026-10-08-f3-vacantes-postulaciones-asignacion.md`, y el módulo se elimina al terminar. Sus pruebas (`test_api_operacion_ejemplos.py`) no necesitan Postgres.
-
-## Comandos (desde backend/)
-
-```bash
-python3.12 -m venv .venv && .venv/bin/pip install -e ".[dev]"   # una vez
-cp .env.example .env                                            # completar DATABASE_URL con el Session pooler de Supabase
-# completar también SUPABASE_URL (o SUPABASE_JWT_SECRET) y CODIGO_COORDINACION; en Supabase, Authentication > Sign In / Providers > Email: desactivar "Confirm email" (D06)
-docker compose up -d --wait                                     # desde la raíz: Postgres 15 local (puerto 5433)
-.venv/bin/pytest                                                # pruebas (siempre contra el Postgres local)
-.venv/bin/alembic upgrade head                                  # migrar la base de DATABASE_URL
-.venv/bin/python -m scripts.seed --confirmar                    # borrar y cargar los datos de ejemplo
-.venv/bin/uvicorn app.main:app --reload --port 8000             # levantar la API; OpenAPI en /docs
-```
+16. `app/api/operacion.py` publica con respuestas de ejemplo (`EJEMPLOS` de `app/api/esquemas_operacion.py`, encabezado `X-Respuesta-Ejemplo: true`, sin tocar la base) las rutas de operación que todavía no tienen lógica: postulaciones, candidatos y asignación. Se reemplazan por las reales en la etapa 3 del plan `docs/superpowers/plans/2026-10-08-f3-vacantes-postulaciones-asignacion.md` y el módulo se elimina. Generar vacante, lote y retiro ya son reales (`app/api/vacantes.py`).
+17. Orden de bloqueos, tercer eslabón (regla 8): después de `usuario` y `horario_pactado` se bloquean las filas de `turno`, varias por (horario, fecha) ascendente (`bloquear_turnos`). `materializar_turno` guarda el turno desde la plantilla con `INSERT ... ON CONFLICT DO NOTHING` y lo devuelve bloqueado.
+18. `generar_vacante` (`app/servicios/vacantes.py`) es la operación que abre una vacante (D15, D31): borra el asignado en la misma transacción y lo deja en el evento `VACANTE_GENERADA` (`datos.asignado_anterior_id`, `datos.vacante_id`). Quien necesite abrir vacantes desde otro flujo (por ejemplo, reabrir las coberturas de un médico dado de baja, D24) llama a esta función y no escribe la vacante a mano. Hace flush, no commit.
+19. El lote (`generar_lote`) y el retiro usan `begin_nested` y bloqueos de turno para ser todo o nada; el error de un turno del lote lleva el `turnoId` en el mensaje.
