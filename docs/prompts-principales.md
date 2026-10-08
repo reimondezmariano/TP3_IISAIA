@@ -74,6 +74,7 @@ Prompt:
 
 Resultado: plan en `docs/superpowers/plans/2026-10-08-f4-historia-alertas-backend.md` y branch `feature/f4-historia-alertas` (desde main, con el PR #10 ya mergeado), con 10 tareas y 12 decisiones propias. Las decisiones se copian a `docs/bitacora-de-desvios.md` al abrir el pull request.
 Ejecución: "Apruebo el plan. Ejecutalo en esta sesión, tarea por tarea y un commit por tarea. Al terminar, hacé la revisión de código de toda la branch con atención especial a que la consolidación sea idempotente y no guarde historia incorrecta, corregí lo crítico y lo importante, traé main y corré toda la suite. No abras el pull request hasta que te lo pida."
+Revisión: la revisión de toda la branch encontró tres problemas importantes: un cambio de plantilla desde hoy reescribía, borraba o inventaba el turno de hoy ya empezado; `{"ahora": null}` en el reloj de demo dejaba historia consolidada en el futuro; y el orden de bloqueos documentado invitaba a un deadlock. Además, un menor se subió a importante: un turno guardado de un médico dado de baja se consolidaba con él como realizador. Se corrigieron los cuatro (los tres primeros con su prueba; el del orden de bloqueos, en la documentación). El desfase del reloj de demo pasó a guardarse en la base, un cambio a la decisión 9 del plan. Se trajo main (PR #9) y pasan las suites del backend, de Vitest y de Playwright.
 
 ## Próximas entradas
 
