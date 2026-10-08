@@ -16,7 +16,7 @@ from app.modelos import EstadoVacante, EventoTurno, Postulacion, RolUsuario, Tip
 from app.reloj import Reloj
 from app.repos.guardias import guardias_del_medico, turnos_del_mes
 from app.repos.horarios import versiones_en_rango
-from app.repos.turnos import materializar_turno
+from app.repos.turnos import fecha_fuera_de_rango, materializar_turno, no_existe
 
 MENSAJE_MOTIVO = {
     Motivo.ES_TITULAR: "Sos el titular de este turno: no podés postularte.",
@@ -37,7 +37,8 @@ def postular(sesion: Session, turno_id: str, actor: Usuario, reloj: Reloj, zona:
     """Oferta del médico para cubrir el turno "horarioId:fecha" (D16).
 
     Vale hasta que el turno empiece o el médico la retire, y sobrevive a la asignación: es la reserva para una
-    cancelación. Se postula a un turno con vacante abierta, sin titular (D24) o marcado sin cobertura (D19).
+    cancelación. Se postula a un turno con vacante abierta o sin titular (D24). Un turno marcado sin cobertura
+    (D19) ya empezó, así que no admite postulaciones: solo se lo asigna.
     Una postulación retirada se reactiva: la fila es única por (turno, médico) y vuelve al final del desempate.
     """
     ahora = reloj.ahora()
@@ -46,7 +47,7 @@ def postular(sesion: Session, turno_id: str, actor: Usuario, reloj: Reloj, zona:
         raise ErrorDominio("NO_HABILITADO", "Solo un médico con acceso ese día puede postularse a este turno.", 403)
     if turno.consolidado_en is not None or ahora >= turno.inicio:
         raise ErrorDominio("TURNO_YA_EMPEZO", "El turno ya empezó: no se puede postular.", 409)
-    if not (tiene_vacante_abierta(sesion, turno) or turno.titular_id is None or turno.sin_cobertura_en is not None):
+    if not (tiene_vacante_abierta(sesion, turno) or turno.titular_id is None):
         raise ErrorDominio("TURNO_SIN_VACANTE", "El turno no tiene una vacante abierta.", 409)
     if turno.asignado_id == actor.id:
         raise ErrorDominio("YA_ASIGNADO", "Ya tenés asignado este turno.", 409)
@@ -135,9 +136,12 @@ def listar_candidatos(sesion: Session, turno_id: str, zona: ZoneInfo) -> Resulta
 
     Desempata la hora de postulación. Los no elegibles (D16) van al final con su motivo: la elegibilidad se
     calcula en cada consulta, así que si el impedimento desaparece vuelven a ser elegibles. Quedan fuera quienes
-    ya no están habilitados para ese turno (coordinadores, bajas anteriores a su fecha). No guarda el turno.
+    ya no están habilitados para ese turno (coordinadores, bajas anteriores a su fecha), el asignado actual (no se
+    lo puede elegir) y quien generó la vacante abierta: cancelar es decir que no puede (D16). No guarda el turno.
     """
     horario_id, fecha = parsear_id_turno(turno_id)
+    if fecha_fuera_de_rango(fecha):
+        raise no_existe(turno_id)
     turno = sesion.scalar(select(Turno).where(Turno.horario_id == horario_id, Turno.fecha == fecha))
     if turno is None:
         calculado = next(
@@ -149,7 +153,7 @@ def listar_candidatos(sesion: Session, turno_id: str, zona: ZoneInfo) -> Resulta
             None,
         )
         if calculado is None:
-            raise ErrorDominio("TURNO_NO_ENCONTRADO", f"No existe el turno {turno_id}.", 404)
+            raise no_existe(turno_id)
         inicio = calculado.inicio.astimezone(zona)
         return ResultadoCandidatos(turno_id, f"{inicio:%Y-%m}", [])
 
@@ -160,8 +164,13 @@ def listar_candidatos(sesion: Session, turno_id: str, zona: ZoneInfo) -> Resulta
         .join(Usuario, Usuario.id == Postulacion.medico_id)
         .where(Postulacion.turno_id == turno.id, Postulacion.retirada_en.is_(None))
     ).all()
+    cancelo = sesion.scalar(
+        select(Vacante.generada_por_id).where(Vacante.turno_id == turno.id, Vacante.estado == EstadoVacante.ABIERTA)
+    )
     habilitados = [
-        (p, u) for p, u in filas if habilitado_para_turno(u.rol, u.estado, u.fecha_baja, turno.fecha)
+        (p, u)
+        for p, u in filas
+        if habilitado_para_turno(u.rol, u.estado, u.fecha_baja, turno.fecha) and u.id not in (turno.asignado_id, cancelo)
     ]
     if not habilitados:
         return ResultadoCandidatos(turno_id, mes, [])

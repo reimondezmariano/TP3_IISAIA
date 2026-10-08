@@ -13,8 +13,13 @@ from app.modelos import Turno
 from app.repos.horarios import versiones_en_rango
 
 
-def _no_existe(turno_id: str) -> ErrorDominio:
+def no_existe(turno_id: str) -> ErrorDominio:
     return ErrorDominio("TURNO_NO_ENCONTRADO", f"No existe el turno {turno_id}.", 404)
+
+
+def fecha_fuera_de_rango(fecha: date) -> bool:
+    """Mismos extremos que GET /turnos: más cerca del borde, el cálculo de la plantilla desborda."""
+    return fecha <= date.min + timedelta(days=1) or fecha >= date.max - timedelta(days=1)
 
 
 def _buscar_bloqueado(sesion, horario_id: int, fecha: date) -> Turno | None:
@@ -34,16 +39,15 @@ def materializar_turno(sesion, turno_id: str, zona: ZoneInfo) -> Turno:
     vez, `ux_turno_horario_fecha` deja una sola fila y la segunda espera a la primera.
     """
     horario_id, fecha = parsear_id_turno(turno_id)
-    # Mismos extremos que GET /turnos: más cerca del borde, el cálculo de la plantilla desborda.
-    if fecha <= date.min + timedelta(days=1) or fecha >= date.max - timedelta(days=1):
-        raise _no_existe(turno_id)
+    if fecha_fuera_de_rango(fecha):
+        raise no_existe(turno_id)
     existente = _buscar_bloqueado(sesion, horario_id, fecha)
     if existente is not None:
         return existente
     calculados = calcular_turnos(versiones_en_rango(sesion, fecha, fecha), fecha, fecha, zona)
     calculado = next((t for t in calculados if t.horario_id == horario_id and t.fecha == fecha), None)
     if calculado is None:
-        raise _no_existe(turno_id)
+        raise no_existe(turno_id)
     sesion.execute(
         insert(Turno)
         .values(

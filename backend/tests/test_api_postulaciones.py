@@ -202,3 +202,18 @@ def test_errores_de_asignacion_con_codigo_y_status(cliente, sesion, escena):
 def test_sin_token_responde_401(cliente, metodo, ruta, cuerpo):
     cliente.headers.clear()
     assert cliente.request(metodo, ruta, json=cuerpo).status_code == 401
+
+
+def test_las_siete_rutas_del_contrato_estan_en_el_openapi(cliente):
+    rutas = cliente.get("/openapi.json").json()["paths"]
+    esperadas = {
+        "/api/turnos/{turno_id}/vacantes": "post",
+        "/api/vacantes/lote": "post",
+        "/api/vacantes/{vacante_id}/retiro": "post",
+        "/api/turnos/{turno_id}/postulaciones": "post",
+        "/api/postulaciones/{postulacion_id}/retiro": "post",
+        "/api/turnos/{turno_id}/candidatos": "get",
+        "/api/turnos/{turno_id}/asignacion": "put",
+    }
+    for ruta, metodo in esperadas.items():
+        assert metodo in rutas[ruta], (metodo, ruta)

@@ -5,7 +5,8 @@ from sqlalchemy import func, select, update
 
 from app.dominio.elegibilidad import Motivo
 from app.errores import ErrorDominio
-from app.modelos import EstadoUsuario, Postulacion, Turno, Usuario
+from app.modelos import EstadoUsuario, Postulacion, RolUsuario, Turno, Usuario
+from app.servicios.asignacion import asignar
 from app.servicios.postulaciones import listar_candidatos, postular, retirar_postulacion
 from app.servicios.vacantes import generar_vacante
 from fabricas import ZONA, crear_horario_de_prueba, crear_usuario, guardar_turno
@@ -145,3 +146,32 @@ def test_turno_inexistente_responde_404(sesion):
     with pytest.raises(ErrorDominio) as error:
         listar_candidatos(sesion, f"{horario.id}:2026-10-21", ZONA)  # miércoles
     assert (error.value.codigo, error.value.status) == ("TURNO_NO_ENCONTRADO", 404)
+
+
+def coordinador(sesion):
+    return crear_usuario(sesion, "Enzo", rol=RolUsuario.COORDINADOR)
+
+
+def test_el_asignado_actual_no_aparece_como_candidato(sesion, reloj, turno):
+    ana, beto = postulados(sesion, reloj, turno, "Ana", "Beto")
+    asignar(sesion, turno, ana.id, False, coordinador(sesion), reloj, ZONA)
+
+    assert nombres(listar_candidatos(sesion, turno, ZONA)) == ["Beto"]  # Ana ya está asignada: no se la puede elegir
+
+
+def test_quien_cancelo_no_vuelve_a_aparecer_como_candidato(sesion, reloj, turno):
+    ana, beto = postulados(sesion, reloj, turno, "Ana", "Beto")
+    asignar(sesion, turno, ana.id, False, coordinador(sesion), reloj, ZONA)
+    generar_vacante(sesion, turno, ana, "Ya no puedo", reloj, ZONA)  # Ana cancela y se abre otra vacante
+
+    resultado = listar_candidatos(sesion, turno, ZONA)
+
+    assert nombres(resultado) == ["Beto"]  # D16: los demás siguen como reserva; Ana ya dijo que no puede
+    assert [c.posicion for c in resultado.candidatos] == [1]
+
+
+def test_una_fecha_en_el_extremo_del_calendario_responde_404_y_no_desborda(sesion):
+    for extremo in ("1:0001-01-01", "1:9999-12-31"):
+        with pytest.raises(ErrorDominio) as error:
+            listar_candidatos(sesion, extremo, ZONA)
+        assert (error.value.codigo, error.value.status) == ("TURNO_NO_ENCONTRADO", 404)

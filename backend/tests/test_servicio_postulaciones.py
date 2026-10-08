@@ -1,11 +1,12 @@
 from datetime import date, time, timedelta
 
 import pytest
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 
 from app.errores import ErrorDominio
 from app.modelos import EstadoUsuario, EventoTurno, Postulacion, RolUsuario, TipoEventoTurno, Turno
 from app.servicios.postulaciones import postular, retirar_postulacion
+from app.servicios.sin_cobertura import marcar_sin_cobertura
 from app.servicios.vacantes import generar_vacante
 from fabricas import ZONA, bloqueado_hasta_commit, crear_horario_de_prueba, crear_usuario, guardar_turno
 
@@ -108,12 +109,16 @@ def test_turno_sin_titular_admite_postulacion_sin_vacante(sesion, reloj):
     assert sesion.get(Turno, postulacion.turno_id).titular_id is None
 
 
-def test_turno_marcado_sin_cobertura_admite_postulaciones(sesion, reloj):
-    _, mariano, horario, turno_id = escena(sesion, reloj, con_vacante=False)
-    turno = guardar_turno(sesion, horario.id, date(2026, 10, 20))
-    sesion.execute(update(Turno).where(Turno.id == turno.id).values(sin_cobertura_en=reloj.ahora()))
-    sesion.expire_all()
-    assert pedir(sesion, reloj, turno_id, mariano).retirada_en is None
+def test_un_turno_marcado_sin_cobertura_ya_empezo_y_no_admite_postulaciones(sesion, reloj):
+    # D19: solo se marca sin cobertura un turno que ya empezó, y a esos solo se los asigna (hasta su fin).
+    carlos, mariano, _, turno_id = escena(sesion, reloj)
+    enzo = crear_usuario(sesion, "Enzo", rol=RolUsuario.COORDINADOR)
+    reloj.avanzar(timedelta(days=8, hours=1))  # martes 20/10 10:00
+    marcar_sin_cobertura(sesion, turno_id, enzo, reloj, ZONA)
+
+    error = error_de(sesion, reloj, turno_id, mariano)
+
+    assert (error.codigo, error.status) == ("TURNO_YA_EMPEZO", 409)
 
 
 def test_el_asignado_no_se_postula_a_su_propio_turno(sesion, reloj):
