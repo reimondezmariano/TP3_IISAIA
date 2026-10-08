@@ -3,7 +3,7 @@ import { simularApi, simularSupabase } from "./ayudas.js";
 
 const COORDINADOR = { id: 9, nombre: "Enzo", email: "ana@x.com", rol: "COORDINADOR", estado: "ACTIVO" };
 const CARLOS = { id: 3, nombre: "Carlos Ruiz" };
-const TURNO = { id: "2:2026-10-10", horarioId: 2, fecha: "2026-10-10", inicio: "2026-10-10T20:00:00-03:00", fin: "2026-10-11T08:00:00-03:00", duracionHoras: 12, titular: CARLOS };
+const TURNO = { id: "2:2026-10-10", horarioId: 2, fecha: "2026-10-10", inicio: "2026-10-10T20:00:00-03:00", fin: "2026-10-11T08:00:00-03:00", duracionHoras: 12, titular: CARLOS, vacante: { id: 41, urgente: false, generadaPor: CARLOS } };
 const persona = (id, nombre) => ({ id, nombre });
 const candidato = (posicion, id, nombre, extra = {}) => ({ posicion, medico: persona(id, nombre), postuladoEn: "2026-10-08T09:00:00-03:00", coberturasMes: 0, horasSemana: 0, elegible: true, motivoInelegibilidad: null, ...extra });
 const USUARIOS = [

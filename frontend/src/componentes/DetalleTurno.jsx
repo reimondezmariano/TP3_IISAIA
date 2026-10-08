@@ -52,19 +52,27 @@ export default function DetalleTurno({ turno, estado, acciones, panel = null, on
               <dd><strong>{estado.etiqueta}</strong></dd>
             </>
           )}
+          {turno.vacante && (
+            <>
+              <dt>Vacante</dt>
+              <dd>Generada por {turno.vacante.generadaPor.nombre}</dd>
+            </>
+          )}
         </dl>
-        {puede("AVISAR_AUSENCIA") && (
+        {(puede("AVISAR_AUSENCIA") || puede("GENERAR_VACANTE")) && (
           <form onSubmit={avisar} noValidate>
             <label>
               Motivo (solo lo ven los coordinadores)
               <input value={motivo} onChange={(e) => setMotivo(e.target.value)} maxLength={500} />
             </label>
             {intentoSinMotivo && !motivo.trim() && <p role="alert" className="error">Escribí el motivo de la ausencia.</p>}
-            <button type="submit" disabled={haciendo}>{haciendo ? "Enviando…" : "Avisar ausencia"}</button>
+            <button type="submit" disabled={haciendo}>{haciendo ? "Enviando…" : puede("GENERAR_VACANTE") ? "Generar vacante" : "Avisar ausencia"}</button>
           </form>
         )}
-        {puede("RETIRAR_AVISO") && (
-          <button type="button" disabled={haciendo} onClick={() => ejecutar(() => acciones.retirarAviso(turno.id))}>Retirar aviso</button>
+        {(puede("RETIRAR_AVISO") || puede("RETIRAR_VACANTE")) && (
+          <button type="button" disabled={haciendo} onClick={() => ejecutar(() => acciones.retirarAviso(turno.vacante.id))}>
+            {puede("RETIRAR_VACANTE") ? "Retirar vacante" : "Retirar aviso"}
+          </button>
         )}
         {puede("POSTULARME") && <button type="button" disabled={haciendo} onClick={() => ejecutar(() => acciones.postularme(turno.id))}>Postularme</button>}
         {puede("RETIRAR_POSTULACION") && <button type="button" disabled={haciendo} onClick={() => ejecutar(() => acciones.retirarPostulacion(turno.id))}>Retirar postulación</button>}

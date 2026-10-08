@@ -44,4 +44,22 @@ describe("useTurnosSemana", () => {
     renderHook(() => useTurnosSemana(api, "2026-10-05", { alCuentaCambiada }));
     await waitFor(() => expect(alCuentaCambiada).toHaveBeenCalledTimes(1));
   });
+
+  test("refrescar vuelve a pedir la semana sin pasar por 'cargando'", async () => {
+    const api = { get: vi.fn().mockResolvedValueOnce([{ id: "a", vacante: null }]).mockResolvedValueOnce([{ id: "a", vacante: { id: 12 } }]) };
+    const { result } = renderHook(() => useTurnosSemana(api, "2026-10-05", { alCuentaCambiada: vi.fn() }));
+    await waitFor(() => expect(result.current.estado).toBe("ok"));
+    await act(() => result.current.refrescar());
+    expect(result.current.estado).toBe("ok");
+    expect(result.current.turnos).toEqual([{ id: "a", vacante: { id: 12 } }]);
+  });
+
+  test("si refrescar falla, se conservan los turnos que ya había", async () => {
+    const api = { get: vi.fn().mockResolvedValueOnce([{ id: "a" }]).mockRejectedValueOnce(new ErrorApi(0, "SIN_CONEXION", "Sin conexión.")) };
+    const { result } = renderHook(() => useTurnosSemana(api, "2026-10-05", { alCuentaCambiada: vi.fn() }));
+    await waitFor(() => expect(result.current.estado).toBe("ok"));
+    await act(() => result.current.refrescar());
+    expect(result.current.estado).toBe("ok");
+    expect(result.current.turnos).toEqual([{ id: "a" }]);
+  });
 });

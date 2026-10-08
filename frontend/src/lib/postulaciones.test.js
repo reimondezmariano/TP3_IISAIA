@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 import { leerRecordadas, olvidar, postular, recordar, retirarPostulacion } from "./postulaciones.js";
-import { leerRecordadas as vacantesRecordadas } from "./vacantes.js";
 
 beforeEach(() => window.localStorage.clear());
 
@@ -18,7 +17,7 @@ describe("postulaciones recordadas", () => {
     recordar(1, "7:2026-10-17", 31);
     recordar(2, "7:2026-10-17", 40);
     expect(leerRecordadas(1)).toEqual({ "7:2026-10-17": 31 });
-    expect(vacantesRecordadas(1)).toEqual({});
+    expect(window.localStorage.getItem("guardia-viva:vacantes:1")).toBeNull();
     olvidar(1, "7:2026-10-17");
     expect(leerRecordadas(1)).toEqual({});
     expect(leerRecordadas(2)).toEqual({ "7:2026-10-17": 40 });

@@ -3,11 +3,11 @@ import { simularApi, simularSupabase } from "./ayudas.js";
 
 const ME = { id: 1, nombre: "Ana Gómez", email: "ana@x.com", rol: "MEDICO", estado: "ACTIVO" };
 const turno = (horarioId, fecha, hi, hf, finFecha, titular) => ({
-  id: `${horarioId}:${fecha}`, horarioId, fecha, inicio: `${fecha}T${hi}:00-03:00`, fin: `${finFecha}T${hf}:00-03:00`, duracionHoras: 8, titular,
+  id: `${horarioId}:${fecha}`, horarioId, fecha, inicio: `${fecha}T${hi}:00-03:00`, fin: `${finFecha}T${hf}:00-03:00`, duracionHoras: 8, titular, vacante: null,
 });
 const TURNOS = [
   turno(1, "2026-10-09", "08:00", "16:00", "2026-10-09", { id: 1, nombre: "Ana Gómez" }),
-  turno(2, "2026-10-10", "20:00", "08:00", "2026-10-11", { id: 3, nombre: "Carlos Ruiz" }),
+  { ...turno(2, "2026-10-10", "20:00", "08:00", "2026-10-11", { id: 3, nombre: "Carlos Ruiz" }), vacante: { id: 40, urgente: false, generadaPor: { id: 3, nombre: "Carlos Ruiz" } } },
   turno(3, "2026-10-11", "08:00", "16:00", "2026-10-11", null),
 ];
 
@@ -128,7 +128,7 @@ test("servidor caído al pedir la semana: mensaje y reintento", async ({ page })
   await expect(page.getByText("No hay guardias esta semana.")).toBeVisible();
 });
 
-test("el médico se postula a una baja con la API real, ve el error de un turno sin vacante y retira la postulación", async ({ page }) => {
+test("el médico se postula con la API real, ve el error si la vacante se cerró y retira la postulación", async ({ page }) => {
   await simularSupabase(page);
   const llamadas = [];
   await simularApi(page, {

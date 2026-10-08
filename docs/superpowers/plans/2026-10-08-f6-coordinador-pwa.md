@@ -22,7 +22,7 @@
 ## Hallazgos que condicionan el plan
 
 1. Los endpoints de postulaciones, candidatos, asignación, sin cobertura e indicadores son reales en `main`.
-2. `GET /api/turnos` en `main` NO informa la vacante abierta (la rama `feature/turnos-con-vacante` de Mariano la agrega y no está mergeada). Consecuencias:
+2. (Resuelto al traer main, ver Task 5) `GET /api/turnos` no informaba la vacante abierta (la rama `feature/turnos-con-vacante` de Mariano la agrega y no está mergeada). Consecuencias:
    - No se puede mostrar qué turnos ajenos tienen vacante ni armar una lista de vacantes abiertas sin inventar datos. El médico ve "Postularme" en cualquier guardia futura ajena y el servidor decide (`TURNO_SIN_VACANTE`); el coordinador abre el panel de cobertura desde el calendario.
    - El id de la postulación solo lo devuelve el POST: se recuerda en `localStorage` (por usuario), igual que ya se hacía con las vacantes propias. Pendiente de Mariano junto con el id de vacante.
 3. Tarea 5 del pedido (retirar usando el dato del servidor y borrar `localStorage`) queda pendiente de Mariano.
@@ -80,8 +80,13 @@
 - [ ] Prueba: con `GET /api/indicadores/sin-cobertura?desde=AAAA-MM&hasta=AAAA-MM` → `[{mes, horas, turnos}]` muestra "X h sin cobertura en el mes (N turnos)"; error del servidor no rompe el calendario.
 - [ ] Implementar (solo coordinadores; el mes sale de `ahora`), commit.
 
-### Task 5: Usar la vacante abierta de `GET /api/turnos`
-- [ ] Pendiente de Mariano: `main` todavía no trae `vacante` en `GET /api/turnos`. No se implementa ni se inventa nada; se informa en el PR.
+### Task 5: Vacante abierta de `GET /api/turnos` y acciones por rol
+Se trajo main (rama `feature/turnos-con-vacante`): `turno.vacante` es `null` o `{id, urgente, generadaPor}`.
+
+- [x] Retirar con `turno.vacante.id`; se elimina el `localStorage` de vacantes; `estadoTurno` usa `vacante` y `urgente` del servidor.
+- [x] Acciones por rol en el detalle: médico titular (avisar ausencia, retirar aviso si la generó), coordinador (generar y retirar vacante, panel de cobertura).
+- [x] Tras cada acción se recarga la semana (`refrescar`); las pruebas de turnos suman la clave `vacante`.
+- Limitación: el turno no informa al asignado, así que "asignado" no puede avisar ausencia desde la interfaz (el servidor sí lo permite).
 
 ### Cierre
 - [ ] Revisión de toda la branch, traer main, Vitest y Playwright, push y pull request (sin mergear). Prompts y desvíos van en la descripción del PR (no se editan `docs/prompts-principales.md` ni `docs/bitacora-de-desvios.md`).

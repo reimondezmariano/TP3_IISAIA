@@ -4,7 +4,7 @@ import { describe, expect, test, vi } from "vitest";
 import AusenciaVarios from "./AusenciaVarios.jsx";
 
 const AHORA = "2026-10-07T10:00:00-03:00";
-const t = (id, fecha, titular, hi = "08:00") => ({ id: `${id}:${fecha}`, horarioId: id, fecha, inicio: `${fecha}T${hi}:00-03:00`, fin: `${fecha}T16:00:00-03:00`, duracionHoras: 8, titular });
+const t = (id, fecha, titular, hi = "08:00", vacante = null) => ({ id: `${id}:${fecha}`, horarioId: id, fecha, inicio: `${fecha}T${hi}:00-03:00`, fin: `${fecha}T16:00:00-03:00`, duracionHoras: 8, titular, vacante });
 const yo = { id: 1, nombre: "Ana", rol: "MEDICO" };
 const TURNOS = [
   t(1, "2026-10-09", { id: 1, nombre: "Ana" }),
@@ -13,9 +13,9 @@ const TURNOS = [
   t(1, "2026-10-07", { id: 1, nombre: "Ana" }, "08:00"), // ya empezó
 ];
 
-function montar({ usuario = yo, avisarVarios = vi.fn(async (ids) => ({ ok: ids, fallaron: [] })), abiertas = {} } = {}) {
-  const api = { get: vi.fn(async () => TURNOS) };
-  render(<AusenciaVarios api={api} usuario={usuario} ahora={AHORA} ausencias={{ abiertas, avisarVarios }} onCerrar={vi.fn()} />);
+function montar({ usuario = yo, avisarVarios = vi.fn(async (ids) => ({ ok: ids, fallaron: [] })), turnos = TURNOS } = {}) {
+  const api = { get: vi.fn(async () => turnos) };
+  render(<AusenciaVarios api={api} usuario={usuario} ahora={AHORA} ausencias={{ avisarVarios }} onCerrar={vi.fn()} />);
   return { api, avisarVarios };
 }
 
@@ -66,7 +66,8 @@ describe("AusenciaVarios", () => {
   });
 
   test("no ofrece los turnos que ya tienen una vacante abierta", async () => {
-    montar({ abiertas: { "1:2026-10-09": 5 } });
+    const conVacante = { id: 5, urgente: false, generadaPor: { id: 1, nombre: "Ana" } };
+    montar({ turnos: [t(1, "2026-10-09", { id: 1, nombre: "Ana" }, "08:00", conVacante), ...TURNOS.slice(1)] });
     await userEvent.click(screen.getByRole("button", { name: "Buscar mis guardias" }));
     expect(await screen.findAllByRole("checkbox")).toHaveLength(1);
   });

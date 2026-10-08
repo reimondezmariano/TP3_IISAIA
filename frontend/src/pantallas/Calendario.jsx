@@ -41,26 +41,27 @@ export default function Calendario() {
 }
 
 function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }) {
-  const { estado, turnos, error, reintentar } = useTurnosSemana(api, lunes, { alCuentaCambiada: recargar });
+  const { estado, turnos, error, reintentar, refrescar } = useTurnosSemana(api, lunes, { alCuentaCambiada: recargar });
   const dias = useMemo(() => diasDeSemana(lunes), [lunes]);
   const porDia = useMemo(() => agruparPorDia(turnos, dias), [turnos, dias]);
   const visibles = dias.reduce((total, dia) => total + porDia[dia].length, 0);
   const hoy = fechaLocal(ahora);
-  const ausencias = useAusencias(api, usuario);
+  const ausencias = useAusencias(api, usuario, { alCambiar: refrescar });
   const postulaciones = usePostulaciones(api, usuario);
   const estadoDe = (turno) =>
     derivarEstado({
       turno, usuario, ahora,
-      vacanteAbierta: ausencias.abiertas[turno.id] !== undefined,
       postulado: postulaciones.postuladas[turno.id] !== undefined,
     });
   const acciones = {
     avisarAusencia: ausencias.avisar, retirarAviso: ausencias.retirar,
     postularme: postulaciones.postular, retirarPostulacion: postulaciones.retirar,
   };
-  const [seleccionado, setSeleccionado] = useState(null);
+  // Se guarda el id y se busca en la lista vigente: al recargar, el detalle muestra la vacante nueva.
+  const [seleccionadoId, setSeleccionadoId] = useState(null);
+  const seleccionado = turnos.find((t) => t.id === seleccionadoId) ?? null;
   const [variasFechas, setVariasFechas] = useState(false);
-  useEffect(() => setSeleccionado(null), [lunes]);
+  useEffect(() => setSeleccionadoId(null), [lunes]);
 
   return (
     <main className="calendario">
@@ -94,7 +95,7 @@ function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }
             <section key={dia} className="dia" data-fecha={dia} aria-current={dia === hoy ? "date" : undefined}>
               <h3>{etiquetaDia(dia)}</h3>
               {porDia[dia].map((turno) => (
-                <TarjetaTurno key={turno.id} turno={turno} usuario={usuario} estado={estadoDe(turno)} onAbrir={setSeleccionado} />
+                <TarjetaTurno key={turno.id} turno={turno} usuario={usuario} estado={estadoDe(turno)} onAbrir={(t) => setSeleccionadoId(t.id)} />
               ))}
             </section>
           ))}
@@ -106,7 +107,7 @@ function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }
           estado={estadoDe(seleccionado)}
           acciones={acciones}
           panel={usuario.rol === "COORDINADOR" && estadoDe(seleccionado).tipo !== "PASADO" ? <PanelCobertura api={api} turnoId={seleccionado.id} /> : null}
-          onCerrar={() => setSeleccionado(null)}
+          onCerrar={() => setSeleccionadoId(null)}
         />
       )}
       {variasFechas && (

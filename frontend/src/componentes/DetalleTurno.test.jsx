@@ -7,11 +7,12 @@ const turno = {
   id: "7:2026-10-12", horarioId: 7, fecha: "2026-10-12",
   inicio: "2026-10-12T08:00:00-03:00", fin: "2026-10-12T16:00:00-03:00", duracionHoras: 8,
   titular: { id: 3, nombre: "Carlos Ruiz" },
+  vacante: { id: 12, urgente: false, generadaPor: { id: 3, nombre: "Carlos Ruiz" } },
 };
 const estadoBase = { tipo: "NORMAL", etiqueta: null, urgente: false, postulado: false, acciones: [] };
 const acciones = () => ({ avisarAusencia: vi.fn(async () => {}), retirarAviso: vi.fn(async () => {}), postularme: vi.fn(async () => {}), retirarPostulacion: vi.fn(async () => {}) });
-const montar = (estado, acc = acciones(), onCerrar = vi.fn()) => {
-  render(<DetalleTurno turno={turno} estado={{ ...estadoBase, ...estado }} acciones={acc} onCerrar={onCerrar} />);
+const montar = (estado, acc = acciones(), onCerrar = vi.fn(), panel = null) => {
+  render(<DetalleTurno turno={turno} estado={{ ...estadoBase, ...estado }} acciones={acc} panel={panel} onCerrar={onCerrar} />);
   return { acc, onCerrar };
 };
 
@@ -71,13 +72,41 @@ describe("DetalleTurno", () => {
   });
 
   test.each([
-    ["RETIRAR_AVISO", "Retirar aviso", "retirarAviso"],
     ["POSTULARME", "Postularme", "postularme"],
     ["RETIRAR_POSTULACION", "Retirar postulación", "retirarPostulacion"],
   ])("acción %s", async (accion, texto, funcion) => {
     const { acc } = montar({ acciones: [accion] });
     await userEvent.click(screen.getByRole("button", { name: texto }));
     expect(acc[funcion]).toHaveBeenCalledWith("7:2026-10-12");
+  });
+
+  test("retirar el aviso usa el id de la vacante que informa el turno", async () => {
+    const { acc } = montar({ acciones: ["RETIRAR_AVISO"] });
+    await userEvent.click(screen.getByRole("button", { name: "Retirar aviso" }));
+    expect(acc.retirarAviso).toHaveBeenCalledWith(12);
+  });
+
+  test("coordinador: generar vacante pide motivo y llama a la misma acción", async () => {
+    const { acc } = montar({ acciones: ["GENERAR_VACANTE"] });
+    await userEvent.click(screen.getByRole("button", { name: "Generar vacante" }));
+    expect(acc.avisarAusencia).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent("Escribí el motivo");
+    await userEvent.type(screen.getByLabelText(/Motivo/), "Licencia");
+    await userEvent.click(screen.getByRole("button", { name: "Generar vacante" }));
+    expect(acc.avisarAusencia).toHaveBeenCalledWith("7:2026-10-12", "Licencia");
+    expect(screen.queryByRole("button", { name: "Avisar ausencia" })).toBeNull();
+  });
+
+  test("coordinador: retirar la vacante usa el id del turno", async () => {
+    const { acc } = montar({ acciones: ["RETIRAR_VACANTE"] });
+    await userEvent.click(screen.getByRole("button", { name: "Retirar vacante" }));
+    expect(acc.retirarAviso).toHaveBeenCalledWith(12);
+  });
+
+  test("muestra quién generó la vacante y el panel de coordinación si lo hay", () => {
+    montar({ tipo: "VACANTE", etiqueta: "Vacante", acciones: [] }, acciones(), vi.fn(), <p>Panel de prueba</p>);
+    expect(screen.getByText(/Generada por Carlos Ruiz/)).toBeVisible();
+    expect(screen.getByText("Panel de prueba")).toBeVisible();
   });
 
   test("sin acciones no hay botones de acción", () => {

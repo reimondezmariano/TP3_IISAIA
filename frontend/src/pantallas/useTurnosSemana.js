@@ -27,5 +27,16 @@ export function useTurnosSemana(api, lunes, { alCuentaCambiada }) {
   }, [api, lunes, intento]);
 
   const reintentar = useCallback(() => setIntento((n) => n + 1), []);
-  return { ...resultado, reintentar };
+
+  // Vuelve a pedir la semana sin mostrar "cargando" (después de una acción); si falla, queda lo que había.
+  const refrescar = useCallback(async () => {
+    try {
+      const turnos = await api.get("/api/turnos", rangoSemana(lunes));
+      setResultado({ estado: "ok", turnos, error: null });
+    } catch {
+      // se conservan los turnos anteriores
+    }
+  }, [api, lunes]);
+
+  return { ...resultado, reintentar, refrescar };
 }
