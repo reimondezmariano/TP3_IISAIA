@@ -2634,6 +2634,8 @@ D24: "Las coberturas que el médico había aceptado para turnos posteriores se r
 Run: `grep -rn "def generar_vacante" backend/app`
 Expected: aparece la función. Leer su firma, su docstring y sus pruebas, y verificar los cuatro supuestos de arriba. Si alguno no se cumple, frenar y preguntar. Anotar la firma real en esta tarea antes de seguir.
 
+Firma real (8/10/2026): `generar_vacante(sesion, turno_id: str, actor: Usuario, motivo: str | None, reloj: Reloj, zona: ZoneInfo) -> ResultadoVacante`, en `app/servicios/vacantes.py`. Recibe el id "horarioId:fecha" (no el turno) y suma la zona (`get_settings().zona`). Los cuatro supuestos se cumplen: no hace commit; `puede_generar` admite al coordinador sobre un turno ajeno; borra el asignado y escribe `VACANTE_GENERADA` con `asignado_anterior_id` en la misma transacción; solo notifica si la vacante es urgente (D05). Ajuste al paso 5: se reabre después de `dejar_sin_titular` y del cambio de estado o rol, no antes, porque la convención 19 de `backend/CLAUDE.md` bloquea los turnos después de los horarios; `generar_vacante` no mira el estado del médico, así que ese orden no la rechaza.
+
 - [ ] **Paso 2: escribir las pruebas que fallan**
 
 Crear `backend/tests/test_baja_reabre_coberturas.py`:
