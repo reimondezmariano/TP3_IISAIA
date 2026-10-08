@@ -1,12 +1,14 @@
 """Operaciones sobre vacantes (D15, D31). No hacen commit; lo hace el router."""
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.dominio.vacantes import es_urgente, puede_generar
+from app.dominio.calendario import parsear_id_turno
+from app.dominio.vacantes import asignado_a_restaurar, es_urgente, puede_generar, puede_retirar
 from app.errores import ErrorDominio
 from app.modelos import (
     EstadoUsuario,
@@ -20,7 +22,7 @@ from app.modelos import (
     Vacante,
 )
 from app.reloj import Reloj
-from app.repos.turnos import materializar_turno
+from app.repos.turnos import bloquear_turnos, materializar_turno
 
 
 @dataclass(frozen=True)
@@ -93,3 +95,76 @@ def _avisar_urgencia(sesion, turno: Turno, vacante: Vacante, turno_id: str, acto
             )
         )
     sesion.flush()
+
+
+def generar_lote(
+    sesion: Session,
+    turno_ids: Sequence[str],
+    actor: Usuario,
+    motivo: str | None,
+    reloj: Reloj,
+    zona: ZoneInfo,
+) -> list[ResultadoVacante]:
+    """Una vacante por turno, todo o nada (D15). Devuelve los resultados en el orden pedido.
+
+    Bloquea todos los turnos por (horario, fecha) ascendente antes de generar, así que dos lotes cruzados no
+    se traban. Si uno falla, el error indica qué turno y se deshacen todos los anteriores.
+    """
+    if len(set(turno_ids)) != len(turno_ids):
+        raise ErrorDominio("TURNOS_REPETIDOS", "El lote repite turnos.")
+    for turno_id in turno_ids:
+        parsear_id_turno(turno_id)
+    with sesion.begin_nested():
+        bloquear_turnos(sesion, turno_ids, zona)
+        resultados: list[ResultadoVacante] = []
+        for turno_id in sorted(turno_ids, key=parsear_id_turno):
+            try:
+                resultados.append(generar_vacante(sesion, turno_id, actor, motivo, reloj, zona))
+            except ErrorDominio as error:
+                raise ErrorDominio(error.codigo, f"{turno_id}: {error.mensaje}", error.status) from error
+    por_turno = {f"{r.turno.horario_id}:{r.turno.fecha.isoformat()}": r for r in resultados}
+    return [por_turno[turno_id] for turno_id in turno_ids]
+
+
+def retirar_vacante(sesion: Session, vacante_id: int, actor: Usuario, reloj: Reloj) -> Vacante:
+    """Retira una vacante abierta: quien la generó o un coordinador (D15).
+
+    Si la había generado el asignado que se borró al abrirla, el retiro lo restaura (D31, supuesto 3 del plan).
+    """
+    vacante = sesion.get(Vacante, vacante_id)
+    if vacante is None:
+        raise ErrorDominio("VACANTE_NO_ENCONTRADA", "No existe esa vacante.", 404)
+    turno = sesion.scalar(
+        select(Turno).where(Turno.id == vacante.turno_id).with_for_update().execution_options(populate_existing=True)
+    )
+    sesion.refresh(vacante)  # con el turno bloqueado, el estado es el que dejó la última transacción
+    if not puede_retirar(actor.id, actor.rol == RolUsuario.COORDINADOR, vacante.generada_por_id):
+        raise ErrorDominio("SIN_PERMISO", "Solo quien generó la vacante o un coordinador pueden retirarla.", 403)
+    if vacante.estado != EstadoVacante.ABIERTA:
+        raise ErrorDominio("VACANTE_NO_ABIERTA", "La vacante ya no está abierta.", 409)
+
+    ahora = reloj.ahora()
+    generada = sesion.scalar(
+        select(EventoTurno).where(
+            EventoTurno.turno_id == turno.id,
+            EventoTurno.tipo == TipoEventoTurno.VACANTE_GENERADA,
+            EventoTurno.datos["vacante_id"].astext == str(vacante.id),
+        )
+    )
+    anterior = generada.datos.get("asignado_anterior_id") if generada is not None else None
+    restaurado = asignado_a_restaurar(vacante.generada_por_id, anterior)
+    vacante.estado = EstadoVacante.RETIRADA
+    vacante.cerrada_en = ahora
+    if restaurado is not None and turno.asignado_id is None:
+        turno.asignado_id = restaurado
+    sesion.add(
+        EventoTurno(
+            turno_id=turno.id,
+            tipo=TipoEventoTurno.VACANTE_RETIRADA,
+            actor_id=actor.id,
+            ocurrido_en=ahora,
+            datos={"vacante_id": vacante.id, "asignado_restaurado_id": restaurado},
+        )
+    )
+    sesion.flush()
+    return vacante

@@ -12,9 +12,10 @@ from app.modelos import (
     RolUsuario,
     TipoEventoTurno,
     Turno,
+    Usuario,
     Vacante,
 )
-from app.servicios.vacantes import generar_vacante
+from app.servicios.vacantes import generar_lote, generar_vacante, retirar_vacante
 from fabricas import ZONA, bloqueado_hasta_commit, crear_horario_de_prueba, crear_usuario, guardar_turno
 
 # Reloj de prueba: lunes 12/10/2026 09:00. El turno del martes 13/10 08:00 está a 23 h (urgente);
@@ -207,3 +208,153 @@ def test_dos_generaciones_simultaneas_una_gana(fabrica_sesiones, reloj):
     with fabrica_sesiones() as s:
         assert s.scalar(select(func.count()).select_from(Vacante)) == 1
         assert s.scalar(select(func.count()).select_from(EventoTurno)) == 1
+
+
+# --- lote (D15) ---
+
+
+def lote(sesion, reloj, ids, actor, motivo=None):
+    return generar_lote(sesion, ids, actor, motivo, reloj, ZONA)
+
+
+def test_el_lote_genera_una_vacante_por_turno(sesion, reloj):
+    enzo = crear_usuario(sesion, "Enzo", rol=RolUsuario.COORDINADOR)
+    horario = crear_horario_de_prueba(sesion, crear_usuario(sesion, "Carlos").id)
+    ids = [f"{horario.id}:2026-10-27", f"{horario.id}:2026-10-20"]
+
+    resultados = lote(sesion, reloj, ids, enzo, "Vacaciones")
+
+    assert [r.turno.fecha for r in resultados] == [date(2026, 10, 27), date(2026, 10, 20)]  # orden pedido
+    assert all(r.vacante.motivo == "Vacaciones" for r in resultados)
+    assert sesion.scalar(select(func.count()).select_from(Vacante)) == 2
+
+
+def test_un_fallo_del_lote_no_guarda_ninguna(sesion, reloj):
+    enzo = crear_usuario(sesion, "Enzo", rol=RolUsuario.COORDINADOR)
+    horario = crear_horario_de_prueba(sesion, crear_usuario(sesion, "Carlos").id)
+    ids = [f"{horario.id}:2026-10-20", f"{horario.id}:2026-10-21", f"{horario.id}:2026-10-27"]  # el 21 es miércoles
+
+    with pytest.raises(ErrorDominio) as error:
+        lote(sesion, reloj, ids, enzo)
+
+    assert error.value.codigo == "TURNO_NO_ENCONTRADO"
+    assert ids[1] in error.value.mensaje
+    for tabla in (Vacante, EventoTurno, Turno):
+        assert sesion.scalar(select(func.count()).select_from(tabla)) == 0
+
+
+def test_el_lote_con_turnos_repetidos_responde_422(sesion, reloj):
+    enzo = crear_usuario(sesion, "Enzo", rol=RolUsuario.COORDINADOR)
+    horario = crear_horario_de_prueba(sesion, None)
+    with pytest.raises(ErrorDominio) as error:
+        lote(sesion, reloj, [f"{horario.id}:2026-10-20", f"{horario.id}:2026-10-20"], enzo)
+    assert (error.value.codigo, error.value.status) == ("TURNOS_REPETIDOS", 422)
+
+
+@pytest.mark.commit_real
+def test_dos_lotes_cruzados_no_se_traban(fabrica_sesiones, reloj):
+    with fabrica_sesiones() as s:
+        enzo = crear_usuario(s, "Enzo", rol=RolUsuario.COORDINADOR)
+        horario_id = crear_horario_de_prueba(s, None).id
+        s.commit()
+        enzo_id = enzo.id
+    a, b = f"{horario_id}:2026-10-20", f"{horario_id}:2026-10-27"
+
+    with fabrica_sesiones() as s1, fabrica_sesiones() as s2:
+        lote(s1, reloj, [a, b], s1.get(Usuario, enzo_id))
+        resultado = bloqueado_hasta_commit(s1, lambda: lote(s2, reloj, [b, a], s2.get(Usuario, enzo_id)))
+
+    assert isinstance(resultado.get("error"), ErrorDominio), resultado  # espera y pierde; no hay deadlock
+    assert resultado["error"].codigo == "VACANTE_YA_ABIERTA"
+
+
+# --- retiro (D15, D31) ---
+
+
+def retirar(sesion, reloj, vacante_id, actor):
+    return retirar_vacante(sesion, vacante_id, actor, reloj)
+
+
+def test_retira_quien_la_genero_y_deja_el_evento(sesion, reloj):
+    carlos = crear_usuario(sesion, "Carlos")
+    horario = crear_horario_de_prueba(sesion, carlos.id)
+    vacante = generar(sesion, reloj, horario.id, LEJANO, carlos).vacante
+    reloj.avanzar(timedelta(hours=1))
+
+    retirada = retirar(sesion, reloj, vacante.id, carlos)
+
+    assert (retirada.estado, retirada.cerrada_en) == (EstadoVacante.RETIRADA, reloj.ahora())
+    ultimo = eventos(sesion, retirada.turno_id)[-1]
+    assert (ultimo.tipo, ultimo.actor_id, ultimo.ocurrido_en) == (
+        TipoEventoTurno.VACANTE_RETIRADA,
+        carlos.id,
+        reloj.ahora(),
+    )
+
+
+def test_retira_un_coordinador(sesion, reloj):
+    carlos = crear_usuario(sesion, "Carlos")
+    enzo = crear_usuario(sesion, "Enzo", rol=RolUsuario.COORDINADOR)
+    horario = crear_horario_de_prueba(sesion, carlos.id)
+    vacante = generar(sesion, reloj, horario.id, LEJANO, carlos).vacante
+
+    assert retirar(sesion, reloj, vacante.id, enzo).estado == EstadoVacante.RETIRADA
+
+
+def test_un_tercero_no_puede_retirar(sesion, reloj):
+    carlos = crear_usuario(sesion, "Carlos")
+    horario = crear_horario_de_prueba(sesion, carlos.id)
+    vacante = generar(sesion, reloj, horario.id, LEJANO, carlos).vacante
+
+    with pytest.raises(ErrorDominio) as error:
+        retirar(sesion, reloj, vacante.id, crear_usuario(sesion, "Tercero"))
+
+    assert (error.value.codigo, error.value.status) == ("SIN_PERMISO", 403)
+
+
+def test_vacante_inexistente_responde_404(sesion, reloj):
+    with pytest.raises(ErrorDominio) as error:
+        retirar(sesion, reloj, 99999, crear_usuario(sesion, "Carlos"))
+    assert (error.value.codigo, error.value.status) == ("VACANTE_NO_ENCONTRADA", 404)
+
+
+@pytest.mark.parametrize("estado", [EstadoVacante.RETIRADA, EstadoVacante.CUBIERTA])
+def test_no_se_retira_una_vacante_que_no_esta_abierta(sesion, reloj, estado):
+    carlos = crear_usuario(sesion, "Carlos")
+    horario = crear_horario_de_prueba(sesion, carlos.id)
+    vacante = generar(sesion, reloj, horario.id, LEJANO, carlos).vacante
+    sesion.execute(update(Vacante).where(Vacante.id == vacante.id).values(estado=estado, cerrada_en=reloj.ahora()))
+    sesion.expire_all()
+
+    with pytest.raises(ErrorDominio) as error:
+        retirar(sesion, reloj, vacante.id, carlos)
+
+    assert (error.value.codigo, error.value.status) == ("VACANTE_NO_ABIERTA", 409)
+
+
+def test_el_retiro_restaura_al_asignado_que_la_genero(sesion, reloj):
+    carlos = crear_usuario(sesion, "Carlos")
+    paula = crear_usuario(sesion, "Paula")
+    horario = crear_horario_de_prueba(sesion, carlos.id)
+    guardar_turno(sesion, horario.id, date(2026, 10, 20), asignado_id=paula.id)
+    resultado = generar(sesion, reloj, horario.id, LEJANO, paula)
+    assert resultado.turno.asignado_id is None
+
+    retirar(sesion, reloj, resultado.vacante.id, paula)
+
+    assert resultado.turno.asignado_id == paula.id
+    assert eventos(sesion, resultado.turno.id)[-1].datos["asignado_restaurado_id"] == paula.id
+
+
+def test_el_retiro_no_restaura_a_un_asignado_distinto_de_quien_la_genero(sesion, reloj):
+    carlos = crear_usuario(sesion, "Carlos")
+    paula = crear_usuario(sesion, "Paula")
+    enzo = crear_usuario(sesion, "Enzo", rol=RolUsuario.COORDINADOR)
+    horario = crear_horario_de_prueba(sesion, carlos.id)
+    guardar_turno(sesion, horario.id, date(2026, 10, 20), asignado_id=paula.id)
+    resultado = generar(sesion, reloj, horario.id, LEJANO, enzo)  # la genera el coordinador, no Paula
+
+    retirar(sesion, reloj, resultado.vacante.id, enzo)
+
+    assert resultado.turno.asignado_id is None
+    assert eventos(sesion, resultado.turno.id)[-1].datos["asignado_restaurado_id"] is None
