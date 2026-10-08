@@ -62,7 +62,7 @@ from app.main import crear_app  # noqa: E402
 from app.modelos import EstadoUsuario, RolUsuario, Usuario  # noqa: E402
 
 TURNO = "7:2026-10-17"
-RUTAS = [
+RUTAS_DEL_CONTRATO = [
     # método, ruta, cuerpo, status, esquema de respuesta, solo coordinador
     ("POST", f"/api/turnos/{TURNO}/vacantes", {"motivo": "Congreso"}, 201, "VacanteOut", False),
     ("POST", "/api/vacantes/lote", {"turnoIds": [TURNO], "motivo": "Vacaciones"}, 201, "LoteVacantesOut", True),
@@ -72,6 +72,8 @@ RUTAS = [
     ("GET", f"/api/turnos/{TURNO}/candidatos", None, 200, "CandidatosOut", True),
     ("PUT", f"/api/turnos/{TURNO}/asignacion", {"medicoId": 2}, 200, "AsignacionOut", True),
 ]
+# Etapa 2: generar vacante, lote y retiro ya son reales (tests/test_api_vacantes.py).
+RUTAS = [r for r in RUTAS_DEL_CONTRATO if "vacantes" not in r[1]]
 IDS = [f"{m} {r}" for m, r, *_ in RUTAS]
 
 
@@ -98,7 +100,7 @@ def _pedir(cliente: TestClient, metodo: str, ruta: str, cuerpo):
 
 def test_las_siete_rutas_estan_en_el_openapi():
     rutas = _cliente(None).get("/openapi.json").json()["paths"]
-    for metodo, ruta, *_ in RUTAS:
+    for metodo, ruta, *_ in RUTAS_DEL_CONTRATO:
         patron = ruta.replace(TURNO, "{turno_id}").replace("/12/", "/{vacante_id}/").replace("/31/", "/{postulacion_id}/")
         assert metodo.lower() in rutas[patron], (metodo, patron)
 
@@ -128,15 +130,9 @@ def test_la_respuesta_de_ejemplo_valida_y_lleva_el_encabezado(metodo, ruta, cuer
     assert clase.model_validate(respuesta.json()) == EJEMPLOS[esquema]
 
 
-@pytest.mark.parametrize("ruta", ["/api/turnos/7-2026-10-17/vacantes", "/api/turnos/7:2026-13-45/candidatos"])
+@pytest.mark.parametrize("ruta", ["/api/turnos/7-2026-10-17/postulaciones", "/api/turnos/7:2026-13-45/candidatos"])
 def test_turno_id_mal_formado_responde_422(ruta):
-    metodo = "POST" if ruta.endswith("vacantes") else "GET"
+    metodo = "POST" if ruta.endswith("postulaciones") else "GET"
     respuesta = _pedir(_cliente(RolUsuario.COORDINADOR), metodo, ruta, {} if metodo == "POST" else None)
-    assert respuesta.status_code == 422
-    assert respuesta.json()["codigo"] == "TURNO_ID_INVALIDO"
-
-
-def test_el_lote_con_un_id_mal_formado_responde_422():
-    respuesta = _pedir(_cliente(RolUsuario.COORDINADOR), "POST", "/api/vacantes/lote", {"turnoIds": ["7:2026-10-17", "xx"]})
     assert respuesta.status_code == 422
     assert respuesta.json()["codigo"] == "TURNO_ID_INVALIDO"
