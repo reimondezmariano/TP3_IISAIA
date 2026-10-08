@@ -1,16 +1,21 @@
 """Postulaciones al turno y candidatos (D16, D17). No hacen commit; lo hace el router."""
 
+from dataclasses import dataclass
+from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.dominio.asignacion import habilitado_para_turno
+from app.dominio.calendario import calcular_turnos, parsear_id_turno
 from app.dominio.elegibilidad import Motivo, motivo_inelegibilidad
+from app.dominio.equidad import Candidato, contar_coberturas, horas_en_semana, ordenar_candidatos
 from app.errores import ErrorDominio
 from app.modelos import EstadoVacante, EventoTurno, Postulacion, RolUsuario, TipoEventoTurno, Turno, Usuario, Vacante
 from app.reloj import Reloj
-from app.repos.guardias import guardias_del_medico
+from app.repos.guardias import guardias_del_medico, turnos_del_mes
+from app.repos.horarios import versiones_en_rango
 from app.repos.turnos import materializar_turno
 
 _MENSAJE_MOTIVO = {
@@ -105,3 +110,93 @@ def retirar_postulacion(sesion: Session, postulacion_id: int, actor: Usuario, re
     )
     sesion.flush()
     return postulacion
+
+
+@dataclass(frozen=True)
+class CandidatoCalculado:
+    posicion: int | None  # 1..n entre los elegibles; None si no es elegible
+    medico: Usuario
+    postulado_en: datetime
+    coberturas_mes: int
+    horas_semana: float  # horas de guardia que ya tiene esa semana, sin contar este turno (dato informativo, D17)
+    elegible: bool
+    motivo: Motivo | None
+
+
+@dataclass(frozen=True)
+class ResultadoCandidatos:
+    turno_id: str
+    mes: str  # "AAAA-MM" del inicio del turno en la zona del servicio
+    candidatos: list[CandidatoCalculado]
+
+
+def listar_candidatos(sesion: Session, turno_id: str, zona: ZoneInfo) -> ResultadoCandidatos:
+    """Postulaciones activas ordenadas por equidad (D17): primero quien cubrió menos en el mes del turno.
+
+    Desempata la hora de postulación. Los no elegibles (D16) van al final con su motivo: la elegibilidad se
+    calcula en cada consulta, así que si el impedimento desaparece vuelven a ser elegibles. Quedan fuera quienes
+    ya no están habilitados para ese turno (coordinadores, bajas anteriores a su fecha). No guarda el turno.
+    """
+    horario_id, fecha = parsear_id_turno(turno_id)
+    turno = sesion.scalar(select(Turno).where(Turno.horario_id == horario_id, Turno.fecha == fecha))
+    if turno is None:
+        calculado = next(
+            (
+                t
+                for t in calcular_turnos(versiones_en_rango(sesion, fecha, fecha), fecha, fecha, zona)
+                if t.horario_id == horario_id and t.fecha == fecha
+            ),
+            None,
+        )
+        if calculado is None:
+            raise ErrorDominio("TURNO_NO_ENCONTRADO", f"No existe el turno {turno_id}.", 404)
+        inicio = calculado.inicio.astimezone(zona)
+        return ResultadoCandidatos(turno_id, f"{inicio:%Y-%m}", [])
+
+    inicio_local = turno.inicio.astimezone(zona)
+    mes = f"{inicio_local:%Y-%m}"
+    filas = sesion.execute(
+        select(Postulacion, Usuario)
+        .join(Usuario, Usuario.id == Postulacion.medico_id)
+        .where(Postulacion.turno_id == turno.id, Postulacion.retirada_en.is_(None))
+    ).all()
+    habilitados = [
+        (p, u) for p, u in filas if habilitado_para_turno(u.rol, u.estado, u.fecha_baja, turno.fecha)
+    ]
+    if not habilitados:
+        return ResultadoCandidatos(turno_id, mes, [])
+
+    anio, numero_mes = inicio_local.year, inicio_local.month
+    por_medico = contar_coberturas(turnos_del_mes(sesion, anio, numero_mes, zona), anio, numero_mes, zona)
+    lunes = fecha - timedelta(days=fecha.weekday())
+    inicio_semana = datetime.combine(lunes, time(0), tzinfo=zona)
+    fin_semana = datetime.combine(lunes + timedelta(days=7), time(0), tzinfo=zona)
+
+    elegibles: list[Candidato] = []
+    no_elegibles: list[Candidato] = []
+    detalle: dict[int, tuple[Usuario, Motivo | None, float]] = {}
+    for postulacion, medico in habilitados:
+        guardias = guardias_del_medico(sesion, medico.id, turno.inicio, turno.fin, turno_id, zona)
+        motivo = motivo_inelegibilidad(medico.id, turno.titular_id, turno.inicio, turno.fin, guardias)
+        semana = guardias_del_medico(sesion, medico.id, inicio_semana, fin_semana, turno_id, zona)
+        detalle[medico.id] = (medico, motivo, horas_en_semana(semana, fecha, zona))
+        (elegibles if motivo is None else no_elegibles).append(Candidato(medico.id, postulacion.creada_en))
+
+    candidatos: list[CandidatoCalculado] = []
+    posicion = 0
+    for grupo, es_elegible in ((elegibles, True), (no_elegibles, False)):
+        for candidato in ordenar_candidatos(grupo, por_medico):
+            medico, motivo, horas = detalle[candidato.medico_id]
+            posicion += 1 if es_elegible else 0
+            candidatos.append(
+                CandidatoCalculado(
+                    posicion if es_elegible else None,
+                    medico,
+                    candidato.postulado_en,
+                    por_medico.get(medico.id, 0),
+                    horas,
+                    es_elegible,
+                    motivo,
+                )
+            )
+    return ResultadoCandidatos(turno_id, mes, candidatos)
