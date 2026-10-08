@@ -4,7 +4,9 @@ import { rangoSemana } from "../lib/fechas.js";
 
 const CUENTA_CAMBIADA = ["CUENTA_PENDIENTE", "CUENTA_DADA_DE_BAJA"];
 
-export function useTurnosSemana(api, lunes, { alCuentaCambiada }) {
+export const INTERVALO_MS = 15_000; // el calendario se actualiza solo, igual que las notificaciones (D05)
+
+export function useTurnosSemana(api, lunes, { alCuentaCambiada, intervaloMs = INTERVALO_MS }) {
   const [resultado, setResultado] = useState({ estado: "cargando", turnos: [], error: null });
   const [intento, setIntento] = useState(0);
   const silencioso = useRef(false); // refrescar: vuelve a pedir sin ocultar la semana que ya se ve
@@ -27,6 +29,25 @@ export function useTurnosSemana(api, lunes, { alCuentaCambiada }) {
     // alCuentaCambiada no debe re-disparar el pedido.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api, lunes, intento]);
+
+  // Refresco periódico: un fallo conserva lo que se ve y reintenta en el próximo ciclo (salvo que la cuenta haya cambiado).
+  useEffect(() => {
+    let vigente = true;
+    const reloj = setInterval(() => {
+      api
+        .get("/api/turnos", rangoSemana(lunes))
+        .then((turnos) => vigente && setResultado({ estado: "ok", turnos, error: null }))
+        .catch((error) => {
+          if (vigente && error instanceof ErrorApi && CUENTA_CAMBIADA.includes(error.codigo)) alCuentaCambiada();
+        });
+    }, intervaloMs);
+    return () => {
+      vigente = false;
+      clearInterval(reloj);
+    };
+    // alCuentaCambiada no debe reiniciar el reloj.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [api, lunes, intervaloMs]);
 
   const reintentar = useCallback(() => setIntento((n) => n + 1), []);
   const refrescar = useCallback(() => {
