@@ -9,7 +9,7 @@ from sqlalchemy.dialects.postgresql import insert
 
 from app.dominio.calendario import calcular_turnos, formatear_id_turno, parsear_id_turno
 from app.errores import ErrorDominio
-from app.modelos import Turno, Usuario
+from app.modelos import EstadoVacante, Turno, Usuario, Vacante
 from app.repos.horarios import TurnoAfectado, _titular, versiones_en_rango
 
 
@@ -95,3 +95,21 @@ def turno_a_afectado(sesion, turno: Turno, asignado: Usuario | None) -> TurnoAfe
         titular=_titular(sesion.get(Usuario, turno.titular_id) if turno.titular_id is not None else None),
         asignado=_titular(asignado),
     )
+
+
+def vacantes_abiertas_en_rango(sesion, desde: date, hasta: date) -> dict[tuple[int, date], tuple[Vacante, Turno, Usuario]]:
+    """Vacantes abiertas de turnos guardados que empiezan entre desde-1 y hasta, por (horario_id, fecha).
+
+    El día anterior entra porque un turno nocturno que empieza ayer puede terminar dentro del rango.
+    """
+    filas = sesion.execute(
+        select(Vacante, Turno, Usuario)
+        .join(Turno, Vacante.turno_id == Turno.id)
+        .join(Usuario, Vacante.generada_por_id == Usuario.id)
+        .where(
+            Vacante.estado == EstadoVacante.ABIERTA,
+            Turno.fecha >= desde - timedelta(days=1),
+            Turno.fecha <= hasta,
+        )
+    ).all()
+    return {(turno.horario_id, turno.fecha): (vacante, turno, generador) for vacante, turno, generador in filas}
