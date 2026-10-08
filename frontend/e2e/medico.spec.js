@@ -1,0 +1,154 @@
+import { expect, test } from "@playwright/test";
+import { simularApi, simularSupabase } from "./ayudas.js";
+
+const ME = { id: 1, nombre: "Ana Gómez", email: "ana@x.com", rol: "MEDICO", estado: "ACTIVO" };
+const turno = (horarioId, fecha, hi, hf, finFecha, titular) => ({
+  id: `${horarioId}:${fecha}`, horarioId, fecha, inicio: `${fecha}T${hi}:00-03:00`, fin: `${finFecha}T${hf}:00-03:00`, duracionHoras: 8, titular,
+});
+const TURNOS = [
+  turno(1, "2026-10-09", "08:00", "16:00", "2026-10-09", { id: 1, nombre: "Ana Gómez" }),
+  turno(2, "2026-10-10", "20:00", "08:00", "2026-10-11", { id: 3, nombre: "Carlos Ruiz" }),
+  turno(3, "2026-10-11", "08:00", "16:00", "2026-10-11", null),
+];
+
+async function ingresar(page, email = "ana@x.com", password = "secreto1") {
+  await page.goto("/");
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Contraseña").fill(password);
+  await page.getByRole("button", { name: "Ingresar", exact: true }).last().click();
+}
+
+async function completarRegistro(page, { nombre, email, codigo }) {
+  await page.goto("/");
+  await page.getByRole("tab", { name: "Registrarme" }).click();
+  await page.getByLabel("Nombre").fill(nombre);
+  await page.getByLabel("Email").fill(email);
+  await page.getByLabel("Contraseña").fill("secreto1");
+  if (codigo) await page.getByLabel("Código de coordinación (opcional)").fill(codigo);
+  await page.getByRole("button", { name: "Crear cuenta" }).click();
+}
+
+test("el médico ingresa y ve su calendario semanal; todos los pedidos llevan el Bearer", async ({ page }) => {
+  await simularSupabase(page);
+  const pedidos = await simularApi(page, { me: ME, turnos: TURNOS });
+  await ingresar(page);
+  await expect(page.getByText("5 al 11 de octubre de 2026")).toBeVisible();
+  await expect(page.getByTestId("turno")).toHaveCount(3);
+  await expect(page.getByText("Mi guardia")).toBeVisible();
+  await expect(page.getByText("20:00 – 08:00 (+1 día)")).toBeVisible();
+  await expect(page.getByText("BAJA", { exact: true })).toBeVisible();
+  const turnosPedido = pedidos.find((p) => p.ruta === "/api/turnos");
+  expect(turnosPedido.consulta).toBe("?desde=2026-10-05&hasta=2026-10-11");
+  for (const p of pedidos.filter((p) => p.ruta !== "/api/health")) {
+    expect(p.authorization, `${p.metodo} ${p.ruta}`).toMatch(/^Bearer .+\..+\..+$/);
+  }
+});
+
+test("credenciales incorrectas: mensaje en español y sigue en el login", async ({ page }) => {
+  await simularSupabase(page);
+  await simularApi(page, { me: ME });
+  await ingresar(page, "ana@x.com", "mala");
+  await expect(page.getByRole("alert")).toHaveText("Email o contraseña incorrectos.");
+  await expect(page.getByRole("button", { name: "Ingresar", exact: true }).last()).toBeVisible();
+});
+
+test("cuenta PENDIENTE: 'Esperando activación' y Actualizar la pasa al calendario cuando se activa", async ({ page }) => {
+  await simularSupabase(page);
+  let activa = false;
+  await simularApi(page, { me: () => ({ ...ME, estado: activa ? "ACTIVO" : "PENDIENTE" }), turnos: TURNOS });
+  await ingresar(page);
+  await expect(page.getByRole("heading", { name: "Esperando activación" })).toBeVisible();
+  activa = true;
+  await page.getByRole("button", { name: "Actualizar" }).click();
+  await expect(page.getByText("5 al 11 de octubre de 2026")).toBeVisible();
+});
+
+test("registro sin código: crea la cuenta, manda solo el nombre y queda esperando activación", async ({ page }) => {
+  await simularSupabase(page);
+  const pedidos = await simularApi(page, { me: { ...ME, estado: "PENDIENTE" }, registro: () => ({ status: 201, cuerpo: { ...ME, estado: "PENDIENTE" } }) });
+  await completarRegistro(page, { nombre: "Ana Gómez", email: "ana@x.com" });
+  await expect(page.getByRole("heading", { name: "Esperando activación" })).toBeVisible();
+  const registro = pedidos.find((p) => p.ruta === "/api/registro");
+  expect(JSON.parse(registro.cuerpo)).toEqual({ nombre: "Ana Gómez" });
+  expect(registro.authorization).toMatch(/^Bearer /);
+});
+
+test("registro con código de coordinación: queda activo como coordinador", async ({ page }) => {
+  await simularSupabase(page);
+  const coord = { ...ME, nombre: "Enzo", rol: "COORDINADOR" };
+  const pedidos = await simularApi(page, { me: coord, turnos: TURNOS, registro: () => ({ status: 201, cuerpo: coord }) });
+  await completarRegistro(page, { nombre: "Enzo", email: "enzo@x.com", codigo: "SMG" });
+  await expect(page.getByText(/pantallas de coordinación/i)).toBeVisible();
+  expect(JSON.parse(pedidos.find((p) => p.ruta === "/api/registro").cuerpo)).toEqual({ nombre: "Enzo", codigoCoordinacion: "SMG" });
+});
+
+test("código incorrecto: ofrece completar el registro y el segundo intento funciona", async ({ page }) => {
+  await simularSupabase(page);
+  let registrado = false;
+  await simularApi(page, {
+    me: () => (registrado ? { ...ME, estado: "PENDIENTE" } : { status: 403, cuerpo: { codigo: "USUARIO_NO_REGISTRADO", mensaje: "Falta registro." } }),
+    registro: (cuerpo) => {
+      if (cuerpo.codigoCoordinacion) return { status: 422, cuerpo: { codigo: "CODIGO_INVALIDO", mensaje: "El código de coordinación no es correcto." } };
+      registrado = true;
+      return { status: 201, cuerpo: { ...ME, estado: "PENDIENTE" } };
+    },
+  });
+  await completarRegistro(page, { nombre: "Ana Gómez", email: "ana@x.com", codigo: "MAL" });
+  await expect(page.getByRole("heading", { name: "Completá tu registro" })).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveText("El código de coordinación no es correcto.");
+  await page.getByLabel("Nombre").fill("Ana Gómez");
+  await page.getByRole("button", { name: "Completar registro" }).click();
+  await expect(page.getByRole("heading", { name: "Esperando activación" })).toBeVisible();
+});
+
+test("token vencido con la app abierta: vuelve al login con el mensaje", async ({ page }) => {
+  await simularSupabase(page);
+  await simularApi(page, { me: ME, turnos: TURNOS });
+  await ingresar(page);
+  await expect(page.getByText("5 al 11 de octubre de 2026")).toBeVisible();
+  await page.route("**/api/turnos**", (ruta) =>
+    ruta.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ codigo: "TOKEN_VENCIDO", mensaje: "La sesión venció. Volvé a ingresar." }) }),
+  );
+  await page.getByRole("button", { name: "Semana siguiente" }).click();
+  await expect(page.getByRole("status")).toContainText("La sesión venció. Volvé a ingresar.");
+  await expect(page.getByRole("tab", { name: "Ingresar" })).toBeVisible();
+});
+
+test("servidor caído al pedir la semana: mensaje y reintento", async ({ page }) => {
+  await simularSupabase(page);
+  await simularApi(page, { me: ME, turnos: TURNOS });
+  await ingresar(page);
+  await expect(page.getByText("5 al 11 de octubre de 2026")).toBeVisible();
+  await page.route("**/api/turnos**", (ruta) => ruta.abort());
+  await page.getByRole("button", { name: "Semana siguiente" }).click();
+  await expect(page.getByRole("alert")).toContainText("No se pudo conectar con el servidor");
+  await page.unroute("**/api/turnos**");
+  await page.getByRole("button", { name: "Reintentar" }).click();
+  await expect(page.getByText("12 al 18 de octubre de 2026")).toBeVisible();
+  await expect(page.getByText("No hay guardias esta semana.")).toBeVisible();
+});
+
+test("simulado: el médico avisa su ausencia y se postula a una baja", async ({ page }) => {
+  await simularSupabase(page);
+  await simularApi(page, { me: ME, turnos: TURNOS });
+  await ingresar(page);
+  await page.locator('[data-turno-id="1:2026-10-09"]').click();
+  await expect(page.getByTestId("rotulo-simulado")).toBeVisible();
+  await page.getByLabel(/Motivo/).fill("Congreso");
+  await page.getByRole("button", { name: "Avisar ausencia" }).click();
+  await expect(page.getByRole("button", { name: "Retirar aviso" })).toBeVisible();
+  await page.getByRole("button", { name: "Cerrar", exact: true }).click();
+  await page.locator('[data-turno-id="3:2026-10-11"]').click();
+  await page.getByRole("button", { name: "Postularme" }).click();
+  await expect(page.getByRole("button", { name: "Retirar postulación" })).toBeVisible();
+});
+
+test("en pantalla de celular el calendario no desborda horizontalmente", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 700 });
+  await simularSupabase(page);
+  await simularApi(page, { me: ME, turnos: TURNOS });
+  await ingresar(page);
+  await expect(page.getByText("5 al 11 de octubre de 2026")).toBeVisible();
+  const desborda = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
+  expect(desborda).toBe(false);
+});
