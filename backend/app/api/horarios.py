@@ -106,7 +106,7 @@ def crear(
         frecuencia_semanas=datos.frecuencia_semanas,
         fecha_ancla=datos.fecha_ancla or lunes_de(datos.vigente_desde),
     )
-    horario = crear_horario_pactado(db, version, datos.vigente_desde, dia)
+    horario = crear_horario_pactado(db, version, datos.vigente_desde, dia, reloj.ahora(), get_settings().zona)
     db.commit()
     return horario_out(obtener_horario(db, horario.id), dia)
 
@@ -170,7 +170,9 @@ def nueva(
     _coordinador: Usuario = Depends(requiere_coordinador),
 ) -> VersionNuevaOut:
     """Modifica un horario o designa su titular con una versión nueva (D10, D24) y lista los turnos afectados (D12)."""
-    resultado = abrir_version(db, horario_id, datos.cambios(), datos.desde, hoy(reloj))
+    resultado = abrir_version(
+        db, horario_id, datos.cambios(), datos.desde, hoy(reloj), reloj.ahora(), get_settings().zona
+    )
     db.commit()
     return VersionNuevaOut(
         version=version_out(resultado.version),
@@ -197,7 +199,7 @@ def cerrar(
 ) -> CierreOut:
     """Cierra un horario pactado (D24) y lista los turnos ya guardados que quedan afuera (D12)."""
     dia = hoy(reloj)
-    afectados = cerrar_horario(db, horario_id, datos.desde, dia)
+    afectados = cerrar_horario(db, horario_id, datos.desde, dia, reloj.ahora(), get_settings().zona)
     db.commit()
     return CierreOut(
         horario=horario_out(obtener_horario(db, horario_id), dia),

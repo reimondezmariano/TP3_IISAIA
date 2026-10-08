@@ -79,7 +79,9 @@ def cargar_datos_ejemplo(sesion: Session) -> int:
     así nadie tiene que volver a registrarse después de reiniciar la demo. Devuelve cuántas conservó.
     """
     vinculos = _vinculos_con_supabase(sesion)
-    sesion.execute(text("TRUNCATE usuario, horario_pactado, version_horario RESTART IDENTITY CASCADE"))
+    sesion.execute(
+        text("TRUNCATE usuario, horario_pactado, version_horario, consolidacion_estado RESTART IDENTITY CASCADE")
+    )
     # RESTART IDENTITY reutiliza los ids: los objetos de la carga anterior no deben chocar con los nuevos.
     sesion.expunge_all()
 
