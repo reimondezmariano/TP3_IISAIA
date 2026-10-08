@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.dominio.notificaciones import TipoNotificacion
 from app.dominio.tiempo import exigir_zona
+from app.errores import ErrorDominio
 from app.modelos import EstadoUsuario, Notificacion, RolUsuario, Turno, Usuario
 
 
@@ -53,3 +54,19 @@ def destinatarios(sesion: Session, rol: RolUsuario, dia: date, excepto: Collecti
         .order_by(Usuario.id)
     )
     return [usuario_id for usuario_id in sesion.scalars(consulta) if usuario_id not in excepto]
+
+
+def marcar_leida(sesion: Session, notificacion_id: int, usuario: Usuario, ahora: datetime) -> Notificacion:
+    """Marca como leída una notificación propia. Una ajena responde igual que una inexistente."""
+    notificacion = sesion.scalar(
+        select(Notificacion)
+        .where(Notificacion.id == notificacion_id, Notificacion.usuario_id == usuario.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if notificacion is None:
+        raise ErrorDominio("NOTIFICACION_NO_ENCONTRADA", "La notificación no existe.", 404)
+    if notificacion.leida_en is None:
+        notificacion.leida_en = ahora
+        sesion.flush()
+    return notificacion
