@@ -13,7 +13,7 @@ from app.modelos import EstadoUsuario, RolUsuario, Usuario, VersionHorario
 from app.reloj import Reloj, get_reloj, hoy
 from app.repos.horarios import versiones_no_terminadas_por_medico
 from app.repos.usuarios import listar_usuarios
-from app.servicios.usuarios import ResultadoCambio, activar, dar_de_baja
+from app.servicios.usuarios import ResultadoCambio, activar, cambiar_rol, dar_de_baja
 
 router = APIRouter()
 
@@ -77,6 +77,7 @@ def listar(
 
 class CambioUsuarioIn(Esquema):
     estado: Literal["ACTIVO"] | None = None  # la baja tiene su propia ruta
+    rol: RolUsuario | None = None
 
 
 class CambioUsuarioOut(Esquema):
@@ -103,12 +104,15 @@ def modificar(
     reloj: Reloj = Depends(get_reloj),
     _coordinador: Usuario = Depends(requiere_coordinador),
 ) -> CambioUsuarioOut:
-    """Activa a un médico pendiente (D26, D30)."""
-    if datos.estado is None:
+    """Activa a un médico pendiente (D26, D30) y/o cambia el rol (D23), en ese orden."""
+    if datos.estado is None and datos.rol is None:
         raise ErrorDominio("SIN_CAMBIOS", "No se pidió ningún cambio.")
-    resultado = activar(db, usuario_id)
+    dia = hoy(reloj)
+    resultado = activar(db, usuario_id) if datos.estado is not None else None
+    if datos.rol is not None:
+        resultado = cambiar_rol(db, usuario_id, datos.rol, dia)
     db.commit()
-    return cambio_out(db, resultado, hoy(reloj))
+    return cambio_out(db, resultado, dia)
 
 
 class BajaIn(Esquema):

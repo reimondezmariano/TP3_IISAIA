@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.errores import ErrorDominio
 from app.modelos import EstadoUsuario, RolUsuario, Usuario
 from app.repos.horarios import TurnoAfectado
-from app.repos.usuarios import bloquear_usuario
+from app.repos.usuarios import bloquear_con_coordinadores, bloquear_usuario
 from app.servicios.plantilla import dejar_sin_titular
 
 
@@ -52,5 +52,30 @@ def dar_de_baja(sesion: Session, usuario_id: int, fecha_baja: date, hoy: date) -
     horarios, afectados = dejar_sin_titular(sesion, usuario.id, fecha_baja + timedelta(days=1), hoy)
     usuario.estado = EstadoUsuario.BAJA
     usuario.fecha_baja = fecha_baja
+    sesion.flush()
+    return ResultadoCambio(usuario, horarios, afectados)
+
+
+def cambiar_rol(sesion: Session, usuario_id: int, rol: RolUsuario, hoy: date) -> ResultadoCambio:
+    """Roles excluyentes (D23). Siempre queda al menos un coordinador activo.
+
+    Un médico que pasa a coordinador deja sus horarios sin titular desde mañana, en la misma transacción:
+    hoy todavía hace su guardia (decisión 4 del plan de F5).
+    """
+    usuario, coordinadores = bloquear_con_coordinadores(sesion, usuario_id)
+    if usuario is None:
+        raise ErrorDominio("USUARIO_NO_ENCONTRADO", "No existe ese usuario.", 404)
+    if usuario.estado == EstadoUsuario.BAJA:
+        raise ErrorDominio("USUARIO_DADO_DE_BAJA", "El usuario está dado de baja.", 409)
+    if usuario.rol == rol:
+        raise ErrorDominio("SIN_CAMBIOS", "El usuario ya tiene ese rol.")
+    if rol == RolUsuario.MEDICO:
+        if not any(c.id != usuario.id for c in coordinadores):
+            raise ErrorDominio("ULTIMO_COORDINADOR", "Tiene que quedar al menos un coordinador activo (D23).")
+        usuario.rol = RolUsuario.MEDICO
+        sesion.flush()
+        return ResultadoCambio(usuario)
+    horarios, afectados = dejar_sin_titular(sesion, usuario.id, hoy + timedelta(days=1), hoy)
+    usuario.rol = RolUsuario.COORDINADOR
     sesion.flush()
     return ResultadoCambio(usuario, horarios, afectados)
