@@ -70,3 +70,14 @@ label small { display: block; font-weight: 400; color: var(--suave); margin-top:
 .elegir input { width: auto; min-height: 0; }
 .ok { background: var(--ok-fondo); color: var(--ok); padding: 0.75rem; border-radius: 8px; }
 .barra { display: flex; gap: 0.5rem; flex-wrap: wrap; margin: 0 0 1rem; }
+.campanita { position: relative; }
+.campanita > button { position: relative; }
+.contador { position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; padding: 0 4px; border-radius: 999px; background: var(--peligro); color: #fff; font-size: 0.75rem; font-weight: 700; line-height: 20px; text-align: center; }
+.panel-notificaciones { position: absolute; right: 0; top: 52px; z-index: 5; width: min(360px, calc(100vw - 32px)); max-height: 70vh; overflow-y: auto; background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 12px; padding: 0.75rem; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15); }
+.panel-notificaciones ul { list-style: none; margin: 0.5rem 0 0; padding: 0; }
+.panel-notificaciones li { border-top: 1px solid var(--borde); padding: 0.5rem 0; }
+.panel-notificaciones li p { margin: 0 0 0.25rem; }
+.panel-notificaciones li.no-leida p:first-child { font-weight: 700; }
+.aviso-urgente { position: fixed; left: 16px; right: 16px; bottom: 16px; z-index: 20; max-width: 420px; margin: 0 auto; background: var(--peligro-fondo); color: var(--peligro); border: 2px solid var(--peligro); border-radius: 12px; padding: 0.75rem 1rem; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25); }
+.aviso-urgente p { margin: 0.25rem 0 0.5rem; }
+.barra-superior { display: flex; justify-content: flex-end; align-items: center; gap: 0.5rem; max-width: 1200px; margin: 0 auto; padding: 0.5rem 16px 0; }
