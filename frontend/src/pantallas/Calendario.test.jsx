@@ -74,6 +74,13 @@ describe("Calendario", () => {
     expect(await screen.findByText("No hay guardias esta semana.")).toBeVisible();
   });
 
+  test("si la API devuelve solo un turno de la semana anterior que se solapa, la semana se ve vacía", async () => {
+    const dePasada = turno(8, "2026-10-04", "20:00", "08:00", { id: 3, nombre: "Carlos" }, "2026-10-05");
+    montar({ turnosPorDesde: { "2026-10-05": [dePasada] } });
+    expect(await screen.findByText("No hay guardias esta semana.")).toBeVisible();
+    expect(screen.queryByTestId("turno")).toBeNull();
+  });
+
   test("error del servidor: mensaje y Reintentar", async () => {
     const api = montar();
     await screen.findByText("No hay guardias esta semana.");

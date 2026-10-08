@@ -39,6 +39,7 @@ function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }
   const { estado, turnos, error, reintentar } = useTurnosSemana(api, lunes, { alCuentaCambiada: recargar });
   const dias = useMemo(() => diasDeSemana(lunes), [lunes]);
   const porDia = useMemo(() => agruparPorDia(turnos, dias), [turnos, dias]);
+  const visibles = dias.reduce((total, dia) => total + porDia[dia].length, 0);
   const hoy = fechaLocal(ahora);
   const simulado = useVacantesSimuladas({ usuario, ahora });
   const [seleccionado, setSeleccionado] = useState(null);
@@ -67,7 +68,7 @@ function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }
           <button type="button" onClick={reintentar}>Reintentar</button>
         </div>
       )}
-      {estado === "ok" && turnos.length === 0 && <p className="vacio">No hay guardias esta semana.</p>}
+      {estado === "ok" && visibles === 0 && <p className="vacio">No hay guardias esta semana.</p>}
       {estado === "ok" && (
         <div className="semana">
           {dias.map((dia) => (
