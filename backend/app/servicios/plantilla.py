@@ -11,7 +11,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.dominio.plantilla import validar_desde, validar_fecha_ancla, version_que_cubre
+from app.dominio.plantilla import hay_version_posterior, validar_desde, validar_fecha_ancla, version_que_cubre
 from app.errores import ErrorDominio
 from app.modelos import EstadoUsuario, HorarioPactado, RolUsuario, Usuario, VersionHorario
 from app.repos.horarios import (
@@ -76,3 +76,22 @@ def abrir_version(
         raise ErrorDominio("HORARIO_NO_ENCONTRADO", "No existe ese horario.", 404)
     version = _partir(sesion, horario_id, versiones, cambios, desde)
     return ResultadoVersion(version, turnos_afectados(sesion, [horario_id], desde))
+
+
+def cerrar_horario(sesion: Session, horario_id: int, desde: date, hoy: date) -> list[TurnoAfectado]:
+    """El horario deja de regir en `desde` (D24). No borra versiones: corta la vigencia de la que rige ese día."""
+    validar_desde(desde, hoy)
+    versiones = bloquear_horario(sesion, horario_id)
+    if versiones is None:
+        raise ErrorDominio("HORARIO_NO_ENCONTRADO", "No existe ese horario.", 404)
+    vigencias = [a_vigencia(v) for v in versiones]
+    cubre_id = version_que_cubre(vigencias, desde, horario_id).version_id
+    if hay_version_posterior(vigencias, desde):
+        raise ErrorDominio(
+            "VERSION_POSTERIOR_EXISTENTE",
+            f"El horario {horario_id} tiene una versión que empieza después del {desde:%d/%m/%Y}: cerrarlo la dejaría suelta.",
+            409,
+        )
+    next(v for v in versiones if v.id == cubre_id).vigente_hasta = desde
+    sesion.flush()
+    return turnos_afectados(sesion, [horario_id], desde)

@@ -14,7 +14,7 @@ from app.dominio.plantilla import EstadoHorario, estado_horario, lunes_de
 from app.modelos import HorarioPactado, Usuario, VersionHorario
 from app.reloj import Reloj, get_reloj, hoy
 from app.repos.horarios import DatosVersion, TurnoAfectado, a_vigencia, listar_horarios, obtener_horario
-from app.servicios.plantilla import abrir_version, crear_horario_pactado
+from app.servicios.plantilla import abrir_version, cerrar_horario, crear_horario_pactado
 
 router = APIRouter()
 
@@ -175,4 +175,31 @@ def nueva(
     return VersionNuevaOut(
         version=version_out(resultado.version),
         turnos_afectados=[turno_afectado_out(t) for t in resultado.turnos_afectados],
+    )
+
+
+class CierreIn(Esquema):
+    desde: date  # primer día en que el horario ya no rige
+
+
+class CierreOut(Esquema):
+    horario: HorarioOut
+    turnos_afectados: list[TurnoAfectadoOut]
+
+
+@router.post("/horarios/{horario_id}/cierre", response_model=CierreOut)
+def cerrar(
+    horario_id: int,
+    datos: CierreIn,
+    db: Session = Depends(get_db),
+    reloj: Reloj = Depends(get_reloj),
+    _coordinador: Usuario = Depends(requiere_coordinador),
+) -> CierreOut:
+    """Cierra un horario pactado (D24) y lista los turnos ya guardados que quedan afuera (D12)."""
+    dia = hoy(reloj)
+    afectados = cerrar_horario(db, horario_id, datos.desde, dia)
+    db.commit()
+    return CierreOut(
+        horario=horario_out(obtener_horario(db, horario_id), dia),
+        turnos_afectados=[turno_afectado_out(t) for t in afectados],
     )
