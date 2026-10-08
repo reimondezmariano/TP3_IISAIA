@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Cargando from "../componentes/Cargando.jsx";
 import AusenciaVarios from "../componentes/AusenciaVarios.jsx";
 import DetalleTurno from "../componentes/DetalleTurno.jsx";
@@ -6,6 +6,7 @@ import TarjetaTurno from "../componentes/TarjetaTurno.jsx";
 import {
   agruparPorDia, diasDeSemana, etiquetaDia, etiquetaSemana, fechaLocal, lunesDe, sumarDias,
 } from "../lib/fechas.js";
+import { ESTADOS } from "../lib/semaforo.js";
 import { useSesion } from "../sesion/useSesion.js";
 import { useVacantesSimuladas } from "../simulado/useVacantesSimuladas.js";
 import { useAusencias } from "./useAusencias.js";
@@ -38,7 +39,7 @@ export default function Calendario() {
 }
 
 function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }) {
-  const { estado, turnos, error, reintentar } = useTurnosSemana(api, lunes, { alCuentaCambiada: recargar });
+  const { estado, turnos, error, reintentar, refrescar } = useTurnosSemana(api, lunes, { alCuentaCambiada: recargar });
   const dias = useMemo(() => diasDeSemana(lunes), [lunes]);
   const porDia = useMemo(() => agruparPorDia(turnos, dias), [turnos, dias]);
   const visibles = dias.reduce((total, dia) => total + porDia[dia].length, 0);
@@ -49,6 +50,12 @@ function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }
   const [seleccionado, setSeleccionado] = useState(null);
   const [variasFechas, setVariasFechas] = useState(false);
   useEffect(() => setSeleccionado(null), [lunes]);
+  // El semáforo sale de la vacante que trae GET /api/turnos: al avisar o retirar una ausencia, se vuelve a pedir.
+  const primeraVez = useRef(true);
+  useEffect(() => {
+    if (primeraVez.current) primeraVez.current = false;
+    else refrescar();
+  }, [ausencias.abiertas, refrescar]);
 
   return (
     <main className="calendario">
@@ -67,6 +74,11 @@ function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }
       <div className="barra">
         <button type="button" className="secundario" onClick={() => setVariasFechas(true)}>Avisar ausencia en varias fechas</button>
       </div>
+      <ul className="leyenda" aria-label="Colores del calendario">
+        {ESTADOS.map(({ clase, nombre }) => (
+          <li key={clase} className={clase}>{nombre}</li>
+        ))}
+      </ul>
       {estado === "cargando" && <Cargando />}
       {estado === "error" && (
         <div>
@@ -81,7 +93,7 @@ function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }
             <section key={dia} className="dia" data-fecha={dia} aria-current={dia === hoy ? "date" : undefined}>
               <h3>{etiquetaDia(dia)}</h3>
               {porDia[dia].map((turno) => (
-                <TarjetaTurno key={turno.id} turno={turno} usuario={usuario} estado={simulado.estadoDe(turno)} onAbrir={setSeleccionado} />
+                <TarjetaTurno key={turno.id} turno={turno} usuario={usuario} onAbrir={setSeleccionado} />
               ))}
             </section>
           ))}

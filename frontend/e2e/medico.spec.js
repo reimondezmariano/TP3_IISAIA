@@ -147,3 +147,46 @@ test("en pantalla de celular el calendario no desborda horizontalmente", async (
   const desborda = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
   expect(desborda).toBe(false);
 });
+
+test("semáforo: cada tarjeta toma su color de la vacante de GET /api/turnos y hay leyenda (D08, D24)", async ({ page }) => {
+  await simularSupabase(page);
+  const generadaPor = { id: 3, nombre: "Carlos Ruiz" };
+  await simularApi(page, {
+    me: ME,
+    turnos: [
+      TURNOS[0],
+      { ...TURNOS[1], vacante: { id: 12, urgente: false, generadaPor } },
+      { ...turno(4, "2026-10-08", "08:00", "16:00", "2026-10-08", generadaPor), vacante: { id: 13, urgente: true, generadaPor } },
+      TURNOS[2],
+    ],
+  });
+  await ingresar(page);
+  await expect(page.getByRole("list", { name: "Colores del calendario" })).toBeVisible();
+  await expect(page.locator('[data-turno-id="1:2026-10-09"]')).toHaveAttribute("data-semaforo", "cubierta");
+  await expect(page.locator('[data-turno-id="2:2026-10-10"]')).toHaveAttribute("data-semaforo", "vacante");
+  await expect(page.locator('[data-turno-id="4:2026-10-08"]')).toHaveAttribute("data-semaforo", "urgente");
+  await expect(page.locator('[data-turno-id="3:2026-10-11"]')).toHaveAttribute("data-semaforo", "baja");
+  await expect(page.locator('[data-turno-id="3:2026-10-11"]')).toHaveCSS("border-left-color", "rgb(178, 58, 36)");
+  await page.screenshot({ path: "test-results/semaforo.png", fullPage: true });
+});
+
+for (const ancho of [375, 768, 1024, 1280, 1440]) {
+  test(`a ${ancho} px el horario de cada tarjeta entra en un renglón y se ve el encabezado`, async ({ page }) => {
+    await page.setViewportSize({ width: ancho, height: 900 });
+    await simularSupabase(page);
+    await simularApi(page, { me: ME, turnos: TURNOS });
+    await ingresar(page);
+    await expect(page.getByRole("heading", { level: 1, name: "Guardia Viva" })).toBeVisible();
+    await expect(page.getByTestId("turno")).toHaveCount(3);
+    const renglones = await page.locator(".turno-horario").evaluateAll((spans) =>
+      spans.map((s) => ({ texto: s.textContent, ancho: s.scrollWidth, visible: s.clientWidth, alto: s.getBoundingClientRect().height, linea: parseFloat(getComputedStyle(s).lineHeight) })),
+    );
+    for (const r of renglones) {
+      expect(r.ancho, r.texto).toBeLessThanOrEqual(r.visible);
+      expect(r.alto, r.texto).toBeLessThan(r.linea * 1.5);
+    }
+    const desborde = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    expect(desborde).toBeLessThanOrEqual(0);
+    await page.screenshot({ path: `test-results/diseno-${ancho}.png`, fullPage: true });
+  });
+}
