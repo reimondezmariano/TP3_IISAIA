@@ -14,7 +14,7 @@ from app.errores import ErrorDominio
 from app.modelos import Turno, Usuario, Vacante
 from app.reloj import Reloj, get_reloj
 from app.repos.horarios import versiones_en_rango
-from app.repos.turnos import vacantes_abiertas_en_rango
+from app.repos.turnos import NovedadesTurno, novedades_en_rango, vacantes_abiertas_en_rango
 from app.servicios.consolidacion import ponerse_al_dia
 
 router = APIRouter()
@@ -44,9 +44,17 @@ class TurnoOut(Esquema):
     duracion_horas: int
     titular: TitularOut | None
     vacante: VacanteAbiertaOut | None
+    asignado: PersonaOut | None  # quien cubre el turno hoy (D08 punto 4); null si no hay
+    sin_cobertura: bool  # el coordinador lo marcó sin cobertura, o se consolidó con la vacante abierta (D19)
+    mi_postulacion_id: int | None  # postulación activa de quien consulta, para retirarla (D16)
 
 
-def _a_salida(turno: TurnoCalculado, abierta: tuple[Vacante, Turno, Usuario] | None) -> TurnoOut:
+SIN_NOVEDADES = NovedadesTurno(asignado=None, sin_cobertura=False, postulacion_propia_id=None)
+
+
+def _a_salida(
+    turno: TurnoCalculado, abierta: tuple[Vacante, Turno, Usuario] | None, novedades: NovedadesTurno
+) -> TurnoOut:
     titular = TitularOut(id=turno.titular.id, nombre=turno.titular.nombre) if turno.titular else None
     vacante = None
     if abierta is not None:
@@ -65,6 +73,9 @@ def _a_salida(turno: TurnoCalculado, abierta: tuple[Vacante, Turno, Usuario] | N
         duracion_horas=turno.duracion_horas,
         titular=titular,
         vacante=vacante,
+        asignado=PersonaOut(id=novedades.asignado.id, nombre=novedades.asignado.nombre) if novedades.asignado else None,
+        sin_cobertura=novedades.sin_cobertura,
+        mi_postulacion_id=novedades.postulacion_propia_id,
     )
 
 
@@ -74,7 +85,7 @@ def listar_turnos(
     hasta: date,
     db: Session = Depends(get_db),
     reloj: Reloj = Depends(get_reloj),
-    _usuario: Usuario = Depends(usuario_actual),
+    usuario: Usuario = Depends(usuario_actual),
 ) -> list[TurnoOut]:
     """Turnos cuyo intervalo se superpone con [desde 00:00, hasta 24:00) en la zona del servicio (D09, D11)."""
     if hasta < desde:
@@ -90,4 +101,12 @@ def listar_turnos(
     versiones = versiones_en_rango(db, desde, hasta)
     turnos = calcular_turnos(versiones, desde, hasta, zona)
     abiertas = vacantes_abiertas_en_rango(db, desde, hasta)
-    return [_a_salida(turno, abiertas.get((turno.horario_id, turno.fecha))) for turno in turnos]
+    novedades = novedades_en_rango(db, desde, hasta, usuario.id)
+    return [
+        _a_salida(
+            turno,
+            abiertas.get((turno.horario_id, turno.fecha)),
+            novedades.get((turno.horario_id, turno.fecha), SIN_NOVEDADES),
+        )
+        for turno in turnos
+    ]

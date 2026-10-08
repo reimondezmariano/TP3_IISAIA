@@ -1,7 +1,8 @@
-from datetime import date, time
+from datetime import date, time, timedelta
 
 import pytest
 
+from app.modelos import RolUsuario
 from app.repos.horarios import DatosVersion, crear_horario
 from fabricas import crear_usuario, encabezados
 
@@ -41,6 +42,9 @@ def test_turnos_formato_exacto(cliente, sesion):
             "duracionHoras": 12,
             "titular": {"id": florencia.id, "nombre": "Florencia Lucca"},
             "vacante": None,
+            "asignado": None,
+            "sinCobertura": False,
+            "miPostulacionId": None,
         }
     ]
 
@@ -133,3 +137,58 @@ def test_la_vacante_retirada_o_cubierta_no_aparece(cliente, sesion, reloj):
     [turno] = cliente.get("/api/turnos", params={"desde": "2026-10-20", "hasta": "2026-10-20"}).json()
 
     assert turno["vacante"] is None
+
+
+def test_turno_asignado_trae_al_asignado_vigente(cliente, sesion, reloj):
+    carlos = crear_usuario(sesion, "Carlos Lugones")
+    mariano = crear_usuario(sesion, "Mariano Reimondez")
+    enzo = crear_usuario(sesion, "Enzo", rol=RolUsuario.COORDINADOR)
+    martes = horario(sesion, carlos.id, dia=2, hora=time(8), dur=12)
+    turno_id = f"{martes.id}:2026-10-20"
+    cliente.post(f"/api/turnos/{turno_id}/vacantes", json={}, headers=encabezados(carlos))
+    cliente.post(f"/api/turnos/{turno_id}/postulaciones", headers=encabezados(mariano))
+    r = cliente.put(f"/api/turnos/{turno_id}/asignacion", json={"medicoId": mariano.id}, headers=encabezados(enzo))
+    assert r.status_code == 200
+
+    [turno] = cliente.get("/api/turnos", params={"desde": "2026-10-20", "hasta": "2026-10-20"}).json()
+
+    assert turno["asignado"] == {"id": mariano.id, "nombre": "Mariano Reimondez"}
+    assert turno["vacante"] is None
+    assert turno["sinCobertura"] is False
+
+
+def test_turno_marcado_sin_cobertura(cliente, sesion, reloj):
+    carlos = crear_usuario(sesion, "Carlos Lugones")
+    enzo = crear_usuario(sesion, "Enzo", rol=RolUsuario.COORDINADOR)
+    martes = horario(sesion, carlos.id, dia=2, hora=time(8), dur=12)
+    turno_id = f"{martes.id}:2026-10-13"
+    cliente.post(f"/api/turnos/{turno_id}/vacantes", json={}, headers=encabezados(carlos))
+    reloj.avanzar(timedelta(days=1, minutes=30))  # martes 13/10 09:30: el turno empezó
+    r = cliente.post(f"/api/turnos/{turno_id}/sin-cobertura", headers=encabezados(enzo))
+    assert r.status_code == 200
+
+    [turno] = cliente.get("/api/turnos", params={"desde": "2026-10-13", "hasta": "2026-10-13"}).json()
+
+    assert turno["sinCobertura"] is True
+    assert turno["vacante"] is None
+    assert turno["asignado"] is None
+
+
+def test_mi_postulacion_activa_solo_para_quien_consulta(cliente, sesion, reloj):
+    carlos = crear_usuario(sesion, "Carlos Lugones")
+    mariano = crear_usuario(sesion, "Mariano Reimondez")
+    florencia = crear_usuario(sesion, "Florencia Lucca")
+    martes = horario(sesion, carlos.id, dia=2, hora=time(8), dur=12)
+    turno_id = f"{martes.id}:2026-10-20"
+    cliente.post(f"/api/turnos/{turno_id}/vacantes", json={}, headers=encabezados(carlos))
+    postulacion = cliente.post(f"/api/turnos/{turno_id}/postulaciones", headers=encabezados(mariano)).json()
+    rango = {"desde": "2026-10-20", "hasta": "2026-10-20"}
+
+    [para_mariano] = cliente.get("/api/turnos", params=rango, headers=encabezados(mariano)).json()
+    [para_florencia] = cliente.get("/api/turnos", params=rango, headers=encabezados(florencia)).json()
+    assert para_mariano["miPostulacionId"] == postulacion["id"]
+    assert para_florencia["miPostulacionId"] is None
+
+    cliente.post(f"/api/postulaciones/{postulacion['id']}/retiro", headers=encabezados(mariano))
+    [retirada] = cliente.get("/api/turnos", params=rango, headers=encabezados(mariano)).json()
+    assert retirada["miPostulacionId"] is None
