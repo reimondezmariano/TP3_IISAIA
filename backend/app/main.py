@@ -1,12 +1,13 @@
 from fastapi import APIRouter, FastAPI
 
 from app.api import (
+    asignacion,
     coordinacion,
     demo,
     health,
     horarios,
     notificaciones,
-    operacion,
+    postulaciones,
     sesion,
     turnos,
     usuarios,
@@ -26,7 +27,8 @@ def crear_app() -> FastAPI:
     api.include_router(usuarios.router)
     api.include_router(horarios.router)
     api.include_router(vacantes.router)
-    api.include_router(operacion.router)
+    api.include_router(postulaciones.router)
+    api.include_router(asignacion.router)
     api.include_router(coordinacion.router)
     api.include_router(notificaciones.router)
     api.include_router(demo.router)
