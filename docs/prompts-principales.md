@@ -45,6 +45,17 @@ Resultado: plan en `docs/superpowers/plans/2026-10-07-f2-cimientos.md`, con 13 d
 Corrección al aprobar el plan: "Agregá una tarea 6: que el script de datos de ejemplo conserve los vínculos con las cuentas de Supabase al volver a correrse." Se ejecuta en la misma sesión, con revisión de código de toda la branch antes del pull request.
 Ejecución: "Ejecutá el plan de F2 cimientos." Seis tareas en la misma sesión con executing-plans, un commit por tarea, y revisión de toda la branch por un subagente. La revisión encontró que cualquiera podía tomar la cuenta de coordinador de Enzo sin el código (decisión 4 del plan combinada con D06); el equipo eligió exigir el código para vincular un coordinador cargado (cambio en D28). Corrección antes del pull request: "Antes del PR, corregí tres menores con su prueba y un commit cada uno: limitá ck_evento_alerta_umbral a '48H', '24H' e 'INICIO' dentro de la migración 0002; TOKEN_SIN_EMAIL responde 403 en lugar de 401; y anotá en la convención 8 de backend/CLAUDE.md que turno.creado_en es una marca técnica con DEFAULT now(). Los demás menores dejalos anotados en la bitácora de desvíos como pendientes." Pull request #7.
 
+## 6. F5: staff, backend
+
+Fecha: 7/10/2026.
+Herramienta: Claude Code con Superpowers (writing-plans; sin brainstorming ni spec propio: el plan se apoya en las decisiones de arquitectura).
+Prompt:
+
+> Partí de la branch feature/f2-cimientos (todavía no está mergeada en main) y creá a partir de ella la branch feature/f5-staff-backend. Leé backend/CLAUDE.md y el documento de decisiones de arquitectura en docs, especialmente D10, D12, D23, D24 y D26. Vamos a hacer la fase F5 "staff, backend": endpoints solo para coordinadores para listar usuarios con rol, estado y horarios vigentes; activar un médico pendiente; cargar un horario pactado; modificarlo creando una nueva versión y devolviendo la lista de turnos afectados (D12); cerrar un horario; cambiar el rol respetando D23 (siempre al menos un coordinador activo, y un médico que pasa a coordinador deja antes sus horarios sin titular); dar de baja a un médico (D24: fecha de baja, sus horarios quedan sin titular con una versión nueva) y designar nuevo titular en un horario sin titular. Restricciones: no toques nada de vacantes, postulaciones ni consolidación, que son de Mariano. La parte de D24 que reabre como vacantes las coberturas aceptadas por el médico dado de baja tiene que usar la función de generar vacante de Mariano, que todavía no existe: dejala como última tarea del plan, marcada como dependiente. Si necesitás una migración, numerala a continuación de la de F2. Usá Superpowers: escribí el plan en docs/superpowers/plans y un commit por tarea. Solo escribí el plan, mostrámelo para aprobarlo y commitealo. No ejecutes nada hasta que te lo pida.
+
+Resultado: plan en `docs/superpowers/plans/2026-10-07-f5-staff-backend.md`, con 11 tareas (la última, dependiente de F2b) y 16 decisiones, entre ellas una ambigüedad de D24 (fecha de baja como último día activo). El equipo aprobó las decisiones 1 a 7.
+Ejecución: "Ejecutalo en esta sesión, tarea por tarea y un commit por tarea. La tarea 11 no la hagas hasta que la función de Mariano esté en main. Al terminar las tareas 1 a 10, hacé la revisión de código de toda la branch, con atención especial al orden de los bloqueos en el cambio de rol y en la baja." Tareas 1 a 10 con executing-plans; la 11 queda pendiente.
+
 ## Próximas entradas
 
 Copiar acá el prompt con que arranca cada funcionalidad (F2 a F6) y cualquier prompt de corrección que haya cambiado el rumbo.
