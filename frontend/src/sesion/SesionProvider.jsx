@@ -9,6 +9,7 @@ export function SesionProvider({ auth, fetchImpl, children }) {
   const [estado, setEstado] = useState("cargando");
   const [usuario, setUsuario] = useState(null);
   const [aviso, setAviso] = useState(null);
+  const [nombreSugerido, setNombreSugerido] = useState("");
   const registrando = useRef(false);
   // Evita que varios 401 simultáneos cierren la sesión dos veces.
   const cerrandoPorToken = useRef(false);
@@ -55,6 +56,9 @@ export function SesionProvider({ auth, fetchImpl, children }) {
       if (!(error instanceof ErrorApi)) throw error;
       if (error.codigo === "USUARIO_NO_REGISTRADO") {
         setUsuario(null);
+        // El nombre que la persona escribió al crear la cuenta queda en Supabase: se vuelve a ofrecer.
+        const nombre = data.session.user?.user_metadata?.nombre;
+        setNombreSugerido(typeof nombre === "string" ? nombre : "");
         setEstado("sin-registro");
       } else if (error.status === 401) {
         // api.js ya avisó a cerrarPorTokenInvalido
@@ -144,8 +148,8 @@ export function SesionProvider({ auth, fetchImpl, children }) {
   }, [auth]);
 
   const valor = useMemo(
-    () => ({ estado, usuario, aviso, api, iniciarSesion, registrarse, completarRegistro, recargar: cargarUsuario, cerrarSesion }),
-    [estado, usuario, aviso, api, iniciarSesion, registrarse, completarRegistro, cargarUsuario, cerrarSesion],
+    () => ({ estado, usuario, aviso, nombreSugerido, api, iniciarSesion, registrarse, completarRegistro, recargar: cargarUsuario, cerrarSesion }),
+    [estado, usuario, aviso, nombreSugerido, api, iniciarSesion, registrarse, completarRegistro, cargarUsuario, cerrarSesion],
   );
 
   return <ContextoSesion.Provider value={valor}>{children}</ContextoSesion.Provider>;

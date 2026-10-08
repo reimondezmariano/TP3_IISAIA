@@ -16,6 +16,7 @@ function Sonda() {
       <p data-testid="estado">{s.estado}</p>
       <p data-testid="nombre">{s.usuario?.nombre ?? ""}</p>
       <p data-testid="aviso">{s.aviso ?? ""}</p>
+      <p data-testid="sugerido">{s.nombreSugerido}</p>
       <button onClick={() => s.iniciarSesion("ana@x.com", "secreto1").catch((e) => (document.title = e.message))}>entrar</button>
       <button onClick={() => s.registrarse({ nombre: "Ana", email: "ana@x.com", password: "secreto1", codigo: "SMG" })}>registrar</button>
       <button onClick={() => s.completarRegistro({ nombre: "Ana", codigo: "" })}>completar</button>
@@ -187,5 +188,15 @@ describe("SesionProvider", () => {
     await userEvent.click(screen.getByText("salir"));
     await estadoEs("anonimo");
     expect(screen.getByTestId("nombre")).toHaveTextContent("");
+  });
+
+  test("sin registro en Guardia Viva: ofrece el nombre que quedó en la cuenta de Supabase", async () => {
+    const auth = crearAuthFalso({ sesion: { ...sesionFalsa(), user: { email: "ana@x.com", user_metadata: { nombre: "Ana Gómez" } } } });
+    montar({
+      auth,
+      rutas: { "GET /api/me": async () => json(404, { codigo: "USUARIO_NO_REGISTRADO", mensaje: "Falta el registro." }) },
+    });
+    await estadoEs("sin-registro");
+    expect(screen.getByTestId("sugerido")).toHaveTextContent("Ana Gómez");
   });
 });
