@@ -10,7 +10,7 @@ FastAPI + SQLAlchemy 2 + Alembic sobre Postgres. Leer también el CLAUDE.md de l
 4. `app/servicios/`: operaciones que combinan reglas de `app/dominio/` y consultas de `app/repos/` (staff y plantilla). No hacen commit; lo hace el router.
 5. `app/api/`: routers bajo el prefijo `/api`. Los esquemas de respuesta usan alias camelCase.
 6. `app/errores.py`: `ErrorDominio(codigo, mensaje, status)`. `app/api/manejadores.py` lo convierte en `{"codigo", "mensaje"}`.
-7. `app/reloj.py`: reloj inyectable (D27). Nada fuera de ese archivo consulta la hora del sistema; una prueba lo verifica. En modo demo (`MODO_DEMO=true`) `get_reloj` suma el desfase que fija `POST /api/demo/reloj` (en memoria: reiniciar el servidor vuelve a la hora real). Después de `scripts.seed`, volver a la hora real con `{"ahora": null}`.
+7. `app/reloj.py`: reloj inyectable (D27). Nada fuera de ese archivo consulta la hora del sistema; una prueba lo verifica. En modo demo (`MODO_DEMO=true`) `get_reloj` suma el desfase que fija `POST /api/demo/reloj`, guardado en `consolidacion_estado.desfase_demo`. `scripts.seed` vacía esa fila: reiniciar la demo vuelve a la hora real. `{"ahora": null}` vuelve a la hora real solo si no se registró historia con el reloj adelantado (si no, 409 `REINICIAR_DEMO`).
 8. `app/auth.py`: verificación del token de Supabase Auth (D06) y dependencias de permisos: `identidad_actual` (token válido), `usuario_registrado` (solo GET /me), `usuario_actual` (cuenta ACTIVA, o BAJA hasta su `fecha_baja` inclusive; la exige todo endpoint salvo /health, /me y /registro) y `requiere_coordinador`.
 9. `scripts/seed.py`: datos de ejemplo. Al recargar conserva, por email, las cuentas de Supabase Auth de los usuarios de ejemplo; los usuarios que no son de ejemplo se borran.
 

@@ -14,10 +14,12 @@ depends_on = None
 _UPGRADE = [
     # D20: los turnos calculados con fecha anterior a consolidado_hasta ya se materializaron y consolidaron.
     # Una sola fila; NULL = todavía no se consolidó nada (se parte de la primera vigencia).
+    # D27: desfase_demo es el adelanto del reloj de demo; vive en la misma fila para que el seed lo reinicie.
     """
     CREATE TABLE consolidacion_estado (
         id smallint PRIMARY KEY DEFAULT 1,
         consolidado_hasta date,
+        desfase_demo interval NOT NULL DEFAULT '0',
         CONSTRAINT ck_consolidacion_estado_unica CHECK (id = 1)
     )
     """,

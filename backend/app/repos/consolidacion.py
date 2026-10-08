@@ -1,13 +1,22 @@
 """Consultas de la consolidación perezosa (D20). No hacen commit."""
 
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func, select, update
+from sqlalchemy import exists, func, or_, select, update
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
-from app.modelos import EstadoConsolidacion, EstadoVacante, Turno, Vacante, VersionHorario
+from app.modelos import (
+    EstadoConsolidacion,
+    EstadoVacante,
+    EventoTurno,
+    Notificacion,
+    Postulacion,
+    Turno,
+    Vacante,
+    VersionHorario,
+)
 
 
 def bloquear_marca(sesion: Session) -> date | None:
@@ -20,6 +29,34 @@ def bloquear_marca(sesion: Session) -> date | None:
 
 def guardar_marca(sesion: Session, fecha: date) -> None:
     sesion.execute(update(EstadoConsolidacion).where(EstadoConsolidacion.id == 1).values(consolidado_hasta=fecha))
+
+
+def desfase_demo(sesion: Session) -> timedelta:
+    """Adelanto del reloj de demo (D27). Sin fila (después del seed) es la hora real."""
+    return sesion.scalar(select(EstadoConsolidacion.desfase_demo).where(EstadoConsolidacion.id == 1)) or timedelta(0)
+
+
+def guardar_desfase_demo(sesion: Session, desfase: timedelta) -> None:
+    bloquear_marca(sesion)
+    sesion.execute(update(EstadoConsolidacion).where(EstadoConsolidacion.id == 1).values(desfase_demo=desfase))
+
+
+def hay_historia_despues(sesion: Session, instante: datetime, dia: date) -> bool:
+    """¿Se registró algo con el reloj de demo adelantado más allá de `instante`? (marca o instantes de dominio)."""
+    return bool(
+        sesion.scalar(
+            select(
+                or_(
+                    exists().where(EstadoConsolidacion.consolidado_hasta > dia),
+                    exists().where(Turno.consolidado_en > instante),
+                    exists().where(EventoTurno.ocurrido_en > instante),
+                    exists().where(Notificacion.creada_en > instante),
+                    exists().where(Vacante.creada_en > instante),
+                    exists().where(Postulacion.creada_en > instante),
+                )
+            )
+        )
+    )
 
 
 def primera_vigencia(sesion: Session) -> date | None:

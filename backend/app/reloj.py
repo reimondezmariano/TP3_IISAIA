@@ -4,7 +4,12 @@ from datetime import date, datetime, timedelta
 from typing import Protocol
 from zoneinfo import ZoneInfo
 
+from fastapi import Depends
+from sqlalchemy.orm import Session
+
 from app.config import get_settings
+from app.db import get_db
+from app.repos.consolidacion import desfase_demo
 
 
 class Reloj(Protocol):
@@ -45,30 +50,17 @@ class RelojDesplazado:
         return self._base.ahora() + self._desfase
 
 
-# D27: desfase del reloj de demo. Vive en memoria: la demo corre en un solo proceso y reiniciarlo vuelve a la
-# hora real. Fuera del modo demo no se usa.
-_desfase_demo = timedelta(0)
-
-
-def desfase_demo() -> timedelta:
-    return _desfase_demo
-
-
-def fijar_desfase_demo(desfase: timedelta) -> None:
-    global _desfase_demo
-    _desfase_demo = desfase
-
-
 def get_reloj_sistema() -> Reloj:
     """Hora real, sin desfase. Solo la usa POST /demo/reloj para calcular el desfase."""
     return RelojSistema(get_settings().zona)
 
 
-def get_reloj() -> Reloj:
+def get_reloj(db: Session = Depends(get_db)) -> Reloj:
+    """Hora real; en modo demo, más el desfase guardado por POST /demo/reloj (D27)."""
     settings = get_settings()
     sistema = RelojSistema(settings.zona)
     if settings.modo_demo:
-        return RelojDesplazado(sistema, _desfase_demo)
+        return RelojDesplazado(sistema, desfase_demo(db))
     return sistema
 
 

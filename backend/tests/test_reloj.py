@@ -4,7 +4,8 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from app.config import Settings
-from app.reloj import RelojDesplazado, RelojFijo, RelojSistema, fijar_desfase_demo, get_reloj, hoy
+from app.reloj import RelojDesplazado, RelojFijo, RelojSistema, get_reloj, hoy
+from app.repos.consolidacion import guardar_desfase_demo
 
 ZONA = ZoneInfo("America/Argentina/Buenos_Aires")
 
@@ -41,14 +42,16 @@ def test_reloj_desplazado_suma_el_desfase():
     assert RelojDesplazado(base, timedelta(hours=50)).ahora() == datetime(2026, 10, 14, 11, 0, tzinfo=ZONA)
 
 
-def test_get_reloj_aplica_el_desfase_solo_en_modo_demo(monkeypatch):
-    fijar_desfase_demo(timedelta(days=3))
-    try:
-        monkeypatch.setattr("app.reloj.get_settings", lambda: Settings(modo_demo=True))
-        reloj = get_reloj()
-        assert isinstance(reloj, RelojDesplazado)
-        assert reloj.ahora() - RelojSistema(ZONA).ahora() > timedelta(days=2, hours=23)
-        monkeypatch.setattr("app.reloj.get_settings", lambda: Settings(modo_demo=False))
-        assert isinstance(get_reloj(), RelojSistema)
-    finally:
-        fijar_desfase_demo(timedelta(0))
+def test_get_reloj_aplica_el_desfase_guardado_solo_en_modo_demo(monkeypatch, sesion):
+    guardar_desfase_demo(sesion, timedelta(days=3))
+    monkeypatch.setattr("app.reloj.get_settings", lambda: Settings(modo_demo=True))
+    reloj = get_reloj(sesion)
+    assert isinstance(reloj, RelojDesplazado)
+    assert reloj.ahora() - RelojSistema(ZONA).ahora() > timedelta(days=2, hours=23)
+    monkeypatch.setattr("app.reloj.get_settings", lambda: Settings(modo_demo=False))
+    assert isinstance(get_reloj(sesion), RelojSistema)
+
+
+def test_sin_desfase_guardado_es_la_hora_real(monkeypatch, sesion):
+    monkeypatch.setattr("app.reloj.get_settings", lambda: Settings(modo_demo=True))
+    assert get_reloj(sesion).ahora() - RelojSistema(ZONA).ahora() < timedelta(seconds=5)
