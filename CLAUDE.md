@@ -87,6 +87,8 @@ cd backend && .venv/bin/python -m scripts.seed --confirmar             # cargar 
 cd backend && .venv/bin/uvicorn app.main:app --reload --port 8000      # levantar el backend
 cd frontend && npm run dev                                             # levantar el frontend
 cd frontend && npm run test:e2e                                        # verificación con Playwright
+cd frontend && npm run build                                           # compilar el frontend (frontend/dist); si existe, el backend la sirve en /
+docker build -t guardia-viva .                                         # imagen de producción (la que publica Render); ver docs/despliegue.md
 ```
 
 El reinicio de la demo es el mismo script de datos de ejemplo; en F2 a F4 suma historia y vacantes.

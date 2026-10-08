@@ -7,10 +7,10 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert
 
-from app.dominio.calendario import calcular_turnos, parsear_id_turno
+from app.dominio.calendario import calcular_turnos, formatear_id_turno, parsear_id_turno
 from app.errores import ErrorDominio
-from app.modelos import Turno
-from app.repos.horarios import versiones_en_rango
+from app.modelos import Turno, Usuario
+from app.repos.horarios import TurnoAfectado, _titular, versiones_en_rango
 
 
 def no_existe(turno_id: str) -> ErrorDominio:
@@ -67,3 +67,31 @@ def bloquear_turnos(sesion, turno_ids: Iterable[str], zona: ZoneInfo) -> list[Tu
     """Materializa y bloquea varios turnos por (horario, fecha) ascendente, para que dos lotes no se traben (regla 8)."""
     claves = sorted({parsear_id_turno(turno_id) for turno_id in turno_ids})
     return [materializar_turno(sesion, f"{horario_id}:{fecha.isoformat()}", zona) for horario_id, fecha in claves]
+
+
+def coberturas_desde(sesion, medico_id: int, desde: date) -> list[Turno]:
+    """Turnos que el médico quedó cubriendo desde `desde` y que todavía no se consolidaron (D24).
+
+    Los bloquea por (horario, fecha) ascendente, como `bloquear_turnos` (convención 20).
+    """
+    return list(
+        sesion.scalars(
+            select(Turno)
+            .where(Turno.asignado_id == medico_id, Turno.fecha >= desde, Turno.consolidado_en.is_(None))
+            .order_by(Turno.horario_id, Turno.fecha)
+            .with_for_update()
+        )
+    )
+
+
+def turno_a_afectado(sesion, turno: Turno, asignado: Usuario | None) -> TurnoAfectado:
+    """El turno como `TurnoAfectado`, con el asignado que se indica (por ejemplo, el que tenía antes de reabrirse)."""
+    return TurnoAfectado(
+        id=formatear_id_turno(turno.horario_id, turno.fecha),
+        horario_id=turno.horario_id,
+        fecha=turno.fecha,
+        inicio=turno.inicio,
+        fin=turno.fin,
+        titular=_titular(sesion.get(Usuario, turno.titular_id) if turno.titular_id is not None else None),
+        asignado=_titular(asignado),
+    )

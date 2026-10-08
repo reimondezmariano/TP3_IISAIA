@@ -1,0 +1,33 @@
+# Guardia Viva en Render (plan gratis): un solo servicio web (D05).
+# Los valores marcados con `sync: false` NO se escriben acá: se cargan a mano en el panel de Render.
+# La guía paso a paso está en docs/despliegue.md.
+services:
+  - type: web
+    name: guardia-viva
+    runtime: docker
+    plan: free
+    branch: main
+    autoDeploy: true # cada merge a main vuelve a publicar la app
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    envVars:
+      # Valores fijos, sin secretos.
+      - key: APP_TIMEZONE
+        value: America/Argentina/Buenos_Aires
+      - key: MODO_DEMO # D27: reloj de demo; poner "false" cuando termine la presentación
+        value: "true"
+      # Se cargan a mano en el panel (Environment).
+      - key: DATABASE_URL # cadena del Session pooler de Supabase
+        sync: false
+      - key: SUPABASE_URL # URL del proyecto (Project Settings > API)
+        sync: false
+      - key: SUPABASE_JWT_SECRET # solo si el proyecto todavía firma con secreto JWT; si no, dejar vacío
+        sync: false
+      - key: CODIGO_COORDINACION # D30: nunca se versiona
+        sync: false
+      # La interfaz las incrusta al compilar (Dockerfile, etapa 1). Si se cambian, hay que volver a desplegar.
+      - key: VITE_SUPABASE_URL # la misma URL del proyecto
+        sync: false
+      - key: VITE_SUPABASE_ANON_KEY # clave pública (anon) del proyecto
+        sync: false

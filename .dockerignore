@@ -1,0 +1,18 @@
+# Nada de secretos ni de cosas locales en la imagen.
+.git
+.github
+**/.env
+**/.env.*
+!**/.env.example
+**/.venv
+**/node_modules
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/*.egg-info
+frontend/dist
+frontend/test-results
+frontend/playwright-report
+backend/tests
+docs
+.superpowers
