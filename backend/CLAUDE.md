@@ -10,7 +10,7 @@ FastAPI + SQLAlchemy 2 + Alembic sobre Postgres. Leer también el CLAUDE.md de l
 4. `app/servicios/`: operaciones que combinan reglas de `app/dominio/` y consultas de `app/repos/` (staff y plantilla). No hacen commit; lo hace el router.
 5. `app/api/`: routers bajo el prefijo `/api`. Los esquemas de respuesta usan alias camelCase.
 6. `app/errores.py`: `ErrorDominio(codigo, mensaje, status)`. `app/api/manejadores.py` lo convierte en `{"codigo", "mensaje"}`.
-7. `app/reloj.py`: reloj inyectable (D27). Nada fuera de ese archivo consulta la hora del sistema; una prueba lo verifica.
+7. `app/reloj.py`: reloj inyectable (D27). Nada fuera de ese archivo consulta la hora del sistema; una prueba lo verifica. En modo demo (`MODO_DEMO=true`) `get_reloj` suma el desfase que fija `POST /api/demo/reloj`, guardado en `consolidacion_estado.desfase_demo`. `scripts.seed` vacía esa fila: reiniciar la demo vuelve a la hora real. `{"ahora": null}` vuelve a la hora real solo si no se registró historia con el reloj adelantado (si no, 409 `REINICIAR_DEMO`).
 8. `app/auth.py`: verificación del token de Supabase Auth (D06) y dependencias de permisos: `identidad_actual` (token válido), `usuario_registrado` (solo GET /me), `usuario_actual` (cuenta ACTIVA, o BAJA hasta su `fecha_baja` inclusive; la exige todo endpoint salvo /health, /me y /registro) y `requiere_coordinador`.
 9. `scripts/seed.py`: datos de ejemplo. Al recargar conserva, por email, las cuentas de Supabase Auth de los usuarios de ejemplo; los usuarios que no son de ejemplo se borran.
 
@@ -27,11 +27,27 @@ FastAPI + SQLAlchemy 2 + Alembic sobre Postgres. Leer también el CLAUDE.md de l
 9. `evento_turno` solo admite INSERT: un trigger rechaza UPDATE y DELETE (D22). TRUNCATE sigue funcionando para el seed y las pruebas.
 10. El vencimiento del token se controla con la hora real dentro de PyJWT, no con el reloj inyectable, para que adelantar el reloj de demo no cierre las sesiones.
 11. Orden de bloqueos (regla 8): primero filas de `usuario`, después filas de `horario_pactado`. Varios usuarios se bloquean en un solo SELECT ordenado por id (`bloquear_con_coordinadores`). Un horario se bloquea con `bloquear_horario`, que relee sus versiones.
-12. "Hoy" es `hoy(reloj)` de `app/reloj.py`, en la zona del servicio. Ningún cambio de plantilla empieza antes de hoy. Una versión que todavía no rige se modifica en el lugar; una que ya rige solo se parte (D10).
+12. "Hoy" es `hoy(reloj)` de `app/reloj.py`, en la zona del servicio. Ningún cambio de plantilla empieza antes de hoy, y uno que empieza hoy no puede alcanzar un turno de hoy que ya empezó y no está guardado (`TURNO_DE_HOY_EMPEZADO`: la consolidación lo guardaría con otro titular, lo perdería o lo inventaría). Una versión que todavía no rige se modifica en el lugar; una que ya rige solo se parte (D10).
 13. Fábricas de F5: `crear_horario_de_prueba`, `guardar_turno` (turno materializado con la foto de su versión), `bloqueado_hasta_commit` (pruebas `commit_real` de bloqueos), `HOY` y la fixture `como_coordinador`.
 14. Una cuenta BAJA entra hasta su `fecha_baja` inclusive (D24); `ck_usuario_fecha_baja` obliga a que estado BAJA y fecha vayan juntos.
 15. Un deadlock (40P01) o una violación de exclusión (23P01) que no se capturó responde 409 (`CONFLICTO_CONCURRENTE`, `CONFLICTO_DE_VERSION`) desde `app/api/manejadores.py`.
 16. `app/api/operacion.py` publica con respuestas de ejemplo (`EJEMPLOS` de `app/api/esquemas_operacion.py`, encabezado `X-Respuesta-Ejemplo: true`, sin tocar la base) las rutas de operación que todavía no tienen lógica: postulaciones, candidatos y asignación. Se reemplazan por las reales en la etapa 3 del plan `docs/superpowers/plans/2026-10-08-f3-vacantes-postulaciones-asignacion.md` y el módulo se elimina. Generar vacante, lote y retiro ya son reales (`app/api/vacantes.py`).
-17. Orden de bloqueos, tercer eslabón (regla 8): después de `usuario` y `horario_pactado` se bloquean las filas de `turno`, varias por (horario, fecha) ascendente (`bloquear_turnos`). `materializar_turno` guarda el turno desde la plantilla con `INSERT ... ON CONFLICT DO NOTHING` y lo devuelve bloqueado.
-18. `generar_vacante` (`app/servicios/vacantes.py`) es la operación que abre una vacante (D15, D31): borra el asignado en la misma transacción y lo deja en el evento `VACANTE_GENERADA` (`datos.asignado_anterior_id`, `datos.vacante_id`). Quien necesite abrir vacantes desde otro flujo (por ejemplo, reabrir las coberturas de un médico dado de baja, D24) llama a esta función y no escribe la vacante a mano. Hace flush, no commit.
-19. El lote (`generar_lote`) y el retiro usan `begin_nested` y bloqueos de turno para ser todo o nada; el error de un turno del lote lleva el `turnoId` en el mensaje.
+17. Consolidación perezosa (D20): `ponerse_al_dia(sesion, reloj, zona)` de `app/servicios/consolidacion.py` consolida y emite alertas dentro de la transacción de quien llama; lo usan `GET /turnos` y `POST /consolidacion` (y `GET /indicadores/sin-cobertura` consolida). `GET /notificaciones` solo emite alertas. La marca `consolidacion_estado` se bloquea en cada consolidación y el seed la vacía.
+18. Notificaciones: crearlas siempre con `notificar(...)` de `app/servicios/notificaciones.py`, en la transacción de la acción (D22), y elegir destinatarios con `destinatarios(sesion, rol, hoy(reloj), excepto=...)`. Los tipos están en `TipoNotificacion` (`app/dominio/notificaciones.py`).
+19. Orden de bloqueos completo: `usuario`, `horario_pactado`, `consolidacion_estado`, `turno`, `vacante`. La consolidación (`consolidar_pendientes`, `ponerse_al_dia`) se llama al principio de la transacción, antes de bloquear cualquier usuario u horario: cada turno que inserta toma FOR KEY SHARE sobre su horario, su versión y sus usuarios, y eso choca con el FOR UPDATE de `bloquear_horario` y `bloquear_usuario`. Una operación que ya bloqueó un horario no consolida en la misma transacción.
+20. Orden de bloqueos de los turnos (regla 8; el orden completo es el de la convención 19): varios turnos se bloquean por (horario, fecha) ascendente con `bloquear_turnos`, y `materializar_turno` guarda el turno desde la plantilla con `INSERT ... ON CONFLICT DO NOTHING` y lo devuelve bloqueado. Limitación conocida: al insertar el turno, Postgres toma FOR KEY SHARE sobre su horario, su versión y su titular; si a la vez un coordinador da de baja o cambia de rol a ese titular (que bloquea usuario y después horario con FOR UPDATE), una de las dos transacciones puede recibir el deadlock, que responde 409 `CONFLICTO_CONCURRENTE` (convención 15) y se reintenta.
+21. `generar_vacante` (`app/servicios/vacantes.py`) es la operación que abre una vacante (D15, D31): borra el asignado en la misma transacción y lo deja en el evento `VACANTE_GENERADA` (`datos.asignado_anterior_id`, `datos.vacante_id`). Quien necesite abrir vacantes desde otro flujo (por ejemplo, reabrir las coberturas de un médico dado de baja, D24) llama a esta función y no escribe la vacante a mano. Hace flush, no commit.
+22. El lote (`generar_lote`) y el retiro usan `begin_nested` y bloqueos de turno para ser todo o nada; el error de un turno del lote lleva el `turnoId` en el mensaje.
+
+## Comandos (desde backend/)
+
+```bash
+python3.12 -m venv .venv && .venv/bin/pip install -e ".[dev]"   # una vez
+cp .env.example .env                                            # completar DATABASE_URL con el Session pooler de Supabase
+# completar también SUPABASE_URL (o SUPABASE_JWT_SECRET) y CODIGO_COORDINACION; en Supabase, Authentication > Sign In / Providers > Email: desactivar "Confirm email" (D06)
+docker compose up -d --wait                                     # desde la raíz: Postgres 15 local (puerto 5433)
+.venv/bin/pytest                                                # pruebas (siempre contra el Postgres local)
+.venv/bin/alembic upgrade head                                  # migrar la base de DATABASE_URL
+.venv/bin/python -m scripts.seed --confirmar                    # borrar y cargar los datos de ejemplo
+.venv/bin/uvicorn app.main:app --reload --port 8000             # levantar la API; OpenAPI en /docs
+```

@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 
 from app.dominio.calendario import calcular_turnos
 from app.modelos import (
+    EstadoConsolidacion,
     EventoTurno,
     HorarioPactado,
     Notificacion,
@@ -175,3 +176,11 @@ def test_seed_borra_usuarios_que_no_son_de_ejemplo_aunque_tengan_cuenta(sesion):
 
     assert cargar_datos_ejemplo(sesion) == 0
     assert sesion.scalar(select(func.count()).select_from(Usuario)) == 11
+
+
+def test_seed_vacia_la_marca_de_consolidacion(sesion):
+    # Review Focus 1: con la marca vieja, después de reiniciar la demo no se consolidaría la historia.
+    sesion.add(EstadoConsolidacion(id=1, consolidado_hasta=date(2026, 12, 1)))
+    sesion.flush()
+    cargar_datos_ejemplo(sesion)
+    assert sesion.scalar(select(func.count()).select_from(EstadoConsolidacion)) == 0

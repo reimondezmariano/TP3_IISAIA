@@ -73,3 +73,47 @@ Cómo lo corregimos: todavía no; quedan anotados para después del Demo Day o p
 
 Qué aprendimos: igual que en F2, separar lo que bloquea el merge de lo que se puede anotar mantiene el pull request chico sin perder los hallazgos.
 
+## 2026-10-08. Decisiones propias del plan de F4 historia y alertas, backend
+
+Qué pasó: D19, D20, D22, D24 y D27 dejaban abiertos varios puntos de la consolidación, las alertas, las notificaciones y el reloj de demo. El agente los cerró en la sección "Decisiones de este plan" de `docs/superpowers/plans/2026-10-08-f4-historia-alertas-backend.md`, cada uno con su costo si está mal:
+
+1. **Marca de consolidación** (tabla `consolidacion_estado`, una fila): los turnos calculados con fecha anterior a la marca ya se materializaron y consolidaron. Sin marca, cada consulta recalcularía todos los turnos desde la primera vigencia. La primera vez se parte de la primera `vigente_desde`. Es seguro porque ningún cambio de plantilla empieza antes de hoy (backend/CLAUDE.md, punto 12). Costo: si alguien carga una versión con vigencia pasada por SQL, esos turnos no se consolidan. *Ajustada en la revisión (ver la entrada siguiente):* el supuesto no alcanzaba para los cambios que empiezan hoy.
+2. **La fila de la marca se bloquea** (`FOR UPDATE`) en cada consolidación: dos consultas simultáneas se esperan en lugar de duplicar trabajo. Costo: `GET /turnos` se serializa durante la consolidación (milisegundos con 12 usuarios).
+3. **Consolidar con una vacante abierta la cierra como `SIN_COBERTURA`**, completa `sin_cobertura_en` y escribe `TURNO_SIN_COBERTURA` con actor sistema (`actor_id` NULL) y `datos = {"vacante_id", "al_consolidar": true}`. D19 dice que se consolida sin realizador; dejar la vacante abierta para siempre mostraría como abiertas vacantes de turnos pasados. Costo: un evento de sistema que D22 no lista para este caso.
+4. **`POST /turnos/{id}/sin-cobertura` exige una vacante abierta y que el turno haya empezado** (D19: "si al llegar el inicio la vacante sigue abierta"). Antes del inicio responde 422 `TURNO_NO_EMPEZO`. Un turno BAJA sin vacante no se marca: si nadie lo cubre, la consolidación lo deja sin realizador y cuenta igual en el indicador (D24). No envía notificaciones: no hay a quién avisar algo nuevo.
+5. **Alertas solo para turnos con vacante abierta** (D19 las define sobre la vacante). Los turnos BAJA sin vacante ya se ven en rojo (D24) y no generan alertas.
+6. **Si vencieron varios umbrales a la vez** (servidor caído o reloj de demo adelantado), se registran todos los eventos `ALERTA_SIN_COBERTURA` (para que no se disparen después) y se manda **una sola** notificación, la del umbral más reciente. Costo: el evento de 48 h existe aunque nadie recibió ese aviso.
+7. **Las alertas se evalúan en cada `GET /notificaciones`** (lo consulta cada usuario cada 10 a 15 s, D05) además de `GET /turnos`. Así llegan a tiempo sin proceso programado. El índice único `ux_evento_alerta_por_umbral` y el `INSERT ... ON CONFLICT DO NOTHING` garantizan una sola alerta por turno y umbral aunque dos pedidos lleguen juntos. `GET /notificaciones` no consolida (para no bloquear la marca en cada consulta periódica).
+8. **Destinatarios "con acceso"**: ACTIVO, o BAJA hasta su `fecha_baja` inclusive (la misma regla que `usuario_actual`, D24). `destinatarios(...)` es la función que Mariano usará para `VACANTE_URGENTE`.
+9. **Reloj de demo en memoria** (desfase en una variable del módulo `app/reloj.py`): un solo proceso de uvicorn en la demo. `POST /demo/reloj` con `{"ahora": instante}` solo avanza (422 `RELOJ_HACIA_ATRAS`), y `{"ahora": null}` vuelve a la hora real (pensado para usar después del seed). Solo coordinadores. Fuera de modo demo responde 404 y no aparece en `/docs`. Costo: reiniciar el servidor vuelve a la hora real; con varios procesos cada uno tendría su desfase. *Reemplazada en la revisión (ver la entrada siguiente):* el desfase se guarda en la base.
+10. **El indicador cuenta turnos consolidados sin realizador** (sin cobertura, vacante abierta al terminar y horarios BAJA sin cubrir), agrupados por el mes de su fecha de inicio (D13). Rango `desde`/`hasta` en `AAAA-MM`, hasta 24 meses, con meses en cero incluidos. Una rectificación que agregue realizador lo saca del indicador.
+11. **Tipos de notificación**: `TipoNotificacion` en `app/dominio/notificaciones.py` con `VACANTE_URGENTE` (la usa Mariano) y `ALERTA_SIN_COBERTURA`. Quien necesite otro tipo lo agrega al enum; la columna sigue siendo texto (sin migración).
+12. **Fuera de este plan:** rectificación (`POST /turnos/{id}/rectificacion`), `GET /turnos/{id}`, estado de los turnos dentro de `GET /turnos` y frontend. `GET /turnos` sigue devolviendo exactamente el mismo JSON.
+
+Cómo lo detectamos: el plan las lista para aprobarlas antes de ejecutar.
+
+Cómo lo corregimos: el equipo aprobó el plan completo. La revisión de la branch cambió la 9 y acotó la 1 (entrada siguiente).
+
+Qué aprendimos: escribir el costo de cada decisión ayudó a la revisión: los dos problemas que encontró estaban en las decisiones cuyo costo el plan había subestimado.
+
+## 2026-10-08. La revisión de F4 encontró historia incorrecta en la consolidación y en el reloj de demo
+
+Qué pasó: la consolidación era idempotente y segura frente a concurrencia, pero podía guardar historia incorrecta por tres caminos, y el orden de bloqueos documentado invitaba a un deadlock.
+
+1. Un cambio de plantilla que empieza hoy (cambiar el titular, cerrar o crear un horario) alcanzaba al turno de hoy ya empezado y todavía sin fila. Según cuándo corriera la consolidación, lo guardaba con el titular nuevo, lo perdía o inventaba un turno que no ocurrió. El supuesto de la decisión 1 ("ningún cambio de plantilla empieza antes de hoy") no alcanzaba.
+2. `{"ahora": null}` en el reloj de demo volvía a la hora real después de haber consolidado con el reloj adelantado. Quedaban turnos consolidados con fin en el futuro, vacantes cerradas en el futuro y la marca adelantada, y los turnos de un horario creado después con fecha anterior a la marca no se consolidaban nunca. La decisión 9 decía "solo avanza", pero `null` lo esquivaba, y el seed no reiniciaba el desfase en memoria.
+3. Cada turno que inserta la consolidación toma FOR KEY SHARE sobre su horario, su versión y sus usuarios. El orden documentado (usuario, horario, marca) invitaba a consolidar después de bloquear un horario, y eso cierra un ciclo con `GET /turnos`.
+4. Un turno guardado (con foto o asignado) de un médico dado de baja antes de la fecha del turno se consolidaba con él como realizador. La revisión lo marcó menor; lo subimos a importante porque es historia incorrecta.
+
+Cómo lo detectamos: revisión de toda la branch feature/f4-historia-alertas por un subagente con contexto nuevo, con foco pedido en que la consolidación sea idempotente y no guarde historia incorrecta. El revisor confirmó los puntos 1 y 2 con pruebas temporales.
+
+Cómo lo corregimos:
+
+1. El cambio de plantilla que empieza hoy responde 422 `TURNO_DE_HOY_EMPEZADO` si el turno de hoy de ese horario ya empezó y no está guardado. Se verifica antes y después del cambio, con la versión vieja y con la nueva. Se descartó guardar la foto del turno en curso porque contradice la regla 1 de CLAUDE.md (D11). Costo: en ese caso el coordinador usa "desde mañana". Prueba: `tests/test_plantilla_turno_de_hoy.py`.
+2. El desfase del reloj de demo se guarda en `consolidacion_estado.desfase_demo` (migración 0004). El seed vacía esa fila, así que reiniciar la demo vuelve a la hora real y además funciona con varios procesos. `null` responde 409 `REINICIAR_DEMO` si ya se registró historia después de la hora real. Costo: una consulta más por pedido en modo demo. Pruebas en `tests/test_api_demo.py` y `tests/test_reloj.py`.
+3. Convención 19 de `backend/CLAUDE.md`: la consolidación se llama al principio de la transacción, antes de bloquear usuarios u horarios. Solo documentación: hoy no hay ciclo en el código.
+4. La consolidación deja sin realizador un turno guardado cuyo realizador presunto se dio de baja antes de la fecha del turno. Prueba: `test_titular_o_asignado_dado_de_baja_antes_del_turno_no_es_realizador`.
+
+Queda pendiente un menor: cuando la consolidación cierra una vacante abierta, usa la hora de la consolidación (no la del fin del turno) en `sin_cobertura_en`, `cerrada_en` y `ocurrido_en`. Si nadie abre la app por días, esa hora queda lejos del fin del turno.
+
+Qué aprendimos: un supuesto sobre la plantilla ("nada empieza antes de hoy") no alcanza cuando "hoy" ya tiene turnos en curso: el límite real es el instante, no la fecha. Y una herramienta de demo que mueve el tiempo tiene que guardar su estado junto con la historia que produce, para que el reinicio vuelva todo atrás a la vez.

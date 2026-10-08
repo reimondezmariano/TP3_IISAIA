@@ -40,6 +40,7 @@ class Turno(Base):
         ),
         Index("ix_turno_inicio", "inicio"),
         Index("ix_turno_asignado", "asignado_id"),
+        Index("ix_turno_sin_consolidar", "fin", postgresql_where=text("consolidado_en IS NULL")),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)

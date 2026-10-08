@@ -14,7 +14,16 @@ from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.modelos import EstadoUsuario, HorarioPactado, RolUsuario, Turno, Usuario, VersionHorario
+from app.modelos import (
+    EstadoUsuario,
+    EstadoVacante,
+    HorarioPactado,
+    RolUsuario,
+    Turno,
+    Usuario,
+    Vacante,
+    VersionHorario,
+)
 from app.repos.horarios import DatosVersion, crear_horario
 
 _secuencia = count(1)
@@ -144,6 +153,13 @@ def guardar_turno(
     )
     guardar(sesion, turno)
     return turno
+
+
+def abrir_vacante(sesion: Session, turno: Turno, generada_por_id: int, creada_en: datetime) -> Vacante:
+    """Vacante ABIERTA cargada directo en la base (las reglas de generar vacante son de F3)."""
+    vacante = Vacante(turno_id=turno.id, generada_por_id=generada_por_id, estado=EstadoVacante.ABIERTA, creada_en=creada_en)
+    guardar(sesion, vacante)
+    return vacante
 
 
 def bloqueado_hasta_commit(
