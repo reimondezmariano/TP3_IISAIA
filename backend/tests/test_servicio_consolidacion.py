@@ -4,7 +4,7 @@ from zoneinfo import ZoneInfo
 import pytest
 from sqlalchemy import func, select
 
-from app.modelos import EstadoConsolidacion, EstadoVacante, EventoTurno, TipoEventoTurno, Turno
+from app.modelos import EstadoConsolidacion, EstadoUsuario, EstadoVacante, EventoTurno, TipoEventoTurno, Turno
 from app.reloj import RelojFijo
 from app.servicios.consolidacion import ResultadoConsolidacion, consolidar_pendientes
 from fabricas import abrir_vacante, bloqueado_hasta_commit, crear_horario_de_prueba, crear_usuario, guardar_turno
@@ -142,3 +142,22 @@ def test_dos_consolidaciones_simultaneas_dejan_una_fila_por_turno(fabrica_sesion
     assert resultado == {"valor": ResultadoConsolidacion(0, 0)}
     with fabrica_sesiones() as s:
         assert s.scalar(select(func.count()).select_from(Turno)) == 5
+
+
+def test_titular_o_asignado_dado_de_baja_antes_del_turno_no_es_realizador(sesion, reloj):
+    # D24: después de su fecha de baja no hace guardias, aunque el turno guardado conserve su foto (D11).
+    ana = crear_usuario(sesion, "Ana")
+    beto = crear_usuario(sesion, "Beto")
+    horario = crear_horario_de_prueba(sesion, ana.id)
+    de_titular = guardar_turno(sesion, horario.id, date(2026, 10, 6))
+    de_asignado = guardar_turno(sesion, horario.id, date(2026, 9, 29), asignado_id=beto.id)
+    del_ultimo_dia = guardar_turno(sesion, horario.id, date(2026, 9, 22))
+    ana.estado, ana.fecha_baja = EstadoUsuario.BAJA, date(2026, 9, 22)  # su último día es el 22/9
+    beto.estado, beto.fecha_baja = EstadoUsuario.BAJA, date(2026, 9, 28)
+    sesion.flush()
+
+    consolidar_pendientes(sesion, reloj, ZONA)
+
+    assert de_titular.realizador_id is None
+    assert de_asignado.realizador_id is None
+    assert del_ultimo_dia.realizador_id == ana.id

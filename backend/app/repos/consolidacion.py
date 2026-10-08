@@ -1,5 +1,6 @@
 """Consultas de la consolidación perezosa (D20). No hacen commit."""
 
+from collections.abc import Collection
 from datetime import date, datetime, timedelta
 from typing import Any
 
@@ -9,11 +10,13 @@ from sqlalchemy.orm import Session
 
 from app.modelos import (
     EstadoConsolidacion,
+    EstadoUsuario,
     EstadoVacante,
     EventoTurno,
     Notificacion,
     Postulacion,
     Turno,
+    Usuario,
     Vacante,
     VersionHorario,
 )
@@ -97,3 +100,13 @@ def turnos_guardados_por_consolidar(sesion: Session, ahora: datetime) -> list[tu
         )
     }
     return [(turno, abiertas.get(turno.id)) for turno in turnos]
+
+
+def fechas_de_baja(sesion: Session, usuario_ids: Collection[int]) -> dict[int, date]:
+    """Último día de los usuarios dados de baja entre `usuario_ids` (D24)."""
+    if not usuario_ids:
+        return {}
+    filas = sesion.execute(
+        select(Usuario.id, Usuario.fecha_baja).where(Usuario.id.in_(usuario_ids), Usuario.estado == EstadoUsuario.BAJA)
+    )
+    return {usuario_id: fecha_baja for usuario_id, fecha_baja in filas}

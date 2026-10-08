@@ -13,6 +13,7 @@ from app.modelos import EstadoVacante, EventoTurno, TipoEventoTurno
 from app.reloj import Reloj, hoy
 from app.repos.consolidacion import (
     bloquear_marca,
+    fechas_de_baja,
     guardar_marca,
     insertar_consolidados,
     primera_vigencia,
@@ -84,8 +85,10 @@ def _consolidar_guardados(sesion: Session, ahora: datetime) -> tuple[int, int]:
         )
         for turno_id, (turno, vacante) in por_id.items()
     ]
+    consolidaciones = consolidar(consolidables, ahora)
+    bajas = fechas_de_baja(sesion, {c.realizador_id for c in consolidaciones if c.realizador_id is not None})
     cerradas = 0
-    for consolidacion in consolidar(consolidables, ahora):
+    for consolidacion in consolidaciones:
         turno, vacante = por_id[consolidacion.turno_id]
         if vacante is not None:
             vacante.estado = EstadoVacante.SIN_COBERTURA
@@ -102,7 +105,11 @@ def _consolidar_guardados(sesion: Session, ahora: datetime) -> tuple[int, int]:
                 )
             )
             cerradas += 1
-        turno.realizador_id = consolidacion.realizador_id
+        realizador = consolidacion.realizador_id
+        # D24: la foto puede nombrar a alguien que se dio de baja antes del turno; no lo hizo él.
+        if realizador in bajas and bajas[realizador] < turno.fecha:
+            realizador = None
+        turno.realizador_id = realizador
         turno.consolidado_en = consolidacion.consolidado_en
     sesion.flush()
     return len(por_id), cerradas
