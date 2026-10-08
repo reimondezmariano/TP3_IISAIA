@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.api.esquemas import Esquema
@@ -8,9 +8,11 @@ from app.auth import requiere_coordinador
 from app.config import get_settings
 from app.db import get_db
 from app.dominio.calendario import formatear_id_turno
+from app.dominio.indicadores import meses_del_rango, primer_dia, primer_dia_siguiente
 from app.modelos import Usuario
 from app.reloj import Reloj, get_reloj
-from app.servicios.consolidacion import ponerse_al_dia
+from app.repos.indicadores import sin_cobertura_por_mes
+from app.servicios.consolidacion import consolidar_pendientes, ponerse_al_dia
 from app.servicios.sin_cobertura import marcar_sin_cobertura
 
 router = APIRouter()
@@ -60,3 +62,32 @@ def sin_cobertura(
         sin_cobertura_en=turno.sin_cobertura_en.astimezone(zona),
         vacante_id=vacante.id,
     )
+
+
+PATRON_MES = r"^(19|20)\d{2}-(0[1-9]|1[0-2])$"
+
+
+class IndicadorMesOut(Esquema):
+    mes: str
+    horas: float
+    turnos: int
+
+
+@router.get("/indicadores/sin-cobertura", response_model=list[IndicadorMesOut])
+def indicador_sin_cobertura(
+    desde: str = Query(pattern=PATRON_MES),
+    hasta: str = Query(pattern=PATRON_MES),
+    db: Session = Depends(get_db),
+    reloj: Reloj = Depends(get_reloj),
+    _coordinador: Usuario = Depends(requiere_coordinador),
+) -> list[IndicadorMesOut]:
+    """Horas sin cobertura por mes (D19): turnos consolidados sin realizador, incluidos los BAJA sin cubrir (D24)."""
+    meses = meses_del_rango(desde, hasta)
+    consolidar_pendientes(db, reloj, get_settings().zona)
+    db.commit()
+    datos = sin_cobertura_por_mes(db, primer_dia(meses[0]), primer_dia_siguiente(meses[-1]))
+    salida = []
+    for mes in meses:
+        horas, turnos = datos.get(mes, (0.0, 0))
+        salida.append(IndicadorMesOut(mes=mes, horas=horas, turnos=turnos))
+    return salida
