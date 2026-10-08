@@ -1,15 +1,17 @@
 // Estado de un turno para el usuario que mira: etiqueta, urgencia y acciones disponibles. Usa solo datos del
-// servidor: el titular, la vacante abierta que informa `GET /turnos` (`turno.vacante`, null si no hay) y el
+// servidor: el titular, el asignado, mi postulación activa, la vacante abierta que informa `GET /turnos` (`turno.vacante`, null si no hay) y el
 // reloj del servidor (D27). El servidor tiene la última palabra: si una acción no corresponde, la rechaza.
 import { horasHasta, terminoAntes } from "./fechas.js";
 
-export function derivarEstado({ turno, usuario, ahora, postulado = false }) {
+export function derivarEstado({ turno, usuario, ahora }) {
   const vacio = { tipo: "NORMAL", etiqueta: null, urgente: false, postulado: false, acciones: [] };
   if (terminoAntes(turno, ahora)) return { ...vacio, tipo: "PASADO" };
 
   const vacante = turno.vacante ?? null;
   const sinTitular = turno.titular === null;
-  const mio = !sinTitular && turno.titular.id === usuario.id;
+  const postulado = (turno.miPostulacionId ?? null) !== null;
+  // Avisa la ausencia el titular o el asignado vigente (D15, D31).
+  const mio = (!sinTitular && turno.titular.id === usuario.id) || turno.asignado?.id === usuario.id;
   const esCoordinador = usuario.rol === "COORDINADOR";
   const empezado = horasHasta(turno, ahora) < 0;
   const urgente = vacante !== null && vacante.urgente && !empezado;

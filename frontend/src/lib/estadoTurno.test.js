@@ -7,8 +7,8 @@ const otro = { id: 3, nombre: "Carlos" };
 const coord = { id: 9, nombre: "Enzo", rol: "COORDINADOR" };
 const vacanteDe = (generadaPor, urgente = false) => ({ id: 12, urgente, generadaPor });
 
-function turnoCon(titular, { fecha = "2026-10-12", inicio = "08:00", fin = "16:00", horarioId = 5, vacante = null } = {}) {
-  return { id: `${horarioId}:${fecha}`, horarioId, fecha, inicio: `${fecha}T${inicio}:00-03:00`, fin: `${fecha}T${fin}:00-03:00`, duracionHoras: 8, titular, vacante };
+function turnoCon(titular, { fecha = "2026-10-12", inicio = "08:00", fin = "16:00", horarioId = 5, vacante = null, asignado = null } = {}) {
+  return { id: `${horarioId}:${fecha}`, horarioId, fecha, inicio: `${fecha}T${inicio}:00-03:00`, fin: `${fecha}T${fin}:00-03:00`, duracionHoras: 8, titular, vacante, asignado };
 }
 
 describe("derivarEstado: médico", () => {
@@ -34,7 +34,7 @@ describe("derivarEstado: médico", () => {
   test("turno ajeno con vacante abierta: puedo postularme; ya postulado, retirar", () => {
     const turno = turnoCon(otro, { vacante: vacanteDe(otro) });
     expect(derivarEstado({ turno, usuario: yo, ahora })).toMatchObject({ tipo: "VACANTE", acciones: ["POSTULARME"], postulado: false });
-    expect(derivarEstado({ turno, usuario: yo, ahora, postulado: true })).toMatchObject({ acciones: ["RETIRAR_POSTULACION"], postulado: true });
+    expect(derivarEstado({ turno: { ...turno, miPostulacionId: 31 }, usuario: yo, ahora })).toMatchObject({ acciones: ["RETIRAR_POSTULACION"], postulado: true });
   });
 
   test("turno ajeno sin vacante: no se ofrece postularse", () => {
@@ -44,7 +44,7 @@ describe("derivarEstado: médico", () => {
   test("turno ajeno con vacante que ya empezó: no se ofrece postularse, pero sí retirar una postulación previa", () => {
     const turno = turnoCon(otro, { fecha: "2026-10-07", inicio: "08:00", fin: "16:00", vacante: vacanteDe(otro) });
     expect(derivarEstado({ turno, usuario: yo, ahora }).acciones).toEqual([]);
-    expect(derivarEstado({ turno, usuario: yo, ahora, postulado: true }).acciones).toEqual(["RETIRAR_POSTULACION"]);
+    expect(derivarEstado({ turno: { ...turno, miPostulacionId: 31 }, usuario: yo, ahora }).acciones).toEqual(["RETIRAR_POSTULACION"]);
   });
 
   test("titular null: BAJA, se puede cubrir aunque no haya vacante, y no es urgente", () => {
@@ -81,5 +81,12 @@ describe("derivarEstado: coordinador", () => {
 
   test("turno pasado: sin acciones", () => {
     expect(derivarEstado({ turno: turnoCon(otro, { fecha: "2026-10-06" }), usuario: coord, ahora }).acciones).toEqual([]);
+  });
+
+  test("el asignado vigente puede avisar ausencia y no puede postularse a su turno (D15, D31)", () => {
+    const turno = turnoCon(otro, { asignado: yo });
+    expect(derivarEstado({ turno, usuario: yo, ahora }).acciones).toEqual(["AVISAR_AUSENCIA"]);
+    const conAviso = turnoCon(otro, { asignado: yo, vacante: vacanteDe(yo) });
+    expect(derivarEstado({ turno: conAviso, usuario: yo, ahora }).acciones).toEqual(["RETIRAR_AVISO"]);
   });
 });

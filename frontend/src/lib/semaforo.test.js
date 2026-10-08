@@ -19,4 +19,9 @@ describe("semaforo", () => {
     expect(semaforo({ titular: null, vacante: null })).toEqual({ clase: "baja", etiqueta: "BAJA" });
     expect(semaforo({ titular: null, vacante: vacante(true) })).toEqual({ clase: "baja", etiqueta: "BAJA" });
   });
+
+  test("sin cobertura (D19): color propio, distinto de cubierta y de BAJA", () => {
+    expect(semaforo({ titular, vacante: null, sinCobertura: true })).toEqual({ clase: "sin-cobertura", etiqueta: "Sin cobertura" });
+    expect(semaforo({ titular, vacante: null, sinCobertura: false })).toEqual({ clase: "cubierta", etiqueta: null });
+  });
 });

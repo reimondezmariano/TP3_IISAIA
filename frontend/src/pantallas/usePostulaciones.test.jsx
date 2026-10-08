@@ -1,58 +1,54 @@
 import { act, renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { ErrorApi } from "../lib/api.js";
-import { leerRecordadas, recordar } from "../lib/postulaciones.js";
 import { usePostulaciones } from "./usePostulaciones.js";
 
-const medico = { id: 1, nombre: "Ana", rol: "MEDICO" };
-beforeEach(() => window.localStorage.clear());
-
 describe("usePostulaciones", () => {
-  test("postular guarda el id de la postulación y lo recuerda", async () => {
+  test("postular llama a la API y recarga el calendario", async () => {
     const api = { post: vi.fn(async () => ({ id: 31, turnoId: "7:2026-10-17" })) };
-    const { result } = renderHook(() => usePostulaciones(api, medico));
+    const alCambiar = vi.fn();
+    const { result } = renderHook(() => usePostulaciones(api, { alCambiar }));
     await act(() => result.current.postular("7:2026-10-17"));
-    expect(result.current.postuladas).toEqual({ "7:2026-10-17": 31 });
-    expect(leerRecordadas(1)).toEqual({ "7:2026-10-17": 31 });
+    expect(api.post).toHaveBeenCalledWith("/api/turnos/7:2026-10-17/postulaciones");
+    expect(alCambiar).toHaveBeenCalledTimes(1);
   });
 
-  test("si el servidor rechaza la postulación, no se recuerda nada y el error se propaga", async () => {
+  test("si el servidor rechaza la postulación, no recarga y el error se propaga", async () => {
     const api = { post: vi.fn(async () => { throw new ErrorApi(409, "TURNO_SIN_VACANTE", "El turno no tiene una vacante abierta."); }) };
-    const { result } = renderHook(() => usePostulaciones(api, medico));
+    const alCambiar = vi.fn();
+    const { result } = renderHook(() => usePostulaciones(api, { alCambiar }));
     await act(async () => {
       await expect(result.current.postular("7:2026-10-17")).rejects.toThrow("vacante abierta");
     });
-    expect(result.current.postuladas).toEqual({});
-    expect(leerRecordadas(1)).toEqual({});
+    expect(alCambiar).not.toHaveBeenCalled();
   });
 
-  test("retirar llama al retiro con el id guardado y lo olvida", async () => {
-    recordar(1, "7:2026-10-17", 31);
+  test("retirar llama al retiro con el id de la postulación y recarga", async () => {
     const api = { post: vi.fn(async () => ({ id: 31 })) };
-    const { result } = renderHook(() => usePostulaciones(api, medico));
-    await act(() => result.current.retirar("7:2026-10-17"));
+    const alCambiar = vi.fn();
+    const { result } = renderHook(() => usePostulaciones(api, { alCambiar }));
+    await act(() => result.current.retirar(31));
     expect(api.post).toHaveBeenCalledWith("/api/postulaciones/31/retiro");
-    expect(result.current.postuladas).toEqual({});
+    expect(alCambiar).toHaveBeenCalledTimes(1);
   });
 
-  test.each([["POSTULACION_YA_RETIRADA", 409], ["POSTULACION_NO_ENCONTRADA", 404]])("si el servidor dice %s, se olvida y se propaga el error", async (codigo, status) => {
-    recordar(1, "7:2026-10-17", 31);
+  test.each([["POSTULACION_YA_RETIRADA", 409], ["POSTULACION_NO_ENCONTRADA", 404]])("si el servidor dice %s, recarga y propaga el error", async (codigo, status) => {
     const api = { post: vi.fn(async () => { throw new ErrorApi(status, codigo, "ya no"); }) };
-    const { result } = renderHook(() => usePostulaciones(api, medico));
+    const alCambiar = vi.fn();
+    const { result } = renderHook(() => usePostulaciones(api, { alCambiar }));
     await act(async () => {
-      await expect(result.current.retirar("7:2026-10-17")).rejects.toThrow("ya no");
+      await expect(result.current.retirar(31)).rejects.toThrow("ya no");
     });
-    expect(result.current.postuladas).toEqual({});
-    expect(leerRecordadas(1)).toEqual({});
+    expect(alCambiar).toHaveBeenCalledTimes(1);
   });
 
-  test("un error de red al retirar conserva el recuerdo para reintentar", async () => {
-    recordar(1, "7:2026-10-17", 31);
+  test("un error de red al retirar no recarga", async () => {
     const api = { post: vi.fn(async () => { throw new ErrorApi(0, "SIN_CONEXION", "sin red"); }) };
-    const { result } = renderHook(() => usePostulaciones(api, medico));
+    const alCambiar = vi.fn();
+    const { result } = renderHook(() => usePostulaciones(api, { alCambiar }));
     await act(async () => {
-      await expect(result.current.retirar("7:2026-10-17")).rejects.toThrow("sin red");
+      await expect(result.current.retirar(31)).rejects.toThrow("sin red");
     });
-    expect(result.current.postuladas).toEqual({ "7:2026-10-17": 31 });
+    expect(alCambiar).not.toHaveBeenCalled();
   });
 });

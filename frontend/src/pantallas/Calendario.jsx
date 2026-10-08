@@ -48,12 +48,9 @@ function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }
   const visibles = dias.reduce((total, dia) => total + porDia[dia].length, 0);
   const hoy = fechaLocal(ahora);
   const ausencias = useAusencias(api, usuario, { alCambiar: refrescar });
-  const postulaciones = usePostulaciones(api, usuario);
+  const postulaciones = usePostulaciones(api, { alCambiar: refrescar });
   const estadoDe = (turno) =>
-    derivarEstado({
-      turno, usuario, ahora,
-      postulado: postulaciones.postuladas[turno.id] !== undefined,
-    });
+    derivarEstado({ turno, usuario, ahora });
   const acciones = {
     avisarAusencia: ausencias.avisar, retirarAviso: ausencias.retirar,
     postularme: postulaciones.postular, retirarPostulacion: postulaciones.retirar,
