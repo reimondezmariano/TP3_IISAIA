@@ -69,7 +69,7 @@ Revisión: la revisión de toda la branch encontró tres problemas importantes (
 Fecha: 8/10/2026.
 Herramienta: Claude Code con Superpowers (writing-plans y executing-plans).
 Prompt (mensaje del equipo): "primero revisar y mergear mi PR #10. Después, endpoints de vacantes, postulaciones, candidatos y asignación, con D31 y excluyendo coordinadores y médicos dados de baja. Si podés, publicá primero los endpoints con respuestas de ejemplo así Carlos conecta las pantallas. Avisame cuando esté la función de generar vacante, que la necesito para cerrar staff."
-Resultado: plan en `docs/superpowers/plans/2026-10-08-f3-vacantes-postulaciones-asignacion.md`, en tres etapas con un pull request cada una: contrato con ejemplos, generar vacante (lote y retiro) y postulaciones con candidatos y asignación. Incluye 11 supuestos que D15 a D31 dejaban abiertos, aprobados por el equipo antes de ejecutar. Etapa 1 en la branch feature/f3-contrato-api.
+Resultado: plan en `docs/superpowers/plans/2026-10-08-f3-vacantes-postulaciones-asignacion.md`, en tres etapas con un pull request cada una: contrato con ejemplos, generar vacante (lote y retiro) y postulaciones con candidatos y asignación. Incluye 11 supuestos que D15 a D31 dejaban abiertos, aprobados por el equipo antes de ejecutar. Etapa 1 en la branch feature/f3-contrato-api (pull request #11). Etapa 2 (generar vacante, lote y retiro) en feature/f3-generar-vacante, con las pruebas contra Postgres local en Docker.
 
 ## Próximas entradas
 
