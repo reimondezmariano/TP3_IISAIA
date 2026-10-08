@@ -78,7 +78,7 @@ test("registro con código de coordinación: queda activo como coordinador", asy
   const coord = { ...ME, nombre: "Enzo", rol: "COORDINADOR" };
   const pedidos = await simularApi(page, { me: coord, turnos: TURNOS, registro: () => ({ status: 201, cuerpo: coord }) });
   await completarRegistro(page, { nombre: "Enzo", email: "enzo@x.com", codigo: "SMG" });
-  await expect(page.getByText(/pantallas de coordinación/i)).toBeVisible();
+  await expect(page.getByRole("button", { name: "Staff" })).toBeVisible();
   expect(JSON.parse(pedidos.find((p) => p.ruta === "/api/registro").cuerpo)).toEqual({ nombre: "Enzo", codigoCoordinacion: "SMG" });
 });
 
@@ -128,17 +128,12 @@ test("servidor caído al pedir la semana: mensaje y reintento", async ({ page })
   await expect(page.getByText("No hay guardias esta semana.")).toBeVisible();
 });
 
-test("simulado: el médico avisa su ausencia y se postula a una baja", async ({ page }) => {
+test("simulado: el médico se postula a una baja (las postulaciones todavía no están en el servidor)", async ({ page }) => {
   await simularSupabase(page);
   await simularApi(page, { me: ME, turnos: TURNOS });
   await ingresar(page);
-  await page.locator('[data-turno-id="1:2026-10-09"]').click();
-  await expect(page.getByTestId("rotulo-simulado")).toBeVisible();
-  await page.getByLabel(/Motivo/).fill("Congreso");
-  await page.getByRole("button", { name: "Avisar ausencia" }).click();
-  await expect(page.getByRole("button", { name: "Retirar aviso" })).toBeVisible();
-  await page.getByRole("button", { name: "Cerrar", exact: true }).click();
   await page.locator('[data-turno-id="3:2026-10-11"]').click();
+  await expect(page.getByTestId("rotulo-simulado")).toBeVisible();
   await page.getByRole("button", { name: "Postularme" }).click();
   await expect(page.getByRole("button", { name: "Retirar postulación" })).toBeVisible();
 });

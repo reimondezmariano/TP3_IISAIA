@@ -1,12 +1,16 @@
 # Frontend de Guardia Viva
 
-React + Vite, en JavaScript. Experiencia del médico (F4): login y registro con Supabase Auth, calendario semanal. El prototipo HTML de la raíz (`index.html`) es solo referencia visual y no se reutiliza su código.
+React + Vite, en JavaScript. Experiencia del médico (F4): login y registro con Supabase Auth, calendario semanal. F6: avisar ausencia y retirarla, notificaciones y pantalla de staff, contra la API real. El prototipo HTML de la raíz (`index.html`) es solo referencia visual y no se reutiliza su código.
 
 ## Estructura
 
 1. `src/lib/`: `api.js` (único cliente HTTP, manda `Authorization: Bearer`), `fechas.js` (semana y horas en Buenos Aires), `supabase.js` (solo para el login), `errores-auth.js`.
 2. `src/sesion/`: `SesionProvider` reúne la sesión de Supabase y `GET /api/me` en un estado (`cargando`, `anonimo`, `sin-registro`, `pendiente`, `baja`, `activo`, `error`); `App.jsx` elige la pantalla según ese estado.
-3. `src/pantallas/` y `src/componentes/`: interfaz. `src/simulado/`: datos simulados de vacantes y postulaciones; se reemplaza por la API cuando existan los endpoints.
+3. `src/pantallas/` y `src/componentes/`: interfaz. `Principal.jsx` es la pantalla de una cuenta activa (campanita, aviso emergente y, solo para coordinadores, la pestaña Staff).
+4. `src/lib/vacantes.js` y `src/pantallas/useAusencias.js`: vacantes reales (`POST /turnos/{id}/vacantes`, retiro). El servidor no informa qué vacantes están abiertas, así que las que se generan desde este navegador se recuerdan en `localStorage` (por usuario) para poder retirarlas; en otro dispositivo no aparece "Retirar aviso". `POST /vacantes/lote` es solo de coordinadores: el médico con varias fechas llama a la ruta de una vacante por fecha (no es todo o nada) y se le informa cuáles fallaron.
+5. `src/notificaciones/`: `useNotificaciones` consulta `GET /notificaciones` cada 12 s; `Campanita` y `AvisoUrgente` (vacantes urgentes, D05, D15).
+6. `src/staff/`: pantalla de staff (D26): personas, horarios y designar titular en los horarios BAJA; muestra los turnos afectados que devuelve el servidor.
+7. `src/simulado/`: solo quedan simuladas las postulaciones y las vacantes ajenas.
 
 ## Convenciones
 
