@@ -5,7 +5,7 @@ import TarjetaTurno from "./TarjetaTurno.jsx";
 
 const turno = {
   id: "7:2026-10-10", horarioId: 7, fecha: "2026-10-10",
-  inicio: "2026-10-10T08:00:00-03:00", fin: "2026-10-10T16:00:00-03:00", duracionHoras: 8, vacante: null,
+  inicio: "2026-10-10T08:00:00-03:00", fin: "2026-10-10T16:00:00-03:00", duracionHoras: 8,
   titular: { id: 3, nombre: "Carlos Ruiz" },
 };
 const usuario = { id: 1, nombre: "Ana", rol: "MEDICO" };
