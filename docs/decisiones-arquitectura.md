@@ -127,6 +127,10 @@ Cambio en F2 (7/10/2026): los usuarios cargados por el seed se vinculan a su cue
 
 D29. Fuera de alcance: coberturas parciales, intercambios directos entre médicos, push nativo, mail.
 
+D31. Al generar una vacante, si el turno tenía un asignado, el asignado se borra en la misma transacción y queda registrado en la bitácora con VACANTE_GENERADA (D08 punto 4). Como defensa, la consolidación da prioridad a la vacante abierta sobre el asignado y el titular: con una vacante abierta al terminar el turno no hay realizador presunto (D19, D20).
+Alternativa descartada: conservar el asignado mientras la vacante está abierta y resolver quién manda en cada consulta. Cada lugar que lee el turno (consolidación, candidatos, semáforo, equidad) tendría que acordarse de ignorar al asignado cuando hay una vacante, y un olvido atribuiría la guardia, o una cobertura en el orden de D17, a quien acaba de cancelar.
+Motivo: D08 punto 4 dice que no existe una tabla Asignacion: el turno guarda solo el asignado actual y la bitácora conserva los anteriores. Borrarlo junto con la vacante, en la misma transacción que el evento (D22), mantiene un único estado posible: turno con vacante abierta es turno sin asignado. La prioridad en la consolidación queda como defensa ante un dato inconsistente.
+
 ## Pendiente de confirmar
 
 Sin pendientes al 4/10/2026.
