@@ -8,6 +8,7 @@ import TarjetaTurno from "../componentes/TarjetaTurno.jsx";
 import {
   agruparPorDia, diasDeSemana, etiquetaDia, etiquetaSemana, fechaLocal, lunesDe, sumarDias,
 } from "../lib/fechas.js";
+import { ESTADOS } from "../lib/semaforo.js";
 import { useSesion } from "../sesion/useSesion.js";
 import { derivarEstado } from "../lib/estadoTurno.js";
 import { useAusencias } from "./useAusencias.js";
@@ -96,6 +97,11 @@ function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }
       <div className="barra">
         <button type="button" className="secundario" onClick={() => setVariasFechas(true)}>Avisar ausencia en varias fechas</button>
       </div>
+      <ul className="leyenda" aria-label="Colores del calendario">
+        {ESTADOS.map(({ clase, nombre }) => (
+          <li key={clase} className={clase}>{nombre}</li>
+        ))}
+      </ul>
       {estado === "cargando" && <Cargando />}
       {estado === "error" && (
         <div>
@@ -110,7 +116,7 @@ function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }
             <section key={dia} className="dia" data-fecha={dia} aria-current={dia === hoy ? "date" : undefined}>
               <h3>{etiquetaDia(dia)}</h3>
               {porDia[dia].map((turno) => (
-                <TarjetaTurno key={turno.id} turno={turno} usuario={usuario} estado={estadoDe(turno)} onAbrir={abrir} />
+                <TarjetaTurno key={turno.id} turno={turno} usuario={usuario} onAbrir={abrir} />
               ))}
             </section>
           ))}

@@ -7,12 +7,12 @@ const CUENTA_CAMBIADA = ["CUENTA_PENDIENTE", "CUENTA_DADA_DE_BAJA"];
 export function useTurnosSemana(api, lunes, { alCuentaCambiada }) {
   const [resultado, setResultado] = useState({ estado: "cargando", turnos: [], error: null });
   const [intento, setIntento] = useState(0);
-  const lunesVigente = useRef(lunes);
-  lunesVigente.current = lunes;
+  const silencioso = useRef(false); // refrescar: vuelve a pedir sin ocultar la semana que ya se ve
 
   useEffect(() => {
     let vigente = true; // si cambia la semana o se desmonta, la respuesta se descarta
-    setResultado((previo) => ({ ...previo, estado: "cargando", error: null }));
+    if (!silencioso.current) setResultado((previo) => ({ ...previo, estado: "cargando", error: null }));
+    silencioso.current = false;
     api
       .get("/api/turnos", rangoSemana(lunes))
       .then((turnos) => vigente && setResultado({ estado: "ok", turnos, error: null }))
@@ -29,16 +29,9 @@ export function useTurnosSemana(api, lunes, { alCuentaCambiada }) {
   }, [api, lunes, intento]);
 
   const reintentar = useCallback(() => setIntento((n) => n + 1), []);
-
-  // Vuelve a pedir la semana sin mostrar "cargando" (después de una acción); si falla, queda lo que había.
-  const refrescar = useCallback(async () => {
-    try {
-      const turnos = await api.get("/api/turnos", rangoSemana(lunes));
-      if (lunesVigente.current === lunes) setResultado({ estado: "ok", turnos, error: null }); // si ya se cambió de semana, se descarta
-    } catch {
-      // se conservan los turnos anteriores
-    }
-  }, [api, lunes]);
-
+  const refrescar = useCallback(() => {
+    silencioso.current = true;
+    setIntento((n) => n + 1);
+  }, []);
   return { ...resultado, reintentar, refrescar };
 }

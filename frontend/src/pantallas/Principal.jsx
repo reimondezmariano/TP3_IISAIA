@@ -16,7 +16,11 @@ export default function Principal() {
   const verStaff = esCoordinador && pantalla === "staff";
   return (
     <>
-      <div className="barra-superior">
+      <header className="barra-superior">
+        <div className="marca">
+          <span className="marca-logo" aria-hidden="true">GV</span>
+          <h1>Guardia Viva</h1>
+        </div>
         {esCoordinador && (
           <nav className="pestanas" aria-label="Pantallas">
             <button type="button" aria-pressed={!verStaff} onClick={() => setPantalla("calendario")}>Calendario</button>
@@ -24,7 +28,7 @@ export default function Principal() {
           </nav>
         )}
         <Campanita notificaciones={notificaciones} />
-      </div>
+      </header>
       {verStaff ? <PantallaStaff api={api} usuario={usuario} /> : <Calendario />}
       <AvisoUrgente notificaciones={notificaciones} />
     </>

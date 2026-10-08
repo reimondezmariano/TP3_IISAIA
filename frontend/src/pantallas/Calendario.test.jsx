@@ -47,6 +47,14 @@ describe("Calendario", () => {
     expect(within(document.querySelector('[data-fecha="2026-10-11"]')).getByText("BAJA")).toBeVisible();
   });
 
+  test("muestra la leyenda del semáforo arriba del calendario (D08)", async () => {
+    montar({ turnosPorDesde: { "2026-10-05": SEMANA_ACTUAL } });
+    const leyenda = await screen.findByRole("list", { name: "Colores del calendario" });
+    for (const nombre of ["Cubierta", "Vacante abierta", "Vacante urgente", "BAJA (sin titular)"]) {
+      expect(within(leyenda).getByText(nombre)).toBeVisible();
+    }
+  });
+
   test("resalta el día de hoy según el servidor", async () => {
     montar({ turnosPorDesde: { "2026-10-05": SEMANA_ACTUAL } });
     await screen.findAllByTestId("turno");
@@ -133,6 +141,18 @@ describe("Calendario con ausencias", () => {
     await userEvent.click(screen.getByRole("button", { name: "Retirar aviso" }));
     expect(post).toHaveBeenCalledWith("/api/vacantes/12/retiro");
     expect(window.localStorage.getItem("guardia-viva:vacantes:1")).toBeNull();
+  });
+
+  test("después de avisar la ausencia vuelve a pedir la semana para actualizar el semáforo", async () => {
+    const post = vi.fn(async () => ({ id: 12, turnoId: "1:2026-10-09" }));
+    const api = montar({ turnosPorDesde: { "2026-10-05": [propio] }, post });
+    await userEvent.click(await screen.findByTestId("turno"));
+    const pedidosTurnos = () => api.get.mock.calls.filter(([ruta]) => ruta === "/api/turnos").length;
+    const antes = pedidosTurnos();
+    await userEvent.type(screen.getByLabelText(/Motivo/), "Congreso");
+    await userEvent.click(screen.getByRole("button", { name: "Avisar ausencia" }));
+    await vi.waitFor(() => expect(pedidosTurnos()).toBe(antes + 1));
+    expect(screen.getByTestId("turno")).toBeVisible();
   });
 
   test("si el servidor rechaza el aviso, el turno sigue sin vacante y se ve el error", async () => {
