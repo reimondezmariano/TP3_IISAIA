@@ -7,7 +7,7 @@ import Calendario from "./Calendario.jsx";
 
 const turno = (horarioId, fecha, hi, hf, titular, finFecha = fecha) => ({
   id: `${horarioId}:${fecha}`, horarioId, fecha,
-  inicio: `${fecha}T${hi}:00-03:00`, fin: `${finFecha}T${hf}:00-03:00`, duracionHoras: 8, titular,
+  inicio: `${fecha}T${hi}:00-03:00`, fin: `${finFecha}T${hf}:00-03:00`, duracionHoras: 8, titular, vacante: null,
 });
 const SEMANA_ACTUAL = [
   turno(1, "2026-10-05", "08:00", "16:00", { id: 1, nombre: "Ana" }),
@@ -23,7 +23,8 @@ function montar({ turnosPorDesde = {}, post = vi.fn(async () => ({})), health = 
         if (health instanceof Error) throw health;
         return health;
       }
-      return turnosPorDesde[consulta.desde] ?? [];
+      const turnos = turnosPorDesde[consulta.desde];
+      return typeof turnos === "function" ? turnos() : turnos ?? [];
     }),
   };
   render(
@@ -114,12 +115,16 @@ describe("Calendario", () => {
 
 describe("Calendario con ausencias", () => {
   const propio = turno(1, "2026-10-09", "08:00", "16:00", { id: 1, nombre: "Ana" });
+  const conVacante = { ...propio, vacante: { id: 12, urgente: false, generadaPor: { id: 1, nombre: "Ana" } } };
 
-  beforeEach(() => window.localStorage.clear());
-
-  test("avisar la ausencia llama a la API y marca el turno como vacante; retirar la saca", async () => {
-    const post = vi.fn(async (ruta) => (ruta.endsWith("/vacantes") ? { id: 12, turnoId: "1:2026-10-09" } : { id: 12 }));
-    montar({ turnosPorDesde: { "2026-10-05": [propio] }, post });
+  test("avisar la ausencia llama a la API, recarga los turnos y muestra Retirar aviso con el id del servidor", async () => {
+    let turnos = [propio];
+    const post = vi.fn(async (ruta) => {
+      if (ruta.endsWith("/vacantes")) turnos = [conVacante];
+      if (ruta.endsWith("/retiro")) turnos = [propio];
+      return { id: 12 };
+    });
+    montar({ turnosPorDesde: { "2026-10-05": () => turnos }, post });
     await userEvent.click(await screen.findByTestId("turno"));
     await userEvent.type(screen.getByLabelText(/Motivo/), "Congreso");
     await userEvent.click(screen.getByRole("button", { name: "Avisar ausencia" }));
@@ -127,6 +132,15 @@ describe("Calendario con ausencias", () => {
     await userEvent.click(await screen.findByRole("button", { name: "Retirar aviso" }));
     expect(post).toHaveBeenCalledWith("/api/vacantes/12/retiro");
     expect(await screen.findByRole("button", { name: "Avisar ausencia" })).toBeVisible();
+  });
+
+  test("la vacante abierta viene del servidor: se puede retirar sin haberla generado en este navegador", async () => {
+    const post = vi.fn(async () => ({ id: 12 }));
+    montar({ turnosPorDesde: { "2026-10-05": [conVacante] }, post });
+    await userEvent.click(await screen.findByTestId("turno"));
+    await userEvent.click(screen.getByRole("button", { name: "Retirar aviso" }));
+    expect(post).toHaveBeenCalledWith("/api/vacantes/12/retiro");
+    expect(window.localStorage.getItem("guardia-viva:vacantes:1")).toBeNull();
   });
 
   test("después de avisar la ausencia vuelve a pedir la semana para actualizar el semáforo", async () => {
@@ -151,14 +165,24 @@ describe("Calendario con ausencias", () => {
     expect(screen.queryByRole("button", { name: "Retirar aviso" })).toBeNull();
   });
 
-  test("el coordinador no ve botones de acción en el detalle", async () => {
-    montar({
-      usuario: { id: 9, nombre: "Enzo", rol: "COORDINADOR", estado: "ACTIVO" },
-      turnosPorDesde: { "2026-10-05": [turno(1, "2026-10-09", "08:00", "16:00", null)] },
+  test("el coordinador genera la vacante de un turno ajeno y puede retirarla; nunca ve acciones de médico", async () => {
+    const ajeno = turno(1, "2026-10-09", "08:00", "16:00", { id: 3, nombre: "Carlos" });
+    const conVacanteAjena = { ...ajeno, vacante: { id: 30, urgente: false, generadaPor: { id: 3, nombre: "Carlos" } } };
+    let turnos = [ajeno];
+    const post = vi.fn(async (ruta) => {
+      if (ruta.endsWith("/vacantes")) turnos = [conVacanteAjena];
+      if (ruta.endsWith("/retiro")) turnos = [ajeno];
+      return { id: 30 };
     });
+    montar({ usuario: { id: 9, nombre: "Enzo", rol: "COORDINADOR", estado: "ACTIVO" }, turnosPorDesde: { "2026-10-05": () => turnos }, post });
     await userEvent.click(await screen.findByTestId("turno"));
-    expect(screen.getByRole("dialog")).toBeVisible();
-    expect(screen.queryByRole("button", { name: /^(Postularme|Avisar ausencia)$/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^(Postularme|Avisar ausencia|Retirar aviso)$/ })).toBeNull();
+    await userEvent.type(screen.getByLabelText(/Motivo/), "Licencia");
+    await userEvent.click(screen.getByRole("button", { name: "Generar vacante" }));
+    expect(post).toHaveBeenCalledWith("/api/turnos/1:2026-10-09/vacantes", { motivo: "Licencia" });
+    await userEvent.click(await screen.findByRole("button", { name: "Retirar vacante" }));
+    expect(post).toHaveBeenCalledWith("/api/vacantes/30/retiro");
+    expect(await screen.findByRole("button", { name: "Generar vacante" })).toBeVisible();
   });
 
   test("cambiar de semana cierra el detalle", async () => {
@@ -166,5 +190,24 @@ describe("Calendario con ausencias", () => {
     await userEvent.click(await screen.findByTestId("turno"));
     await userEvent.click(screen.getByRole("button", { name: "Semana siguiente" }));
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
+
+describe("Calendario del coordinador: panel de cobertura", () => {
+  const coordinador = { id: 9, nombre: "Enzo", rol: "COORDINADOR", estado: "ACTIVO" };
+  const ajeno = turno(1, "2026-10-09", "08:00", "16:00", { id: 3, nombre: "Carlos" });
+
+  test("no pide candidatos para un turno normal sin vacante", async () => {
+    const api = montar({ usuario: coordinador, turnosPorDesde: { "2026-10-05": [ajeno] } });
+    await userEvent.click(await screen.findByTestId("turno"));
+    expect(screen.queryByRole("region", { name: "Cobertura del turno" })).toBeNull();
+    expect(api.get).not.toHaveBeenCalledWith(expect.stringContaining("/candidatos"));
+  });
+
+  test("con vacante abierta muestra el panel de cobertura", async () => {
+    const conVacante = { ...ajeno, vacante: { id: 30, urgente: false, generadaPor: { id: 3, nombre: "Carlos" } } };
+    montar({ usuario: coordinador, turnosPorDesde: { "2026-10-05": [conVacante] } });
+    await userEvent.click(await screen.findByTestId("turno"));
+    expect(await screen.findByRole("region", { name: "Cobertura del turno" })).toBeVisible();
   });
 });

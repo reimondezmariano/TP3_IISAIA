@@ -1,0 +1,5 @@
+/* Estilos propios de la coordinación; los generales (estilos.css) los rediseña otra persona. */
+.cobertura { display: grid; gap: 0.5rem; border-top: 1px solid #ddd; padding-top: 0.75rem; }
+.candidatos { list-style: decimal inside; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.candidatos li { display: grid; gap: 0.25rem; }
+.candidatos .no-elegible { opacity: 0.7; }

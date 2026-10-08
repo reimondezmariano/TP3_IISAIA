@@ -7,23 +7,35 @@ const turno = {
   id: "7:2026-10-12", horarioId: 7, fecha: "2026-10-12",
   inicio: "2026-10-12T08:00:00-03:00", fin: "2026-10-12T16:00:00-03:00", duracionHoras: 8,
   titular: { id: 3, nombre: "Carlos Ruiz" },
+  vacante: { id: 12, urgente: false, generadaPor: { id: 3, nombre: "Carlos Ruiz" } },
 };
-const estadoBase = { tipo: "NORMAL", etiqueta: null, urgente: false, postulantes: [], postulado: false, acciones: [] };
-const acciones = () => ({ avisarAusencia: vi.fn(async () => {}), retirarAviso: vi.fn(async () => {}), postularme: vi.fn(), retirarPostulacion: vi.fn() });
-const montar = (estado, acc = acciones(), onCerrar = vi.fn()) => {
-  render(<DetalleTurno turno={turno} estado={{ ...estadoBase, ...estado }} acciones={acc} onCerrar={onCerrar} />);
+const estadoBase = { tipo: "NORMAL", etiqueta: null, urgente: false, postulado: false, acciones: [] };
+const acciones = () => ({ avisarAusencia: vi.fn(async () => {}), retirarAviso: vi.fn(async () => {}), postularme: vi.fn(async () => {}), retirarPostulacion: vi.fn(async () => {}) });
+const montar = (estado, acc = acciones(), onCerrar = vi.fn(), panel = null) => {
+  render(<DetalleTurno turno={turno} estado={{ ...estadoBase, ...estado }} acciones={acc} panel={panel} onCerrar={onCerrar} />);
   return { acc, onCerrar };
 };
 
 describe("DetalleTurno", () => {
-  test("rotula como simuladas solo las postulaciones", () => {
+  test("ya no hay rótulo de simulado: las postulaciones son reales", () => {
     montar({ acciones: ["POSTULARME"] });
-    expect(screen.getByTestId("rotulo-simulado")).toHaveTextContent("postulaciones");
+    expect(screen.queryByTestId("rotulo-simulado")).toBeNull();
   });
 
-  test("avisar o retirar la ausencia no lleva el rótulo de simulado", () => {
-    montar({ acciones: ["AVISAR_AUSENCIA"] });
-    expect(screen.queryByTestId("rotulo-simulado")).toBeNull();
+  test("si el servidor rechaza la postulación, se muestra su mensaje", async () => {
+    const acc = acciones();
+    acc.postularme.mockRejectedValue(new Error("El turno no tiene una vacante abierta."));
+    montar({ acciones: ["POSTULARME"] }, acc);
+    await userEvent.click(screen.getByRole("button", { name: "Postularme" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("no tiene una vacante abierta");
+  });
+
+  test("si el servidor rechaza el retiro de la postulación, se muestra su mensaje", async () => {
+    const acc = acciones();
+    acc.retirarPostulacion.mockRejectedValue(new Error("La postulación ya estaba retirada."));
+    montar({ acciones: ["RETIRAR_POSTULACION"] }, acc);
+    await userEvent.click(screen.getByRole("button", { name: "Retirar postulación" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("ya estaba retirada");
   });
 
   test("si el servidor rechaza el aviso, se muestra su mensaje y se conserva el motivo", async () => {
@@ -60,7 +72,6 @@ describe("DetalleTurno", () => {
   });
 
   test.each([
-    ["RETIRAR_AVISO", "Retirar aviso", "retirarAviso"],
     ["POSTULARME", "Postularme", "postularme"],
     ["RETIRAR_POSTULACION", "Retirar postulación", "retirarPostulacion"],
   ])("acción %s", async (accion, texto, funcion) => {
@@ -69,14 +80,42 @@ describe("DetalleTurno", () => {
     expect(acc[funcion]).toHaveBeenCalledWith("7:2026-10-12");
   });
 
+  test("retirar el aviso usa el id de la vacante que informa el turno", async () => {
+    const { acc } = montar({ acciones: ["RETIRAR_AVISO"] });
+    await userEvent.click(screen.getByRole("button", { name: "Retirar aviso" }));
+    expect(acc.retirarAviso).toHaveBeenCalledWith(12);
+  });
+
+  test("coordinador: generar vacante pide motivo y llama a la misma acción", async () => {
+    const { acc } = montar({ acciones: ["GENERAR_VACANTE"] });
+    await userEvent.click(screen.getByRole("button", { name: "Generar vacante" }));
+    expect(acc.avisarAusencia).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert")).toHaveTextContent("Escribí el motivo");
+    await userEvent.type(screen.getByLabelText(/Motivo/), "Licencia");
+    await userEvent.click(screen.getByRole("button", { name: "Generar vacante" }));
+    expect(acc.avisarAusencia).toHaveBeenCalledWith("7:2026-10-12", "Licencia");
+    expect(screen.queryByRole("button", { name: "Avisar ausencia" })).toBeNull();
+  });
+
+  test("coordinador: retirar la vacante usa el id del turno", async () => {
+    const { acc } = montar({ acciones: ["RETIRAR_VACANTE"] });
+    await userEvent.click(screen.getByRole("button", { name: "Retirar vacante" }));
+    expect(acc.retirarAviso).toHaveBeenCalledWith(12);
+  });
+
+  test("muestra quién generó la vacante y el panel de coordinación si lo hay", () => {
+    montar({ tipo: "VACANTE", etiqueta: "Vacante", acciones: [] }, acciones(), vi.fn(), <p>Panel de prueba</p>);
+    expect(screen.getByText(/Generada por Carlos Ruiz/)).toBeVisible();
+    expect(screen.getByText("Panel de prueba")).toBeVisible();
+  });
+
   test("sin acciones no hay botones de acción", () => {
     montar({ acciones: [] });
     expect(screen.queryByRole("button", { name: /Avisar|Postularme|Retirar/ })).toBeNull();
   });
 
-  test("lista postulantes y marca urgente", () => {
-    montar({ tipo: "VACANTE", etiqueta: "Vacante urgente", urgente: true, postulantes: [{ id: -1, nombre: "Florencia" }] });
-    expect(screen.getByText("Florencia")).toBeVisible();
+  test("marca la vacante urgente", () => {
+    montar({ tipo: "VACANTE", etiqueta: "Vacante urgente", urgente: true });
     expect(screen.getByText("Vacante urgente")).toBeVisible();
   });
 

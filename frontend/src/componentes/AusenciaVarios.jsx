@@ -28,7 +28,7 @@ export default function AusenciaVarios({ api, usuario, ahora, ausencias, onCerra
         t.fecha >= desde &&
         t.fecha <= hasta &&
         (esCoordinador ? t.titular !== null : t.titular?.id === usuario.id) &&
-        ausencias.abiertas[t.id] === undefined,
+        t.vacante == null,
     );
     setTurnos(mios);
     setElegidos(mios.slice(0, MAX_LOTE).map((t) => t.id));

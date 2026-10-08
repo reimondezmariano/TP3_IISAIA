@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App.jsx";
+import { registrarServiceWorker } from "./lib/pwa.js";
 import { crearAuthSupabase } from "./lib/supabase.js";
 import { SesionProvider } from "./sesion/SesionProvider.jsx";
 import "./estilos.css";
@@ -19,3 +20,5 @@ function raiz() {
 }
 
 createRoot(document.getElementById("root")).render(<StrictMode>{raiz()}</StrictMode>);
+
+registrarServiceWorker();

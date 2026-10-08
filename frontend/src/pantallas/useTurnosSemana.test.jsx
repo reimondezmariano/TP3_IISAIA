@@ -53,4 +53,24 @@ describe("useTurnosSemana", () => {
     expect(result.current.estado).toBe("ok");
     await waitFor(() => expect(result.current.turnos).toEqual([{ id: "despues" }]));
   });
+
+  test("una respuesta de refrescar de la semana anterior no pisa la semana actual", async () => {
+    let resolverRefresco;
+    const api = {
+      get: vi.fn((ruta, { desde }) => {
+        if (desde === "2026-10-12") return Promise.resolve([{ id: "semana-b" }]);
+        return api.get.mock.calls.filter(([, c]) => c.desde === "2026-10-05").length === 1
+          ? Promise.resolve([{ id: "semana-a" }])
+          : new Promise((r) => { resolverRefresco = r; });
+      }),
+    };
+    const { result, rerender } = renderHook(({ lunes }) => useTurnosSemana(api, lunes, { alCuentaCambiada: vi.fn() }), { initialProps: { lunes: "2026-10-05" } });
+    await waitFor(() => expect(result.current.turnos).toEqual([{ id: "semana-a" }]));
+    let refresco;
+    act(() => { refresco = result.current.refrescar(); });
+    rerender({ lunes: "2026-10-12" });
+    await waitFor(() => expect(result.current.turnos).toEqual([{ id: "semana-b" }]));
+    await act(async () => { resolverRefresco([{ id: "semana-a-vieja" }]); await refresco; });
+    expect(result.current.turnos).toEqual([{ id: "semana-b" }]);
+  });
 });

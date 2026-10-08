@@ -57,6 +57,7 @@ export function crearClienteApi({ obtenerToken, alSesionInvalida = () => {}, fet
   return {
     get: (ruta, consulta) => pedir("GET", ruta, { consulta }),
     post: (ruta, cuerpo) => pedir("POST", ruta, { cuerpo }),
+    put: (ruta, cuerpo) => pedir("PUT", ruta, { cuerpo }),
     patch: (ruta, cuerpo) => pedir("PATCH", ruta, { cuerpo }),
   };
 }

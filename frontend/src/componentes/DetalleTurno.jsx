@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { etiquetaDia, fechaLocal, horaLocal } from "../lib/fechas.js";
 
-export default function DetalleTurno({ turno, estado, acciones, onCerrar }) {
+export default function DetalleTurno({ turno, estado, acciones, panel = null, onCerrar }) {
   const [motivo, setMotivo] = useState("");
   const [intentoSinMotivo, setIntentoSinMotivo] = useState(false);
   const [accionError, setAccionError] = useState(null);
@@ -9,7 +9,7 @@ export default function DetalleTurno({ turno, estado, acciones, onCerrar }) {
   const diaSiguiente = fechaLocal(turno.fin) !== turno.fecha;
   const puede = (accion) => estado.acciones.includes(accion);
 
-  // Las acciones de ausencia van a la API: se espera la respuesta y se muestra su error.
+  // Las acciones de ausencia y postulación van a la API: se espera la respuesta y se muestra su error.
   async function ejecutar(accion) {
     if (haciendo) return;
     setHaciendo(true);
@@ -35,17 +35,10 @@ export default function DetalleTurno({ turno, estado, acciones, onCerrar }) {
       setMotivo("");
     });
   }
-  const simulada = puede("POSTULARME") || puede("RETIRAR_POSTULACION") || estado.postulantes.length > 0;
-
   return (
     <div className="detalle-fondo">
       <section className="detalle" role="dialog" aria-modal="true" aria-labelledby="detalle-titulo">
         <h2 id="detalle-titulo">Detalle de la guardia</h2>
-        {simulada && (
-          <p data-testid="rotulo-simulado" className="aviso">
-            Simulado: las postulaciones todavía no están conectadas al servidor; lo que hagas acá solo vive en esta pestaña.
-          </p>
-        )}
         <dl>
           <dt>Día</dt>
           <dd>{etiquetaDia(turno.fecha)}</dd>
@@ -59,28 +52,31 @@ export default function DetalleTurno({ turno, estado, acciones, onCerrar }) {
               <dd><strong>{estado.etiqueta}</strong></dd>
             </>
           )}
+          {turno.vacante && (
+            <>
+              <dt>Vacante</dt>
+              <dd>Generada por {turno.vacante.generadaPor.nombre}</dd>
+            </>
+          )}
         </dl>
-        {estado.postulantes.length > 0 && (
-          <>
-            <h3>Postulantes</h3>
-            <ul>{estado.postulantes.map((p) => <li key={p.id}>{p.nombre}</li>)}</ul>
-          </>
-        )}
-        {puede("AVISAR_AUSENCIA") && (
+        {(puede("AVISAR_AUSENCIA") || puede("GENERAR_VACANTE")) && (
           <form onSubmit={avisar} noValidate>
             <label>
               Motivo (solo lo ven los coordinadores)
               <input value={motivo} onChange={(e) => setMotivo(e.target.value)} maxLength={500} />
             </label>
             {intentoSinMotivo && !motivo.trim() && <p role="alert" className="error">Escribí el motivo de la ausencia.</p>}
-            <button type="submit" disabled={haciendo}>{haciendo ? "Enviando…" : "Avisar ausencia"}</button>
+            <button type="submit" disabled={haciendo}>{haciendo ? "Enviando…" : puede("GENERAR_VACANTE") ? "Generar vacante" : "Avisar ausencia"}</button>
           </form>
         )}
-        {puede("RETIRAR_AVISO") && (
-          <button type="button" disabled={haciendo} onClick={() => ejecutar(() => acciones.retirarAviso(turno.id))}>Retirar aviso</button>
+        {(puede("RETIRAR_AVISO") || puede("RETIRAR_VACANTE")) && (
+          <button type="button" disabled={haciendo} onClick={() => ejecutar(() => acciones.retirarAviso(turno.vacante.id))}>
+            {puede("RETIRAR_VACANTE") ? "Retirar vacante" : "Retirar aviso"}
+          </button>
         )}
-        {puede("POSTULARME") && <button type="button" onClick={() => acciones.postularme(turno.id)}>Postularme</button>}
-        {puede("RETIRAR_POSTULACION") && <button type="button" onClick={() => acciones.retirarPostulacion(turno.id)}>Retirar postulación</button>}
+        {puede("POSTULARME") && <button type="button" disabled={haciendo} onClick={() => ejecutar(() => acciones.postularme(turno.id))}>Postularme</button>}
+        {puede("RETIRAR_POSTULACION") && <button type="button" disabled={haciendo} onClick={() => ejecutar(() => acciones.retirarPostulacion(turno.id))}>Retirar postulación</button>}
+        {panel}
         {accionError && <p role="alert" className="error">{accionError}</p>}
         <button type="button" className="secundario" onClick={onCerrar}>Cerrar</button>
       </section>

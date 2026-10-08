@@ -3,11 +3,11 @@ import { simularApi, simularSupabase } from "./ayudas.js";
 
 const ME = { id: 1, nombre: "Ana Gómez", email: "ana@x.com", rol: "MEDICO", estado: "ACTIVO" };
 const turno = (horarioId, fecha, hi, hf, finFecha, titular) => ({
-  id: `${horarioId}:${fecha}`, horarioId, fecha, inicio: `${fecha}T${hi}:00-03:00`, fin: `${finFecha}T${hf}:00-03:00`, duracionHoras: 8, titular,
+  id: `${horarioId}:${fecha}`, horarioId, fecha, inicio: `${fecha}T${hi}:00-03:00`, fin: `${finFecha}T${hf}:00-03:00`, duracionHoras: 8, titular, vacante: null,
 });
 const TURNOS = [
   turno(1, "2026-10-09", "08:00", "16:00", "2026-10-09", { id: 1, nombre: "Ana Gómez" }),
-  turno(2, "2026-10-10", "20:00", "08:00", "2026-10-11", { id: 3, nombre: "Carlos Ruiz" }),
+  { ...turno(2, "2026-10-10", "20:00", "08:00", "2026-10-11", { id: 3, nombre: "Carlos Ruiz" }), vacante: { id: 40, urgente: false, generadaPor: { id: 3, nombre: "Carlos Ruiz" } } },
   turno(3, "2026-10-11", "08:00", "16:00", "2026-10-11", null),
 ];
 
@@ -128,14 +128,40 @@ test("servidor caído al pedir la semana: mensaje y reintento", async ({ page })
   await expect(page.getByText("No hay guardias esta semana.")).toBeVisible();
 });
 
-test("simulado: el médico se postula a una baja (las postulaciones todavía no están en el servidor)", async ({ page }) => {
+test("el médico se postula con la API real, ve el error si la vacante se cerró y retira la postulación", async ({ page }) => {
   await simularSupabase(page);
-  await simularApi(page, { me: ME, turnos: TURNOS });
+  const llamadas = [];
+  await simularApi(page, {
+    me: ME,
+    turnos: TURNOS,
+    extra: (url, peticion, json) => {
+      if (peticion.method() !== "POST") return undefined;
+      llamadas.push(url.pathname);
+      if (url.pathname === "/api/turnos/3:2026-10-11/postulaciones") {
+        return json(201, { id: 31, turnoId: "3:2026-10-11", medico: { id: 1, nombre: "Ana Gómez" }, creadaEn: "2026-10-07T10:00:00-03:00", retiradaEn: null });
+      }
+      if (url.pathname === "/api/turnos/2:2026-10-10/postulaciones") {
+        return json(409, { codigo: "TURNO_SIN_VACANTE", mensaje: "El turno no tiene una vacante abierta." });
+      }
+      if (url.pathname === "/api/postulaciones/31/retiro") {
+        return json(200, { id: 31, turnoId: "3:2026-10-11", medico: { id: 1, nombre: "Ana Gómez" }, creadaEn: "2026-10-07T10:00:00-03:00", retiradaEn: "2026-10-07T10:05:00-03:00" });
+      }
+      return undefined;
+    },
+  });
   await ingresar(page);
+  await page.locator('[data-turno-id="2:2026-10-10"]').click();
+  await page.getByRole("button", { name: "Postularme" }).click();
+  await expect(page.getByRole("alert")).toContainText("no tiene una vacante abierta");
+  await page.getByRole("button", { name: "Cerrar", exact: true }).click();
   await page.locator('[data-turno-id="3:2026-10-11"]').click();
-  await expect(page.getByTestId("rotulo-simulado")).toBeVisible();
   await page.getByRole("button", { name: "Postularme" }).click();
   await expect(page.getByRole("button", { name: "Retirar postulación" })).toBeVisible();
+  await page.reload();
+  await page.locator('[data-turno-id="3:2026-10-11"]').click();
+  await page.getByRole("button", { name: "Retirar postulación" }).click();
+  await expect(page.getByRole("button", { name: "Postularme" })).toBeVisible();
+  expect(llamadas).toEqual(["/api/turnos/2:2026-10-10/postulaciones", "/api/turnos/3:2026-10-11/postulaciones", "/api/postulaciones/31/retiro"]);
 });
 
 test("en pantalla de celular el calendario no desborda horizontalmente", async ({ page }) => {

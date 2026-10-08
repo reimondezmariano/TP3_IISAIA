@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import IndicadorSinCobertura from "../coordinacion/IndicadorSinCobertura.jsx";
+import PanelCobertura from "../coordinacion/PanelCobertura.jsx";
 import Cargando from "../componentes/Cargando.jsx";
 import AusenciaVarios from "../componentes/AusenciaVarios.jsx";
 import DetalleTurno from "../componentes/DetalleTurno.jsx";
@@ -8,8 +10,9 @@ import {
 } from "../lib/fechas.js";
 import { ESTADOS } from "../lib/semaforo.js";
 import { useSesion } from "../sesion/useSesion.js";
-import { useVacantesSimuladas } from "../simulado/useVacantesSimuladas.js";
+import { derivarEstado } from "../lib/estadoTurno.js";
 import { useAusencias } from "./useAusencias.js";
+import { usePostulaciones } from "./usePostulaciones.js";
 import { useTurnosSemana } from "./useTurnosSemana.js";
 
 export default function Calendario() {
@@ -44,18 +47,37 @@ function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }
   const porDia = useMemo(() => agruparPorDia(turnos, dias), [turnos, dias]);
   const visibles = dias.reduce((total, dia) => total + porDia[dia].length, 0);
   const hoy = fechaLocal(ahora);
-  const ausencias = useAusencias(api, usuario);
-  const simulado = useVacantesSimuladas({ usuario, ahora, reales: ausencias.abiertas });
-  const acciones = { ...simulado, avisarAusencia: ausencias.avisar, retirarAviso: ausencias.retirar };
-  const [seleccionado, setSeleccionado] = useState(null);
+  const ausencias = useAusencias(api, usuario, { alCambiar: refrescar });
+  const postulaciones = usePostulaciones(api, usuario);
+  const estadoDe = (turno) =>
+    derivarEstado({
+      turno, usuario, ahora,
+      postulado: postulaciones.postuladas[turno.id] !== undefined,
+    });
+  const acciones = {
+    avisarAusencia: ausencias.avisar, retirarAviso: ausencias.retirar,
+    postularme: postulaciones.postular, retirarPostulacion: postulaciones.retirar,
+  };
+  // Se guarda el id y se busca en la lista vigente: al recargar, el detalle muestra la vacante nueva.
+  const [seleccionadoId, setSeleccionadoId] = useState(null);
+  const seleccionado = turnos.find((t) => t.id === seleccionadoId) ?? null;
+  // El panel de cobertura solo se pide para turnos con vacante o BAJA, y se mantiene abierto aunque la acción
+  // cierre la vacante (así sigue visible el resultado). `version` vuelve a pedir el indicador del mes.
+  const [panelPara, setPanelPara] = useState(null);
+  const [version, setVersion] = useState(0);
+  const abrir = (t) => {
+    setSeleccionadoId(t.id);
+    setPanelPara(t.vacante || t.titular === null ? t.id : null);
+  };
+  const estadoSel = seleccionado ? estadoDe(seleccionado) : null;
+  const verPanel = seleccionado && usuario.rol === "COORDINADOR" && estadoSel.tipo !== "PASADO" &&
+    (panelPara === seleccionado.id || seleccionado.vacante || seleccionado.titular === null);
+  const trasCobertura = async () => {
+    await refrescar();
+    setVersion((v) => v + 1);
+  };
   const [variasFechas, setVariasFechas] = useState(false);
-  useEffect(() => setSeleccionado(null), [lunes]);
-  // El semáforo sale de la vacante que trae GET /api/turnos: al avisar o retirar una ausencia, se vuelve a pedir.
-  const primeraVez = useRef(true);
-  useEffect(() => {
-    if (primeraVez.current) primeraVez.current = false;
-    else refrescar();
-  }, [ausencias.abiertas, refrescar]);
+  useEffect(() => setSeleccionadoId(null), [lunes]);
 
   return (
     <main className="calendario">
@@ -66,6 +88,7 @@ function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }
         </div>
         <button type="button" className="secundario" onClick={cerrarSesion}>Cerrar sesión</button>
       </header>
+      {usuario.rol === "COORDINADOR" && <IndicadorSinCobertura key={version} api={api} ahora={ahora} />}
       <nav className="navegacion" aria-label="Semana">
         <button type="button" onClick={() => setLunes(sumarDias(lunes, -7))}>Semana anterior</button>
         <button type="button" className="secundario" onClick={() => setLunes(lunesDe(hoy))}>Hoy</button>
@@ -93,7 +116,7 @@ function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }
             <section key={dia} className="dia" data-fecha={dia} aria-current={dia === hoy ? "date" : undefined}>
               <h3>{etiquetaDia(dia)}</h3>
               {porDia[dia].map((turno) => (
-                <TarjetaTurno key={turno.id} turno={turno} usuario={usuario} onAbrir={setSeleccionado} />
+                <TarjetaTurno key={turno.id} turno={turno} usuario={usuario} onAbrir={abrir} />
               ))}
             </section>
           ))}
@@ -102,9 +125,10 @@ function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }
       {seleccionado && (
         <DetalleTurno
           turno={seleccionado}
-          estado={simulado.estadoDe(seleccionado)}
+          estado={estadoSel}
           acciones={acciones}
-          onCerrar={() => setSeleccionado(null)}
+          panel={verPanel ? <PanelCobertura api={api} turnoId={seleccionado.id} alCambiar={trasCobertura} /> : null}
+          onCerrar={() => setSeleccionadoId(null)}
         />
       )}
       {variasFechas && (

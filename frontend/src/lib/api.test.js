@@ -100,4 +100,14 @@ describe("crearClienteApi", () => {
     expect(opciones.headers.Authorization).toBe("Bearer tok-123");
     expect(JSON.parse(opciones.body)).toEqual({ rol: "COORDINADOR" });
   });
+
+  test("put manda PUT con cuerpo JSON y Bearer", async () => {
+    const { api, fetchImpl } = cliente();
+    await api.put("/api/turnos/7:2026-10-17/asignacion", { medicoId: 4, reasignar: false });
+    const [ruta, opciones] = fetchImpl.mock.calls[0];
+    expect(ruta).toBe("/api/turnos/7:2026-10-17/asignacion");
+    expect(opciones.method).toBe("PUT");
+    expect(opciones.headers.Authorization).toBe("Bearer tok-123");
+    expect(JSON.parse(opciones.body)).toEqual({ medicoId: 4, reasignar: false });
+  });
 });

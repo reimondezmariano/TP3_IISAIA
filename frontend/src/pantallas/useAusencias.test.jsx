@@ -1,49 +1,47 @@
 import { act, renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, test, vi } from "vitest";
+import { describe, expect, test, vi } from "vitest";
 import { ErrorApi } from "../lib/api.js";
-import { leerRecordadas, recordar } from "../lib/vacantes.js";
 import { useAusencias } from "./useAusencias.js";
 
 const medico = { id: 1, nombre: "Ana", rol: "MEDICO" };
-beforeEach(() => window.localStorage.clear());
 
 describe("useAusencias", () => {
-  test("avisar guarda el id de la vacante y lo recuerda", async () => {
+  test("avisar genera la vacante y avisa que hubo un cambio", async () => {
     const api = { post: vi.fn(async () => ({ id: 12, turnoId: "7:2026-10-17" })) };
-    const { result } = renderHook(() => useAusencias(api, medico));
+    const alCambiar = vi.fn();
+    const { result } = renderHook(() => useAusencias(api, medico, { alCambiar }));
     await act(() => result.current.avisar("7:2026-10-17", "Congreso"));
-    expect(result.current.abiertas).toEqual({ "7:2026-10-17": 12 });
-    expect(leerRecordadas(1)).toEqual({ "7:2026-10-17": 12 });
+    expect(api.post).toHaveBeenCalledWith("/api/turnos/7:2026-10-17/vacantes", { motivo: "Congreso" });
+    expect(alCambiar).toHaveBeenCalledTimes(1);
   });
 
-  test("retirar llama al retiro con el id guardado y lo olvida", async () => {
-    recordar(1, "7:2026-10-17", 12);
+  test("retirar usa el id de la vacante que informa el turno y avisa del cambio", async () => {
     const api = { post: vi.fn(async () => ({ id: 12 })) };
-    const { result } = renderHook(() => useAusencias(api, medico));
-    await act(() => result.current.retirar("7:2026-10-17"));
+    const alCambiar = vi.fn();
+    const { result } = renderHook(() => useAusencias(api, medico, { alCambiar }));
+    await act(() => result.current.retirar(12));
     expect(api.post).toHaveBeenCalledWith("/api/vacantes/12/retiro");
-    expect(result.current.abiertas).toEqual({});
-    expect(leerRecordadas(1)).toEqual({});
+    expect(alCambiar).toHaveBeenCalledTimes(1);
   });
 
-  test("si la vacante ya no está abierta, se olvida y el error se propaga", async () => {
-    recordar(1, "7:2026-10-17", 12);
+  test("si la vacante ya no estaba abierta, el error se propaga y se refresca el calendario", async () => {
     const api = { post: vi.fn().mockRejectedValue(new ErrorApi(409, "VACANTE_NO_ABIERTA", "La vacante ya no está abierta.")) };
-    const { result } = renderHook(() => useAusencias(api, medico));
+    const alCambiar = vi.fn();
+    const { result } = renderHook(() => useAusencias(api, medico, { alCambiar }));
     await act(async () => {
-      await expect(result.current.retirar("7:2026-10-17")).rejects.toThrow("ya no está abierta");
+      await expect(result.current.retirar(12)).rejects.toThrow("ya no está abierta");
     });
-    expect(result.current.abiertas).toEqual({});
+    expect(alCambiar).toHaveBeenCalledTimes(1);
   });
 
-  test("otro error al retirar (sin conexión) conserva la vacante", async () => {
-    recordar(1, "7:2026-10-17", 12);
+  test("un error de red al retirar no refresca nada", async () => {
     const api = { post: vi.fn().mockRejectedValue(new ErrorApi(0, "SIN_CONEXION", "Sin conexión.")) };
-    const { result } = renderHook(() => useAusencias(api, medico));
+    const alCambiar = vi.fn();
+    const { result } = renderHook(() => useAusencias(api, medico, { alCambiar }));
     await act(async () => {
-      await expect(result.current.retirar("7:2026-10-17")).rejects.toThrow();
+      await expect(result.current.retirar(12)).rejects.toThrow();
     });
-    expect(result.current.abiertas).toEqual({ "7:2026-10-17": 12 });
+    expect(alCambiar).not.toHaveBeenCalled();
   });
 
   test("varios (médico): de a una; si una falla las demás siguen", async () => {

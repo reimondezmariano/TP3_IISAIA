@@ -4,7 +4,7 @@ import { simularApi, simularSupabase } from "./ayudas.js";
 const MEDICO = { id: 1, nombre: "Ana Gómez", email: "ana@x.com", rol: "MEDICO", estado: "ACTIVO" };
 const COORDINADOR = { id: 9, nombre: "Enzo", email: "ana@x.com", rol: "COORDINADOR", estado: "ACTIVO" };
 const turno = (horarioId, fecha, titular) => ({
-  id: `${horarioId}:${fecha}`, horarioId, fecha, inicio: `${fecha}T08:00:00-03:00`, fin: `${fecha}T16:00:00-03:00`, duracionHoras: 8, titular,
+  id: `${horarioId}:${fecha}`, horarioId, fecha, inicio: `${fecha}T08:00:00-03:00`, fin: `${fecha}T16:00:00-03:00`, duracionHoras: 8, titular, vacante: null,
 });
 const ANA = { id: 1, nombre: "Ana Gómez" };
 
@@ -15,20 +15,23 @@ async function ingresar(page) {
   await page.getByRole("button", { name: "Ingresar", exact: true }).last().click();
 }
 
-test("el médico avisa su ausencia con la API real y la retira", async ({ page }) => {
+test("el médico avisa su ausencia con la API real y la retira usando el id de la vacante que informa el servidor", async ({ page }) => {
   await simularSupabase(page);
   const llamadas = [];
+  let vacante = null; // lo que el servidor informa en GET /api/turnos
   await simularApi(page, {
     me: MEDICO,
-    turnos: [turno(1, "2026-10-09", ANA)],
+    turnos: () => [{ ...turno(1, "2026-10-09", ANA), vacante }],
     extra: (url, peticion, json) => {
       if (peticion.method() !== "POST") return undefined;
       llamadas.push({ ruta: url.pathname, cuerpo: peticion.postDataJSON() });
       if (url.pathname === "/api/turnos/1:2026-10-09/vacantes") {
+        vacante = { id: 12, urgente: false, generadaPor: ANA };
         return json(201, { id: 12, turnoId: "1:2026-10-09", estado: "ABIERTA", urgente: false, motivo: null, generadaPor: ANA, creadaEn: "2026-10-07T10:00:00-03:00", cerradaEn: null });
       }
       if (url.pathname === "/api/vacantes/12/retiro") {
-        return json(200, { id: 12, turnoId: "1:2026-10-09", estado: "RETIRADA", urgente: false, motivo: null, generadaPor: ANA, creadaEn: "2026-10-07T10:00:00-03:00", cerradaEn: "2026-10-07T10:01:00-03:00" });
+        vacante = null;
+        return json(200, { id: 12, turnoId: "1:2026-10-09", estado: "RETIRADA", urgente: false, generadaPor: ANA, creadaEn: "2026-10-07T10:00:00-03:00", cerradaEn: "2026-10-07T10:01:00-03:00" });
       }
       return undefined;
     },
@@ -39,9 +42,9 @@ test("el médico avisa su ausencia con la API real y la retira", async ({ page }
   await page.getByRole("button", { name: "Avisar ausencia", exact: true }).click();
   await expect(page.getByRole("button", { name: "Retirar aviso" })).toBeVisible();
   expect(llamadas[0]).toEqual({ ruta: "/api/turnos/1:2026-10-09/vacantes", cuerpo: { motivo: "Congreso" } });
+  await page.evaluate(() => Object.keys(window.localStorage).filter((k) => k.startsWith("guardia-viva:")).forEach((k) => window.localStorage.removeItem(k))); // nada de la vacante depende del navegador
   await page.reload();
   await page.getByTestId("turno").click();
-  await expect(page.getByRole("button", { name: "Retirar aviso" })).toBeVisible(); // se recuerda en este dispositivo
   await page.getByRole("button", { name: "Retirar aviso" }).click();
   await expect(page.getByRole("button", { name: "Avisar ausencia", exact: true })).toBeVisible();
   expect(llamadas.at(-1).ruta).toBe("/api/vacantes/12/retiro");
