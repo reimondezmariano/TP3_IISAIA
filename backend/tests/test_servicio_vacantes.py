@@ -92,6 +92,21 @@ def test_vacante_con_menos_de_24_h_es_urgente_y_notifica_a_los_medicos_activos(s
     assert all(n.turno_id == resultado.turno.id and n.creada_en == reloj.ahora() for n in notificaciones)
 
 
+def test_la_urgencia_llega_al_medico_con_baja_hasta_su_ultimo_dia_y_no_despues(sesion, reloj):
+    carlos = crear_usuario(sesion, "Carlos")
+    de_baja_manana = crear_usuario(sesion, "De baja mañana", estado=EstadoUsuario.BAJA, fecha_baja=date(2026, 10, 13))
+    de_baja_hoy = crear_usuario(sesion, "De baja hoy", estado=EstadoUsuario.BAJA, fecha_baja=date(2026, 10, 12))
+    ya_de_baja = crear_usuario(sesion, "Ya de baja", estado=EstadoUsuario.BAJA, fecha_baja=date(2026, 10, 11))
+    horario = crear_horario_de_prueba(sesion, carlos.id)
+
+    generar(sesion, reloj, horario.id, URGENTE, carlos)
+
+    # D24: la cuenta entra hasta su fecha de baja inclusive; el reloj está en el lunes 12/10.
+    notificados = {n.usuario_id for n in sesion.scalars(select(Notificacion))}
+    assert notificados == {de_baja_manana.id, de_baja_hoy.id}
+    assert ya_de_baja.id not in notificados
+
+
 def test_vacante_con_mas_de_24_h_no_notifica(sesion, reloj):
     carlos = crear_usuario(sesion, "Carlos")
     crear_usuario(sesion, "Mariano")

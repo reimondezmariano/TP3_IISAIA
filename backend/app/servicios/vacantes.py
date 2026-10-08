@@ -8,13 +8,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.dominio.calendario import parsear_id_turno
+from app.dominio.notificaciones import TipoNotificacion
 from app.dominio.vacantes import asignado_a_restaurar, es_urgente, puede_generar, puede_retirar
 from app.errores import ErrorDominio
 from app.modelos import (
-    EstadoUsuario,
     EstadoVacante,
     EventoTurno,
-    Notificacion,
     RolUsuario,
     TipoEventoTurno,
     Turno,
@@ -23,6 +22,7 @@ from app.modelos import (
 )
 from app.reloj import Reloj
 from app.repos.turnos import bloquear_turnos, materializar_turno
+from app.servicios.notificaciones import destinatarios, notificar
 
 
 @dataclass(frozen=True)
@@ -76,25 +76,18 @@ def generar_vacante(
     return ResultadoVacante(vacante, turno, urgente, asignado_anterior_id)
 
 
-def _avisar_urgencia(sesion, turno: Turno, vacante: Vacante, turno_id: str, actor: Usuario, zona, ahora) -> None:
-    medicos = sesion.scalars(
-        select(Usuario)
-        .where(Usuario.rol == RolUsuario.MEDICO, Usuario.estado == EstadoUsuario.ACTIVO, Usuario.id != actor.id)
-        .order_by(Usuario.id)
-    )
+def _avisar_urgencia(sesion: Session, turno: Turno, vacante: Vacante, turno_id: str, actor: Usuario, zona, ahora) -> None:
+    """Aviso a los médicos con acceso hoy, salvo quien generó la vacante (D05, D24). Usa `notificar` de F4."""
     inicio = turno.inicio.astimezone(zona)
-    for medico in medicos:
-        sesion.add(
-            Notificacion(
-                usuario_id=medico.id,
-                tipo="VACANTE_URGENTE",
-                mensaje=f"Vacante urgente: guardia del {inicio:%d/%m} a las {inicio:%H:%M}.",
-                turno_id=turno.id,
-                datos={"turnoId": turno_id, "vacanteId": vacante.id},
-                creada_en=ahora,
-            )
-        )
-    sesion.flush()
+    notificar(
+        sesion,
+        destinatarios(sesion, RolUsuario.MEDICO, ahora.astimezone(zona).date(), excepto=[actor.id]),
+        TipoNotificacion.VACANTE_URGENTE,
+        f"Vacante urgente: guardia del {inicio:%d/%m} a las {inicio:%H:%M}.",
+        ahora,
+        turno=turno,
+        datos={"turnoId": turno_id, "vacanteId": vacante.id},
+    )
 
 
 def generar_lote(
