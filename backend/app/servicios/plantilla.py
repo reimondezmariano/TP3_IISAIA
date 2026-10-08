@@ -23,6 +23,7 @@ from app.repos.horarios import (
     datos_de,
     nueva_version,
     turnos_afectados,
+    versiones_del_medico_desde,
 )
 from app.repos.usuarios import bloquear_usuario
 
@@ -95,3 +96,27 @@ def cerrar_horario(sesion: Session, horario_id: int, desde: date, hoy: date) -> 
     next(v for v in versiones if v.id == cubre_id).vigente_hasta = desde
     sesion.flush()
     return turnos_afectados(sesion, [horario_id], desde)
+
+
+def dejar_sin_titular(
+    sesion: Session, medico_id: int, desde: date, hoy: date
+) -> tuple[list[int], list[TurnoAfectado]]:
+    """Abre en `desde` una versión sin titular en cada horario del médico (D23, D24).
+
+    Quien llama ya bloqueó al médico: nadie puede designarlo titular mientras tanto. Cada horario se bloquea
+    antes de mirar sus versiones, así un cambio simultáneo de otro coordinador no se pierde.
+    """
+    validar_desde(desde, hoy)
+    horario_ids = sorted({v.horario_id for v in versiones_del_medico_desde(sesion, medico_id, desde)})
+    for horario_id in horario_ids:
+        versiones = bloquear_horario(sesion, horario_id)
+        futura = next((v for v in versiones if v.medico_id == medico_id and v.vigente_desde >= desde), None)
+        if futura is not None:
+            raise ErrorDominio(
+                "VERSION_FUTURA_DEL_MEDICO",
+                f"El médico es titular de una versión del horario {horario_id} que empieza el "
+                f"{futura.vigente_desde:%d/%m/%Y}: cambiala antes de continuar.",
+                409,
+            )
+        _partir(sesion, horario_id, versiones, {"medico_id": None}, desde)
+    return horario_ids, turnos_afectados(sesion, horario_ids, desde)

@@ -13,7 +13,7 @@ from app.modelos import EstadoUsuario, RolUsuario, Usuario, VersionHorario
 from app.reloj import Reloj, get_reloj, hoy
 from app.repos.horarios import versiones_no_terminadas_por_medico
 from app.repos.usuarios import listar_usuarios
-from app.servicios.usuarios import ResultadoCambio, activar
+from app.servicios.usuarios import ResultadoCambio, activar, dar_de_baja
 
 router = APIRouter()
 
@@ -109,3 +109,22 @@ def modificar(
     resultado = activar(db, usuario_id)
     db.commit()
     return cambio_out(db, resultado, hoy(reloj))
+
+
+class BajaIn(Esquema):
+    fecha_baja: date  # último día activo (D24)
+
+
+@router.post("/usuarios/{usuario_id}/baja", response_model=CambioUsuarioOut)
+def baja(
+    usuario_id: int,
+    datos: BajaIn,
+    db: Session = Depends(get_db),
+    reloj: Reloj = Depends(get_reloj),
+    _coordinador: Usuario = Depends(requiere_coordinador),
+) -> CambioUsuarioOut:
+    """Da de baja a un médico: sus horarios quedan sin titular desde el día siguiente (D24)."""
+    dia = hoy(reloj)
+    resultado = dar_de_baja(db, usuario_id, datos.fecha_baja, dia)
+    db.commit()
+    return cambio_out(db, resultado, dia)

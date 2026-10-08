@@ -1,13 +1,15 @@
 """Operaciones de staff sobre usuarios (D23, D24, D26, D30). No hacen commit; nunca borran un usuario."""
 
 from dataclasses import dataclass, field
+from datetime import date, timedelta
 
 from sqlalchemy.orm import Session
 
 from app.errores import ErrorDominio
-from app.modelos import EstadoUsuario, Usuario
+from app.modelos import EstadoUsuario, RolUsuario, Usuario
 from app.repos.horarios import TurnoAfectado
 from app.repos.usuarios import bloquear_usuario
+from app.servicios.plantilla import dejar_sin_titular
 
 
 @dataclass(frozen=True)
@@ -34,3 +36,21 @@ def activar(sesion: Session, usuario_id: int) -> ResultadoCambio:
     usuario.estado = EstadoUsuario.ACTIVO
     sesion.flush()
     return ResultadoCambio(usuario)
+
+
+def dar_de_baja(sesion: Session, usuario_id: int, fecha_baja: date, hoy: date) -> ResultadoCambio:
+    """Baja definitiva de un médico (D24). `fecha_baja` es su último día activo (decisión 1 del plan de F5).
+
+    Sus horarios quedan sin titular desde el día siguiente. El estado pasa a BAJA ya, pero la cuenta
+    entra hasta `fecha_baja` inclusive (app/auth.py). Nunca se borra el usuario.
+    """
+    usuario = _bloquear(sesion, usuario_id)
+    if usuario.rol != RolUsuario.MEDICO:
+        raise ErrorDominio("BAJA_SOLO_MEDICOS", "Solo se da de baja a un médico; un coordinador pasa antes a médico.")
+    if fecha_baja < hoy:
+        raise ErrorDominio("FECHA_PASADA", f"La fecha de baja no puede ser anterior a hoy ({hoy:%d/%m/%Y}).")
+    horarios, afectados = dejar_sin_titular(sesion, usuario.id, fecha_baja + timedelta(days=1), hoy)
+    usuario.estado = EstadoUsuario.BAJA
+    usuario.fecha_baja = fecha_baja
+    sesion.flush()
+    return ResultadoCambio(usuario, horarios, afectados)

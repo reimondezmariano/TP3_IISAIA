@@ -203,3 +203,17 @@ def turnos_afectados(sesion: Session, horario_ids: Collection[int], desde: date)
         )
         for turno, t, a in sesion.execute(consulta).all()
     ]
+
+
+def versiones_del_medico_desde(sesion: Session, medico_id: int, desde: date) -> list[VersionHorario]:
+    """Versiones del médico que rigen en `desde` o después."""
+    return list(
+        sesion.scalars(
+            select(VersionHorario)
+            .where(
+                VersionHorario.medico_id == medico_id,
+                or_(VersionHorario.vigente_hasta.is_(None), VersionHorario.vigente_hasta > desde),
+            )
+            .order_by(VersionHorario.horario_id, VersionHorario.vigente_desde)
+        )
+    )
