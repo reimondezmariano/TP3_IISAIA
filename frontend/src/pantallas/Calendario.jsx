@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import IndicadorSinCobertura from "../coordinacion/IndicadorSinCobertura.jsx";
+import RelojDemo from "../coordinacion/RelojDemo.jsx";
 import PanelCobertura from "../coordinacion/PanelCobertura.jsx";
 import Cargando from "../componentes/Cargando.jsx";
 import AusenciaVarios from "../componentes/AusenciaVarios.jsx";
@@ -39,10 +40,10 @@ export default function Calendario() {
   }, [api]);
 
   if (lunes === null) return <Cargando texto="Cargando el calendario…" />;
-  return <Semana api={api} usuario={usuario} ahora={ahora} lunes={lunes} setLunes={setLunes} recargar={recargar} cerrarSesion={cerrarSesion} />;
+  return <Semana api={api} usuario={usuario} ahora={ahora} setAhora={setAhora} lunes={lunes} setLunes={setLunes} recargar={recargar} cerrarSesion={cerrarSesion} />;
 }
 
-function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }) {
+function Semana({ api, usuario, ahora, setAhora, lunes, setLunes, recargar, cerrarSesion }) {
   const hoy = fechaLocal(ahora);
   const [vista, setVista] = useState("semana");
   const [mes, setMes] = useState(mesDe(hoy));
@@ -89,6 +90,12 @@ function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }
     await refrescar();
     setVersion((v) => v + 1);
   };
+  // Con otro "ahora" cambian el semáforo, las acciones y el indicador del mes: se vuelve a pedir todo.
+  const cambioElReloj = async (nuevoAhora) => {
+    setAhora(nuevoAhora);
+    await refrescar();
+    setVersion((v) => v + 1);
+  };
   const [variasFechas, setVariasFechas] = useState(false);
   useEffect(() => setSeleccionadoId(null), [lunes, mes, vista]);
 
@@ -102,6 +109,7 @@ function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }
         <button type="button" className="secundario" onClick={cerrarSesion}>Cerrar sesión</button>
       </header>
       {usuario.rol === "COORDINADOR" && <IndicadorSinCobertura key={version} api={api} ahora={ahora} />}
+      {usuario.rol === "COORDINADOR" && <RelojDemo api={api} ahora={ahora} onCambio={cambioElReloj} />}
       <div className="vistas" role="group" aria-label="Vista del calendario">
         <button type="button" className="secundario" aria-pressed={!esMes} onClick={() => cambiarVista("semana")}>Semana</button>
         <button type="button" className="secundario" aria-pressed={esMes} onClick={() => cambiarVista("mes")}>Mes</button>

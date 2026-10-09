@@ -157,3 +157,6 @@ select { font: inherit; width: 100%; min-height: 44px; padding: 0.5rem 0.75rem; 
   .turno-mes-nombre { display: block; }
   .turno-mes { font-size: 0.75rem; }
 }
+.reloj-demo { background: var(--alerta-fondo); border: 1px dashed var(--alerta); border-radius: 12px; padding: 0.5rem 0.75rem; margin: 0 0 1rem; }
+.reloj-demo p { margin: 0 0 0.5rem; }
+.reloj-demo .barra { margin: 0; }

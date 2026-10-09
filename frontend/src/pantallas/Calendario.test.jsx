@@ -264,4 +264,39 @@ describe("Calendario del coordinador: panel de cobertura", () => {
       expect(await screen.findByText("5 al 11 de octubre de 2026")).toBeVisible();
     });
   });
+
+  describe("reloj de demo", () => {
+    const coordinador = { id: 9, nombre: "Enzo", rol: "COORDINADOR", estado: "ACTIVO" };
+
+    test("con la ruta disponible adelanta el reloj y recarga el calendario con el nuevo 'hoy'", async () => {
+      const post = vi.fn(async (ruta, cuerpo) => {
+        if (ruta === "/api/demo/reloj") {
+          if (!("ahora" in cuerpo)) throw new ErrorApi(422, "VALIDACION", "Falta ahora.");
+          return { ahora: cuerpo.ahora, desfaseHoras: 24 };
+        }
+        return {};
+      });
+      const api = montar({ turnosPorDesde: { "2026-10-05": SEMANA_ACTUAL }, post, usuario: coordinador });
+      await userEvent.click(await screen.findByRole("button", { name: "+1 día" }));
+      expect(post).toHaveBeenLastCalledWith("/api/demo/reloj", { ahora: "2026-10-08T13:00:00.000Z" });
+      await vi.waitFor(() => expect(document.querySelector('[data-fecha="2026-10-08"]')).toHaveAttribute("aria-current", "date"));
+      expect(api.get.mock.calls.filter(([ruta]) => ruta === "/api/turnos").length).toBeGreaterThan(1);
+    });
+
+    test("sin modo demo (404) el coordinador no ve el control", async () => {
+      const post = vi.fn().mockRejectedValue(new ErrorApi(404, "NO_ENCONTRADO", "Not Found"));
+      montar({ turnosPorDesde: { "2026-10-05": SEMANA_ACTUAL }, post, usuario: coordinador });
+      await screen.findAllByTestId("turno");
+      await vi.waitFor(() => expect(post).toHaveBeenCalledWith("/api/demo/reloj", {}));
+      expect(screen.queryByRole("button", { name: "+1 hora" })).toBeNull();
+    });
+
+    test("el médico nunca ve el control ni consulta la ruta", async () => {
+      const post = vi.fn(async () => ({}));
+      montar({ turnosPorDesde: { "2026-10-05": SEMANA_ACTUAL }, post });
+      await screen.findAllByTestId("turno");
+      expect(screen.queryByRole("button", { name: "+1 hora" })).toBeNull();
+      expect(post).not.toHaveBeenCalled();
+    });
+  });
 });
