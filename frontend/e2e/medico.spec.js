@@ -131,19 +131,22 @@ test("servidor caído al pedir la semana: mensaje y reintento", async ({ page })
 test("el médico se postula con la API real, ve el error si la vacante se cerró y retira la postulación", async ({ page }) => {
   await simularSupabase(page);
   const llamadas = [];
+  let miPostulacionId = null; // el servidor informa la postulación activa en GET /turnos
   await simularApi(page, {
     me: ME,
-    turnos: TURNOS,
+    turnos: () => TURNOS.map((t) => ({ ...t, miPostulacionId: t.id === "3:2026-10-11" ? miPostulacionId : null })),
     extra: (url, peticion, json) => {
       if (peticion.method() !== "POST") return undefined;
       llamadas.push(url.pathname);
       if (url.pathname === "/api/turnos/3:2026-10-11/postulaciones") {
+        miPostulacionId = 31;
         return json(201, { id: 31, turnoId: "3:2026-10-11", medico: { id: 1, nombre: "Ana Gómez" }, creadaEn: "2026-10-07T10:00:00-03:00", retiradaEn: null });
       }
       if (url.pathname === "/api/turnos/2:2026-10-10/postulaciones") {
         return json(409, { codigo: "TURNO_SIN_VACANTE", mensaje: "El turno no tiene una vacante abierta." });
       }
       if (url.pathname === "/api/postulaciones/31/retiro") {
+        miPostulacionId = null;
         return json(200, { id: 31, turnoId: "3:2026-10-11", medico: { id: 1, nombre: "Ana Gómez" }, creadaEn: "2026-10-07T10:00:00-03:00", retiradaEn: "2026-10-07T10:05:00-03:00" });
       }
       return undefined;

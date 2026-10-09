@@ -42,7 +42,6 @@ test("el médico avisa su ausencia con la API real y la retira usando el id de l
   await page.getByRole("button", { name: "Avisar ausencia", exact: true }).click();
   await expect(page.getByRole("button", { name: "Retirar aviso" })).toBeVisible();
   expect(llamadas[0]).toEqual({ ruta: "/api/turnos/1:2026-10-09/vacantes", cuerpo: { motivo: "Congreso" } });
-  await page.evaluate(() => Object.keys(window.localStorage).filter((k) => k.startsWith("guardia-viva:")).forEach((k) => window.localStorage.removeItem(k))); // nada de la vacante depende del navegador
   await page.reload();
   await page.getByTestId("turno").click();
   await page.getByRole("button", { name: "Retirar aviso" }).click();

@@ -75,7 +75,7 @@ export default function DetalleTurno({ turno, estado, acciones, panel = null, on
           </button>
         )}
         {puede("POSTULARME") && <button type="button" disabled={haciendo} onClick={() => ejecutar(() => acciones.postularme(turno.id))}>Postularme</button>}
-        {puede("RETIRAR_POSTULACION") && <button type="button" disabled={haciendo} onClick={() => ejecutar(() => acciones.retirarPostulacion(turno.id))}>Retirar postulación</button>}
+        {puede("RETIRAR_POSTULACION") && <button type="button" disabled={haciendo} onClick={() => ejecutar(() => acciones.retirarPostulacion(turno.miPostulacionId))}>Retirar postulación</button>}
         {panel}
         {accionError && <p role="alert" className="error">{accionError}</p>}
         <button type="button" className="secundario" onClick={onCerrar}>Cerrar</button>

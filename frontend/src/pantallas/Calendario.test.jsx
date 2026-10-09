@@ -140,7 +140,6 @@ describe("Calendario con ausencias", () => {
     await userEvent.click(await screen.findByTestId("turno"));
     await userEvent.click(screen.getByRole("button", { name: "Retirar aviso" }));
     expect(post).toHaveBeenCalledWith("/api/vacantes/12/retiro");
-    expect(window.localStorage.getItem("guardia-viva:vacantes:1")).toBeNull();
   });
 
   test("después de avisar la ausencia vuelve a pedir la semana para actualizar el semáforo", async () => {

@@ -11,8 +11,8 @@ const turno = {
 };
 const estadoBase = { tipo: "NORMAL", etiqueta: null, urgente: false, postulado: false, acciones: [] };
 const acciones = () => ({ avisarAusencia: vi.fn(async () => {}), retirarAviso: vi.fn(async () => {}), postularme: vi.fn(async () => {}), retirarPostulacion: vi.fn(async () => {}) });
-const montar = (estado, acc = acciones(), onCerrar = vi.fn(), panel = null) => {
-  render(<DetalleTurno turno={turno} estado={{ ...estadoBase, ...estado }} acciones={acc} panel={panel} onCerrar={onCerrar} />);
+const montar = (estado, acc = acciones(), onCerrar = vi.fn(), panel = null, datosTurno = {}) => {
+  render(<DetalleTurno turno={{ ...turno, ...datosTurno }} estado={{ ...estadoBase, ...estado }} acciones={acc} panel={panel} onCerrar={onCerrar} />);
   return { acc, onCerrar };
 };
 
@@ -28,6 +28,13 @@ describe("DetalleTurno", () => {
     montar({ acciones: ["POSTULARME"] }, acc);
     await userEvent.click(screen.getByRole("button", { name: "Postularme" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("no tiene una vacante abierta");
+  });
+
+  test("retirar la postulación usa el miPostulacionId del turno", async () => {
+    const acc = acciones();
+    montar({ acciones: ["RETIRAR_POSTULACION"] }, acc, vi.fn(), null, { miPostulacionId: 31 });
+    await userEvent.click(screen.getByRole("button", { name: "Retirar postulación" }));
+    expect(acc.retirarPostulacion).toHaveBeenCalledWith(31);
   });
 
   test("si el servidor rechaza el retiro de la postulación, se muestra su mensaje", async () => {
@@ -71,13 +78,10 @@ describe("DetalleTurno", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Escribí el motivo");
   });
 
-  test.each([
-    ["POSTULARME", "Postularme", "postularme"],
-    ["RETIRAR_POSTULACION", "Retirar postulación", "retirarPostulacion"],
-  ])("acción %s", async (accion, texto, funcion) => {
-    const { acc } = montar({ acciones: [accion] });
-    await userEvent.click(screen.getByRole("button", { name: texto }));
-    expect(acc[funcion]).toHaveBeenCalledWith("7:2026-10-12");
+  test("postularme usa el id del turno", async () => {
+    const { acc } = montar({ acciones: ["POSTULARME"] });
+    await userEvent.click(screen.getByRole("button", { name: "Postularme" }));
+    expect(acc.postularme).toHaveBeenCalledWith("7:2026-10-12");
   });
 
   test("retirar el aviso usa el id de la vacante que informa el turno", async () => {

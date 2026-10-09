@@ -73,4 +73,21 @@ describe("useTurnosSemana", () => {
     await act(async () => { resolverRefresco([{ id: "semana-a-vieja" }]); await refresco; });
     expect(result.current.turnos).toEqual([{ id: "semana-b" }]);
   });
+
+  test("se actualiza solo cada intervalo y un fallo conserva lo que se ve", async () => {
+    vi.useFakeTimers();
+    try {
+      const api = { get: vi.fn().mockResolvedValueOnce([{ id: "antes" }]).mockResolvedValueOnce([{ id: "despues" }]).mockRejectedValue(new ErrorApi(0, "SIN_CONEXION", "x")) };
+      const { result } = renderHook(() => useTurnosSemana(api, "2026-10-05", { alCuentaCambiada: vi.fn(), intervaloMs: 1000 }));
+      await act(async () => {});
+      expect(result.current.turnos).toEqual([{ id: "antes" }]);
+      await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+      expect(result.current.turnos).toEqual([{ id: "despues" }]);
+      await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+      expect(result.current.estado).toBe("ok");
+      expect(result.current.turnos).toEqual([{ id: "despues" }]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
