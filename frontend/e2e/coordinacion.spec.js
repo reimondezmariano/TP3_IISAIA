@@ -30,7 +30,8 @@ test("el coordinador ve los candidatos por equidad, elige uno, reasigna y marca 
       }
       if (url.pathname === "/api/usuarios") return json(200, USUARIOS);
       if (url.pathname === "/api/indicadores/sin-cobertura") return json(200, [{ mes: "2026-10", horas: 20, turnos: 2 }]);
-      if (peticion.method() === "PUT" || peticion.method() === "POST") llamadas.push({ metodo: peticion.method(), ruta: url.pathname, cuerpo: peticion.postDataJSON() });
+      // el sondeo del reloj de demo no es una acción de dominio
+      if ((peticion.method() === "PUT" || peticion.method() === "POST") && url.pathname !== "/api/demo/reloj") llamadas.push({ metodo: peticion.method(), ruta: url.pathname, cuerpo: peticion.postDataJSON() });
       if (url.pathname === "/api/turnos/2:2026-10-10/asignacion") {
         const { medicoId, reasignar } = peticion.postDataJSON();
         if (medicoId === 5 && !reasignar) return json(409, { codigo: "YA_TIENE_ASIGNADO", mensaje: "El turno ya tiene asignado: para cambiarlo hay que reasignar." });
