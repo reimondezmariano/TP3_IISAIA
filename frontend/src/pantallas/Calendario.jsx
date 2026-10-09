@@ -4,9 +4,10 @@ import PanelCobertura from "../coordinacion/PanelCobertura.jsx";
 import Cargando from "../componentes/Cargando.jsx";
 import AusenciaVarios from "../componentes/AusenciaVarios.jsx";
 import DetalleTurno from "../componentes/DetalleTurno.jsx";
+import MesCalendario from "../componentes/MesCalendario.jsx";
 import TarjetaTurno from "../componentes/TarjetaTurno.jsx";
 import {
-  agruparPorDia, diasDeSemana, etiquetaDia, etiquetaSemana, fechaLocal, lunesDe, sumarDias,
+  MESES, agruparPorDia, diasDeSemana, etiquetaDia, etiquetaMes, etiquetaSemana, fechaLocal, lunesDe, mesDe, rangoMes, sumarDias, sumarMeses,
 } from "../lib/fechas.js";
 import { ESTADOS } from "../lib/semaforo.js";
 import { useSesion } from "../sesion/useSesion.js";
@@ -42,11 +43,26 @@ export default function Calendario() {
 }
 
 function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }) {
-  const { estado, turnos, error, reintentar, refrescar } = useTurnosSemana(api, lunes, { alCuentaCambiada: recargar });
+  const hoy = fechaLocal(ahora);
+  const [vista, setVista] = useState("semana");
+  const [mes, setMes] = useState(mesDe(hoy));
+  const esMes = vista === "mes";
+  // En la vista mensual se pide la grilla completa (de lunes a domingo, con días de los meses vecinos).
+  const rango = esMes ? rangoMes(mes) : null;
+  const { estado, turnos, error, reintentar, refrescar } = useTurnosSemana(api, esMes ? rango.desde : lunes, {
+    alCuentaCambiada: recargar, hasta: esMes ? rango.hasta : null,
+  });
   const dias = useMemo(() => diasDeSemana(lunes), [lunes]);
   const porDia = useMemo(() => agruparPorDia(turnos, dias), [turnos, dias]);
-  const visibles = dias.reduce((total, dia) => total + porDia[dia].length, 0);
-  const hoy = fechaLocal(ahora);
+  const visibles = esMes ? turnos.length : dias.reduce((total, dia) => total + porDia[dia].length, 0);
+  const cambiarVista = (nueva) => {
+    if (nueva === "mes") setMes(mesDe(lunes <= hoy && hoy <= sumarDias(lunes, 6) ? hoy : sumarDias(lunes, 3)));
+    else setLunes(lunesDe(mesDe(hoy) === mes ? hoy : `${mes}-01`));
+    setVista(nueva);
+  };
+  const [anioMes, numeroMes] = mes.split("-").map(Number);
+  const anios = Array.from({ length: 11 }, (_, i) => anioMes - 5 + i);
+  const irAMes = (anio, numero) => setMes(`${anio}-${String(numero).padStart(2, "0")}`);
   const ausencias = useAusencias(api, usuario, { alCambiar: refrescar });
   const postulaciones = usePostulaciones(api, { alCambiar: refrescar });
   const estadoDe = (turno) =>
@@ -74,23 +90,55 @@ function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }
     setVersion((v) => v + 1);
   };
   const [variasFechas, setVariasFechas] = useState(false);
-  useEffect(() => setSeleccionadoId(null), [lunes]);
+  useEffect(() => setSeleccionadoId(null), [lunes, mes, vista]);
 
   return (
     <main className="calendario">
       <header className="cabecera">
         <div>
-          <h2>{etiquetaSemana(lunes)}</h2>
+          <h2>{esMes ? etiquetaMes(mes) : etiquetaSemana(lunes)}</h2>
           <p className="chico">{usuario.nombre}</p>
         </div>
         <button type="button" className="secundario" onClick={cerrarSesion}>Cerrar sesión</button>
       </header>
       {usuario.rol === "COORDINADOR" && <IndicadorSinCobertura key={version} api={api} ahora={ahora} />}
-      <nav className="navegacion" aria-label="Semana">
-        <button type="button" onClick={() => setLunes(sumarDias(lunes, -7))}>Semana anterior</button>
-        <button type="button" className="secundario" onClick={() => setLunes(lunesDe(hoy))}>Hoy</button>
-        <button type="button" onClick={() => setLunes(sumarDias(lunes, 7))}>Semana siguiente</button>
-      </nav>
+      <div className="vistas" role="group" aria-label="Vista del calendario">
+        <button type="button" className="secundario" aria-pressed={!esMes} onClick={() => cambiarVista("semana")}>Semana</button>
+        <button type="button" className="secundario" aria-pressed={esMes} onClick={() => cambiarVista("mes")}>Mes</button>
+      </div>
+      {esMes ? (
+        <>
+          <nav className="navegacion" aria-label="Mes">
+            <button type="button" onClick={() => setMes(sumarMeses(mes, -1))}>Mes anterior</button>
+            <button type="button" className="secundario" onClick={() => setMes(mesDe(hoy))}>Hoy</button>
+            <button type="button" onClick={() => setMes(sumarMeses(mes, 1))}>Mes siguiente</button>
+          </nav>
+          <div className="selector-mes">
+            <label>
+              Mes
+              <select value={numeroMes} onChange={(e) => irAMes(anioMes, Number(e.target.value))}>
+                {MESES.map((nombre, i) => (
+                  <option key={nombre} value={i + 1}>{nombre}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Año
+              <select value={anioMes} onChange={(e) => irAMes(Number(e.target.value), numeroMes)}>
+                {anios.map((anio) => (
+                  <option key={anio} value={anio}>{anio}</option>
+                ))}
+              </select>
+            </label>
+          </div>
+        </>
+      ) : (
+        <nav className="navegacion" aria-label="Semana">
+          <button type="button" onClick={() => setLunes(sumarDias(lunes, -7))}>Semana anterior</button>
+          <button type="button" className="secundario" onClick={() => setLunes(lunesDe(hoy))}>Hoy</button>
+          <button type="button" onClick={() => setLunes(sumarDias(lunes, 7))}>Semana siguiente</button>
+        </nav>
+      )}
       <div className="barra">
         <button type="button" className="secundario" onClick={() => setVariasFechas(true)}>Avisar ausencia en varias fechas</button>
       </div>
@@ -106,8 +154,9 @@ function Semana({ api, usuario, ahora, lunes, setLunes, recargar, cerrarSesion }
           <button type="button" onClick={reintentar}>Reintentar</button>
         </div>
       )}
-      {estado === "ok" && visibles === 0 && <p className="vacio">No hay guardias esta semana.</p>}
-      {estado === "ok" && (
+      {estado === "ok" && visibles === 0 && <p className="vacio">No hay guardias {esMes ? "este mes" : "esta semana"}.</p>}
+      {estado === "ok" && esMes && <MesCalendario mes={mes} turnos={turnos} hoy={hoy} onAbrir={abrir} />}
+      {estado === "ok" && !esMes && (
         <div className="semana">
           {dias.map((dia) => (
             <section key={dia} className="dia" data-fecha={dia} aria-current={dia === hoy ? "date" : undefined}>

@@ -209,4 +209,59 @@ describe("Calendario del coordinador: panel de cobertura", () => {
     await userEvent.click(await screen.findByTestId("turno"));
     expect(await screen.findByRole("region", { name: "Cobertura del turno" })).toBeVisible();
   });
+
+  describe("vista mensual", () => {
+    const MES = [
+      turno(1, "2026-10-01", "08:00", "16:00", { id: 1, nombre: "Ana" }),
+      { ...turno(2, "2026-10-20", "20:00", "08:00", { id: 3, nombre: "Carlos" }, "2026-10-21"), vacante: { id: 5, urgente: true, generadaPor: { id: 3, nombre: "Carlos" } } },
+      turno(3, "2026-10-31", "08:00", "16:00", null),
+    ];
+
+    async function abrirMes(extra = {}) {
+      const api = montar({ turnosPorDesde: { "2026-10-05": SEMANA_ACTUAL, "2026-09-28": MES, ...extra } });
+      await screen.findByText("5 al 11 de octubre de 2026");
+      await userEvent.click(screen.getByRole("button", { name: "Mes" }));
+      return api;
+    }
+
+    test("pide la grilla completa del mes y muestra cada guardia en su día con el color del semáforo", async () => {
+      const api = await abrirMes();
+      expect(await screen.findByText("octubre de 2026", { selector: "h2" })).toBeVisible();
+      expect(api.get).toHaveBeenCalledWith("/api/turnos", { desde: "2026-09-28", hasta: "2026-11-01" });
+      const chips = await screen.findAllByTestId("turno-mes");
+      expect(chips).toHaveLength(3);
+      expect(within(document.querySelector('[data-fecha="2026-10-20"]')).getByTestId("turno-mes")).toHaveAttribute("data-semaforo", "urgente");
+      expect(within(document.querySelector('[data-fecha="2026-10-31"]')).getByTestId("turno-mes")).toHaveAttribute("data-semaforo", "baja");
+      expect(document.querySelectorAll(".mes-dia")).toHaveLength(35);
+    });
+
+    test("tocar una guardia abre el mismo detalle", async () => {
+      await abrirMes();
+      await userEvent.click((await screen.findAllByTestId("turno-mes"))[0]);
+      expect(await screen.findByRole("dialog", { name: "Detalle de la guardia" })).toBeVisible();
+    });
+
+    test("mes anterior, siguiente y selector de mes y año", async () => {
+      const api = await abrirMes();
+      await screen.findAllByTestId("turno-mes");
+      await userEvent.click(screen.getByRole("button", { name: "Mes siguiente" }));
+      expect(await screen.findByText("noviembre de 2026", { selector: "h2" })).toBeVisible();
+      expect(api.get).toHaveBeenCalledWith("/api/turnos", { desde: "2026-10-26", hasta: "2026-12-06" });
+      await userEvent.click(screen.getByRole("button", { name: "Mes anterior" }));
+      await userEvent.click(screen.getByRole("button", { name: "Mes anterior" }));
+      expect(await screen.findByText("septiembre de 2026", { selector: "h2" })).toBeVisible();
+      await userEvent.selectOptions(screen.getByRole("combobox", { name: "Año" }), "2027");
+      await userEvent.selectOptions(screen.getByRole("combobox", { name: "Mes" }), "2");
+      expect(await screen.findByText("febrero de 2027", { selector: "h2" })).toBeVisible();
+      expect(api.get).toHaveBeenCalledWith("/api/turnos", { desde: "2027-02-01", hasta: "2027-02-28" });
+      await userEvent.click(screen.getByRole("button", { name: "Hoy" }));
+      expect(await screen.findByText("octubre de 2026", { selector: "h2" })).toBeVisible();
+    });
+
+    test("se puede volver a la vista semanal", async () => {
+      await abrirMes();
+      await userEvent.click(screen.getByRole("button", { name: "Semana" }));
+      expect(await screen.findByText("5 al 11 de octubre de 2026")).toBeVisible();
+    });
+  });
 });
