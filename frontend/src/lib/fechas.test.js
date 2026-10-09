@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 import {
   agruparPorDia, diasDeSemana, etiquetaDia, etiquetaSemana, fechaLocal, horaLocal, horasHasta,
-  lunesDe, rangoSemana, sumarDias, terminoAntes,
+  etiquetaMes, lunesDe, mesDe, rangoMes, rangoSemana, semanasDeMes, sumarDias, sumarMeses, terminoAntes,
 } from "./fechas.js";
 
 describe("semana (empieza el lunes)", () => {
@@ -91,5 +91,35 @@ describe("tiempo relativo a ahora", () => {
   test("horasHasta", () => {
     expect(horasHasta(t, "2026-10-09T20:00:00-03:00")).toBe(12);
     expect(horasHasta(t, "2026-10-10T10:00:00-03:00")).toBe(-2);
+  });
+});
+
+describe("mes", () => {
+  test("mesDe, sumarMeses (cruza de año) y etiquetaMes", () => {
+    expect(mesDe("2026-10-17")).toBe("2026-10");
+    expect(sumarMeses("2026-10", 1)).toBe("2026-11");
+    expect(sumarMeses("2026-12", 1)).toBe("2027-01");
+    expect(sumarMeses("2026-01", -1)).toBe("2025-12");
+    expect(sumarMeses("2026-03", -14)).toBe("2025-01");
+    expect(etiquetaMes("2026-10")).toBe("octubre de 2026");
+  });
+
+  test("semanasDeMes: lunes a domingo, completa los bordes con días de los meses vecinos", () => {
+    const semanas = semanasDeMes("2026-10"); // el 1/10/2026 es jueves; el 31/10 es sábado
+    expect(semanas).toHaveLength(5);
+    expect(semanas[0][0]).toBe("2026-09-28");
+    expect(semanas[0][3]).toBe("2026-10-01");
+    expect(semanas.at(-1)[6]).toBe("2026-11-01");
+    expect(semanas.every((s) => s.length === 7)).toBe(true);
+  });
+
+  test("un mes que empieza lunes y termina domingo no suma semanas de más (febrero de 2027)", () => {
+    const semanas = semanasDeMes("2027-02");
+    expect(semanas).toHaveLength(4);
+    expect(rangoMes("2027-02")).toEqual({ desde: "2027-02-01", hasta: "2027-02-28" });
+  });
+
+  test("rangoMes cubre toda la grilla", () => {
+    expect(rangoMes("2026-10")).toEqual({ desde: "2026-09-28", hasta: "2026-11-01" });
   });
 });

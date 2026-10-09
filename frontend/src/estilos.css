@@ -59,13 +59,14 @@ label small { display: block; font-weight: 400; color: var(--suave); margin-top:
 .turno:hover { filter: brightness(0.98); }
 .turno:focus-visible { outline: 2px solid var(--primario); outline-offset: 2px; }
 /* Semáforo (D08): un color por estado; BAJA es rojo (D24). */
-:where(.turno, .leyenda li) { --estado: var(--suave); --estado-fondo: #f3f1ea; }
+:where(.turno, .turno-mes, .leyenda li) { --estado: var(--suave); --estado-fondo: #f3f1ea; }
 .cubierta { --estado: var(--ok); --estado-fondo: var(--ok-fondo); }
 .vacante { --estado: var(--alerta); --estado-fondo: var(--alerta-fondo); }
 .urgente { --estado: var(--urgente); --estado-fondo: var(--urgente-fondo); }
 .baja { --estado: var(--peligro); --estado-fondo: var(--peligro-fondo); }
+.baja-postulantes { --estado: var(--alerta); --estado-fondo: var(--alerta-fondo); }
 .sin-cobertura { --estado: var(--sin-cobertura); --estado-fondo: var(--sin-cobertura-fondo); }
-.turno.cubierta, .turno.vacante, .turno.urgente, .turno.baja, .turno.sin-cobertura { background: var(--estado-fondo); border-color: var(--estado); border-left-width: 5px; }
+.turno.cubierta, .turno.vacante, .turno.urgente, .turno.baja, .turno.baja-postulantes, .turno.sin-cobertura { background: var(--estado-fondo); border-color: var(--estado); border-left-width: 5px; }
 .leyenda { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; list-style: none; margin: 0 0 1rem; padding: 0; font-size: 0.875rem; }
 .leyenda li { display: flex; align-items: center; gap: 0.4rem; }
 .leyenda li::before { content: ""; width: 14px; height: 14px; border-radius: 4px; background: var(--estado-fondo); border: 2px solid var(--estado); }
@@ -73,12 +74,13 @@ label small { display: block; font-weight: 400; color: var(--suave); margin-top:
 .turno-duracion, .turno-titular { font-size: 0.8125rem; color: var(--suave); }
 .turno-duracion { white-space: nowrap; }
 .turno-titular { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.turno-secundario { grid-column: 1 / -1; font-size: 0.75rem; color: var(--suave); }
 .insignias:empty { display: none; }
 .insignias { grid-column: 1 / -1; }
 .insignias { display: flex; flex-wrap: wrap; gap: 0.25rem; }
 .insignia { font-size: 0.6875rem; font-weight: 600; padding: 0 0.4rem; line-height: 1.4; border-radius: 999px; background: #fff; border: 1px solid var(--borde); }
 .insignia.mia { color: var(--ok); border-color: var(--ok); }
-.insignia.vacante, .insignia.urgente, .insignia.baja, .insignia.sin-cobertura { color: var(--estado); border-color: var(--estado); }
+.insignia.vacante, .insignia.urgente, .insignia.baja, .insignia.baja-postulantes, .insignia.sin-cobertura { color: var(--estado); border-color: var(--estado); }
 /* Siete columnas solo cuando entran sin partir el horario; antes, columnas de al menos 200 px. */
 @media (min-width: 640px) {
   .semana { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
@@ -130,3 +132,31 @@ select { font: inherit; width: 100%; min-height: 44px; padding: 0.5rem 0.75rem; 
 .resultado { background: var(--ok-fondo); border: 1px solid var(--ok); border-radius: 12px; padding: 0.75rem 1rem; margin-bottom: 1rem; }
 .resultado h3, .resultado h4 { margin: 0.25rem 0; }
 .staff h3 { margin: 1rem 0 0.5rem; }
+.enlace-notificacion { display: block; width: 100%; min-height: 44px; padding: 0.25rem 0; text-align: left; background: transparent; border: 0; color: var(--primario); font-weight: 600; text-decoration: underline; }
+.vistas { display: flex; gap: 0.5rem; margin: 1rem 0 0; }
+.vistas button { flex: 1; }
+.vistas button[aria-pressed="true"] { background: var(--primario); color: var(--sobre-primario); }
+.selector-mes { display: flex; gap: 0.5rem; margin: 0 0 1rem; }
+.selector-mes label { flex: 1; display: grid; gap: 0.25rem; font-size: 0.875rem; color: var(--suave); }
+.selector-mes select { text-transform: capitalize; }
+/* Grilla del mes: siete columnas también en el celular; cada guardia muestra solo la hora hasta que hay lugar para el nombre. */
+.mes { display: grid; gap: 2px; margin-bottom: 1rem; }
+.mes-cabecera, .mes-semana { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+.mes-cabecera span { text-align: center; font-size: 0.75rem; font-weight: 600; color: var(--suave); text-transform: capitalize; }
+.mes-dia { display: flex; flex-direction: column; gap: 2px; min-width: 0; min-height: 72px; padding: 2px; background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 6px; }
+.mes-dia.fuera { background: transparent; opacity: 0.6; }
+.mes-dia[aria-current="date"] { border-color: var(--primario); box-shadow: 0 0 0 1px var(--primario) inset; }
+.mes-numero { font-size: 0.75rem; font-weight: 600; color: var(--suave); padding: 0 2px; }
+.mes-dia[aria-current="date"] .mes-numero { color: var(--primario); }
+.turno-mes { display: flex; flex-direction: column; align-items: stretch; width: 100%; min-height: 32px; padding: 1px 2px; font-size: 0.6875rem; line-height: 1.2; text-align: left; border-radius: 4px; color: var(--texto); background: var(--estado-fondo); border: 1px solid var(--estado); border-left-width: 3px; font-weight: 500; overflow: hidden; }
+.turno-mes-hora { white-space: nowrap; }
+.turno-mes-nombre { display: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 400; color: var(--suave); }
+.turno-mes:focus-visible { outline: 2px solid var(--primario); outline-offset: 1px; }
+@media (min-width: 640px) {
+  .mes-dia { min-height: 96px; padding: 4px; }
+  .turno-mes-nombre { display: block; }
+  .turno-mes { font-size: 0.75rem; }
+}
+.reloj-demo { background: var(--alerta-fondo); border: 1px dashed var(--alerta); border-radius: 12px; padding: 0.5rem 0.75rem; margin: 0 0 1rem; }
+.reloj-demo p { margin: 0 0 0.5rem; }
+.reloj-demo .barra { margin: 0; }

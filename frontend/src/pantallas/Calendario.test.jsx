@@ -50,7 +50,7 @@ describe("Calendario", () => {
   test("muestra la leyenda del semáforo arriba del calendario (D08)", async () => {
     montar({ turnosPorDesde: { "2026-10-05": SEMANA_ACTUAL } });
     const leyenda = await screen.findByRole("list", { name: "Colores del calendario" });
-    for (const nombre of ["Cubierta", "Vacante abierta", "Vacante urgente", "BAJA (sin titular)"]) {
+    for (const nombre of ["Cubierta", "Vacante abierta", "Vacante urgente", "BAJA (sin titular)", "BAJA con postulantes"]) {
       expect(within(leyenda).getByText(nombre)).toBeVisible();
     }
   });
@@ -208,5 +208,95 @@ describe("Calendario del coordinador: panel de cobertura", () => {
     montar({ usuario: coordinador, turnosPorDesde: { "2026-10-05": [conVacante] } });
     await userEvent.click(await screen.findByTestId("turno"));
     expect(await screen.findByRole("region", { name: "Cobertura del turno" })).toBeVisible();
+  });
+
+  describe("vista mensual", () => {
+    const MES = [
+      turno(1, "2026-10-01", "08:00", "16:00", { id: 1, nombre: "Ana" }),
+      { ...turno(2, "2026-10-20", "20:00", "08:00", { id: 3, nombre: "Carlos" }, "2026-10-21"), vacante: { id: 5, urgente: true, generadaPor: { id: 3, nombre: "Carlos" } } },
+      turno(3, "2026-10-31", "08:00", "16:00", null),
+    ];
+
+    async function abrirMes(extra = {}) {
+      const api = montar({ turnosPorDesde: { "2026-10-05": SEMANA_ACTUAL, "2026-09-28": MES, ...extra } });
+      await screen.findByText("5 al 11 de octubre de 2026");
+      await userEvent.click(screen.getByRole("button", { name: "Mes" }));
+      return api;
+    }
+
+    test("pide la grilla completa del mes y muestra cada guardia en su día con el color del semáforo", async () => {
+      const api = await abrirMes();
+      expect(await screen.findByText("octubre de 2026", { selector: "h2" })).toBeVisible();
+      expect(api.get).toHaveBeenCalledWith("/api/turnos", { desde: "2026-09-28", hasta: "2026-11-01" });
+      const chips = await screen.findAllByTestId("turno-mes");
+      expect(chips).toHaveLength(3);
+      expect(within(document.querySelector('[data-fecha="2026-10-20"]')).getByTestId("turno-mes")).toHaveAttribute("data-semaforo", "urgente");
+      expect(within(document.querySelector('[data-fecha="2026-10-31"]')).getByTestId("turno-mes")).toHaveAttribute("data-semaforo", "baja");
+      expect(document.querySelectorAll(".mes-dia")).toHaveLength(35);
+    });
+
+    test("tocar una guardia abre el mismo detalle", async () => {
+      await abrirMes();
+      await userEvent.click((await screen.findAllByTestId("turno-mes"))[0]);
+      expect(await screen.findByRole("dialog", { name: "Detalle de la guardia" })).toBeVisible();
+    });
+
+    test("mes anterior, siguiente y selector de mes y año", async () => {
+      const api = await abrirMes();
+      await screen.findAllByTestId("turno-mes");
+      await userEvent.click(screen.getByRole("button", { name: "Mes siguiente" }));
+      expect(await screen.findByText("noviembre de 2026", { selector: "h2" })).toBeVisible();
+      expect(api.get).toHaveBeenCalledWith("/api/turnos", { desde: "2026-10-26", hasta: "2026-12-06" });
+      await userEvent.click(screen.getByRole("button", { name: "Mes anterior" }));
+      await userEvent.click(screen.getByRole("button", { name: "Mes anterior" }));
+      expect(await screen.findByText("septiembre de 2026", { selector: "h2" })).toBeVisible();
+      await userEvent.selectOptions(screen.getByRole("combobox", { name: "Año" }), "2027");
+      await userEvent.selectOptions(screen.getByRole("combobox", { name: "Mes" }), "2");
+      expect(await screen.findByText("febrero de 2027", { selector: "h2" })).toBeVisible();
+      expect(api.get).toHaveBeenCalledWith("/api/turnos", { desde: "2027-02-01", hasta: "2027-02-28" });
+      await userEvent.click(screen.getByRole("button", { name: "Hoy" }));
+      expect(await screen.findByText("octubre de 2026", { selector: "h2" })).toBeVisible();
+    });
+
+    test("se puede volver a la vista semanal", async () => {
+      await abrirMes();
+      await userEvent.click(screen.getByRole("button", { name: "Semana" }));
+      expect(await screen.findByText("5 al 11 de octubre de 2026")).toBeVisible();
+    });
+  });
+
+  describe("reloj de demo", () => {
+    const coordinador = { id: 9, nombre: "Enzo", rol: "COORDINADOR", estado: "ACTIVO" };
+
+    test("con la ruta disponible adelanta el reloj y recarga el calendario con el nuevo 'hoy'", async () => {
+      const post = vi.fn(async (ruta, cuerpo) => {
+        if (ruta === "/api/demo/reloj") {
+          if (!("ahora" in cuerpo)) throw new ErrorApi(422, "VALIDACION", "Falta ahora.");
+          return { ahora: cuerpo.ahora, desfaseHoras: 24 };
+        }
+        return {};
+      });
+      const api = montar({ turnosPorDesde: { "2026-10-05": SEMANA_ACTUAL }, post, usuario: coordinador });
+      await userEvent.click(await screen.findByRole("button", { name: "+1 día" }));
+      expect(post).toHaveBeenLastCalledWith("/api/demo/reloj", { ahora: "2026-10-08T13:00:00.000Z" });
+      await vi.waitFor(() => expect(document.querySelector('[data-fecha="2026-10-08"]')).toHaveAttribute("aria-current", "date"));
+      expect(api.get.mock.calls.filter(([ruta]) => ruta === "/api/turnos").length).toBeGreaterThan(1);
+    });
+
+    test("sin modo demo (404) el coordinador no ve el control", async () => {
+      const post = vi.fn().mockRejectedValue(new ErrorApi(404, "NO_ENCONTRADO", "Not Found"));
+      montar({ turnosPorDesde: { "2026-10-05": SEMANA_ACTUAL }, post, usuario: coordinador });
+      await screen.findAllByTestId("turno");
+      await vi.waitFor(() => expect(post).toHaveBeenCalledWith("/api/demo/reloj", {}));
+      expect(screen.queryByRole("button", { name: "+1 hora" })).toBeNull();
+    });
+
+    test("el médico nunca ve el control ni consulta la ruta", async () => {
+      const post = vi.fn(async () => ({}));
+      montar({ turnosPorDesde: { "2026-10-05": SEMANA_ACTUAL }, post });
+      await screen.findAllByTestId("turno");
+      expect(screen.queryByRole("button", { name: "+1 hora" })).toBeNull();
+      expect(post).not.toHaveBeenCalled();
+    });
   });
 });

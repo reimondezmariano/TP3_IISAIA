@@ -17,6 +17,16 @@ const montar = (estado, acc = acciones(), onCerrar = vi.fn(), panel = null, dato
 };
 
 describe("DetalleTurno", () => {
+  test("con asignado: muestra a quien cubre y al titular como dato secundario", () => {
+    montar({}, acciones(), vi.fn(), null, { titular: { id: 3, nombre: "Mariano Reimondez" }, asignado: { id: 4, nombre: "Carlos Lugones" } });
+    expect(screen.getByText("Carlos Lugones, cubre a Mariano Reimondez")).toBeVisible();
+  });
+
+  test("con asignado y titular en BAJA: cubre por baja del titular", () => {
+    montar({}, acciones(), vi.fn(), null, { titular: null, asignado: { id: 4, nombre: "Carlos Lugones" } });
+    expect(screen.getByText("Carlos Lugones, cubre por baja del titular")).toBeVisible();
+  });
+
   test("ya no hay rótulo de simulado: las postulaciones son reales", () => {
     montar({ acciones: ["POSTULARME"] });
     expect(screen.queryByTestId("rotulo-simulado")).toBeNull();

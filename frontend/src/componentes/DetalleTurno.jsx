@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { etiquetaDia, fechaLocal, horaLocal } from "../lib/fechas.js";
+import { quienCubre } from "../lib/quienCubre.js";
 
 export default function DetalleTurno({ turno, estado, acciones, panel = null, onCerrar }) {
   const [motivo, setMotivo] = useState("");
@@ -7,6 +8,7 @@ export default function DetalleTurno({ turno, estado, acciones, panel = null, on
   const [accionError, setAccionError] = useState(null);
   const [haciendo, setHaciendo] = useState(false);
   const diaSiguiente = fechaLocal(turno.fin) !== turno.fecha;
+  const { principal, secundario } = quienCubre(turno);
   const puede = (accion) => estado.acciones.includes(accion);
 
   // Las acciones de ausencia y postulación van a la API: se espera la respuesta y se muestra su error.
@@ -44,8 +46,8 @@ export default function DetalleTurno({ turno, estado, acciones, panel = null, on
           <dd>{etiquetaDia(turno.fecha)}</dd>
           <dt>Horario</dt>
           <dd>{horaLocal(turno.inicio)} – {horaLocal(turno.fin)}{diaSiguiente ? " (+1 día)" : ""} · {turno.duracionHoras} h</dd>
-          <dt>Titular</dt>
-          <dd>{turno.titular ? turno.titular.nombre : "Sin titular (baja)"}</dd>
+          <dt>{secundario ? "Cubre" : "Titular"}</dt>
+          <dd>{secundario ? `${principal}, ${secundario}` : turno.titular ? principal : "Sin titular (baja)"}</dd>
           {estado.etiqueta && (
             <>
               <dt>Estado</dt>

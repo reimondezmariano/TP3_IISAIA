@@ -38,6 +38,26 @@ describe("Campanita", () => {
     expect(notificaciones.marcarTodas).toHaveBeenCalled();
   });
 
+  test("NUEVO_REGISTRO: al tocarla lleva a la pantalla de staff y la marca leída", async () => {
+    const nueva = { id: 9, tipo: "NUEVO_REGISTRO", mensaje: "Ana Gómez se registró y espera activación", creadaEn: "2026-10-08T10:00:00-03:00", leidaEn: null };
+    const notificaciones = estado([nueva]);
+    const onIr = vi.fn();
+    render(<Campanita notificaciones={notificaciones} onIr={onIr} />);
+    await userEvent.click(screen.getByRole("button", { name: /Notificaciones/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Ana Gómez se registró y espera activación" }));
+    expect(onIr).toHaveBeenCalledWith("staff");
+    expect(notificaciones.marcarLeida).toHaveBeenCalledWith(9);
+    expect(screen.queryByRole("region", { name: "Lista de notificaciones" })).toBeNull();
+  });
+
+  test("las demás notificaciones no navegan", async () => {
+    const onIr = vi.fn();
+    render(<Campanita notificaciones={estado([n(1)])} onIr={onIr} />);
+    await userEvent.click(screen.getByRole("button", { name: /Notificaciones/ }));
+    expect(screen.queryByRole("button", { name: "Mensaje 1" })).toBeNull();
+    expect(onIr).not.toHaveBeenCalled();
+  });
+
   test("lista vacía", async () => {
     render(<Campanita notificaciones={estado([])} />);
     await userEvent.click(screen.getByRole("button", { name: "Notificaciones" }));
