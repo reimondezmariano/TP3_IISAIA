@@ -27,10 +27,8 @@ Este guion describe lo que la app hace hoy (main al 8/10/2026). Cada paso dice q
 
 1. Reiniciar la demo con el mismo comando del seed. Borra vacantes, postulaciones, notificaciones e historia, y vuelve el reloj de demo a la hora real.
 2. Si el ensayo es antes del 14/10, la semana que se ve no es la del Demo Day. Después del seed, adelantar el reloj al 14/10 a la hora del ensayo (ver "Reloj de demo"). El reloj solo avanza: para volver, se reinicia la demo.
-3. Diez minutos antes, abrir la app en Render. El plan gratis duerme el servicio después de unos 15 minutos sin uso, y el primer pedido tarda hasta un minuto en despertarlo. Dejarla abierta y recargar cada tanto hasta empezar.
-4. En los perfiles de Mariano y de Carlos (y en el celular), borrar los datos del sitio (herramientas de desarrollador, **Application**, **Clear site data**) y volver a iniciar sesión. El navegador recuerda el id de cada postulación, y después del seed esos ids ya no valen: sin borrarlos, el sábado mostraría "Retirar postulación" en lugar de "Postularme".
-5. Recargar las ventanas (F5) después del seed: el calendario no se actualiza solo.
-6. La demo tiene que empezar antes de las 20:00 del 14/10. La vacante urgente del paso 6 usa la guardia de Florencia de ese día a las 20:00, y una vacante es urgente cuando se genera a menos de 24 h del inicio.
+3. Diez minutos antes, abrir la app en Render. El plan gratis duerme el servicio después de unos 15 minutos sin uso, y el primer pedido tarda hasta un minuto en despertarlo. Con las ventanas abiertas el servicio no se duerme: el calendario y la campanita consultan solos al servidor.
+4. La demo tiene que empezar antes de las 20:00 del 14/10. La vacante urgente del paso 6 usa la guardia de Florencia de ese día a las 20:00, y una vacante es urgente cuando se genera a menos de 24 h del inicio.
 
 ### Reloj de demo
 
@@ -50,7 +48,7 @@ const reloj = async (ahora) => {
 await reloj("2026-10-14T20:30:00-03:00");
 ```
 
-Responde con la hora nueva y el desfase. Después de moverlo hay que recargar (F5) las ventanas que se van a usar: el calendario toma "ahora" del servidor al cargar (D27).
+Responde con la hora nueva y el desfase. Es el único momento en que hay que recargar (F5): el calendario toma "ahora" del servidor al cargar la página (D27), así que después de mover el reloj se recargan las ventanas que se van a usar. Todo lo demás se actualiza solo.
 
 ## Pantalla compartida
 
@@ -61,12 +59,12 @@ Tres ventanas de la app y Render en cuadrícula, cada ventana con su propio perf
 | Arriba | Enzo, coordinador, con la consola abierta para el reloj de demo | Florencia, médica, con las herramientas de desarrollador en la pestaña Network |
 | Abajo | Mariano, médico | Render, pestaña Logs del servicio |
 
-Carlos actúa desde su celular. Sus acciones se ven en las otras ventanas al recargar, y lo que le pasa a él le llega a su campanita: la app es multiusuario de verdad.
+Carlos actúa desde su celular. Nadie recarga: el calendario de cada ventana se actualiza solo cada 15 segundos y la campanita consulta cada 12. Lo que hace uno aparece en las otras ventanas en hasta 15 s, y lo que le pasa a Carlos le llega a su campanita: la app es multiusuario de verdad. El detalle abierto de un turno también se actualiza; el panel **Cobertura** pide los candidatos al abrirse, así que Enzo abre el detalle recién cuando la tarjeta ya cambió de color.
 
 Ajustes de la pantalla:
 1. Zoom de las ventanas al 80 o 90 %.
-2. En Network, filtro `/vacantes|postulaciones|asignacion/`. Así no se ven las consultas de notificaciones, que se repiten cada 12 s.
-3. Los logs de Render muestran una línea por pedido (método, ruta y código de respuesta). La app no escribe logs de dominio propios.
+2. En Network, filtro `/vacantes|postulaciones|asignacion/`. Así no se ven las consultas periódicas del calendario (cada 15 s) ni de las notificaciones (cada 12 s).
+3. Los logs de Render muestran una línea por pedido (método, ruta y código de respuesta). Las consultas periódicas de cada ventana también aparecen; señalar solo las líneas de POST y PUT. La app no escribe logs de dominio propios.
 
 ## Estructura
 
@@ -83,33 +81,32 @@ Hoy las ausencias se avisan por WhatsApp y el coordinador actualiza una planilla
 
 ## Bloque 2: la demo (3 min)
 
-Colores del semáforo (D08), con la leyenda arriba del calendario: verde cubierta, ámbar vacante abierta, naranja vacante urgente, rojo BAJA (sin titular, D24). Postularse no cambia el color.
+Colores del semáforo (D08), con la leyenda arriba del calendario: verde cubierta, ámbar vacante abierta, naranja vacante urgente, rojo BAJA (sin titular, D24) y violeta sin cobertura (D19). Postularse no cambia el color.
 
 1. **Calendario de la semana (15 s). Florencia.** Mostrar la semana del 12 al 18 de octubre: todo verde, horarios de 6, 8, 12 y 24 h, y la guardia de Florencia del miércoles a las 20:00 con "(+1 día)", porque cruza la medianoche. El día de hoy está resaltado. Mensaje: nadie carga guardias; salen de los horarios pactados.
 2. **Florencia avisa su ausencia del sábado (30 s). Florencia.** Tocar la tarjeta del sábado 17, 08:00 a 20:00, escribir un motivo y tocar **Avisar ausencia**. Se tiene que ver:
    1. La tarjeta pasa a ámbar con la etiqueta "Vacante".
    2. En Network, el pedido `POST /api/turnos/1:2026-10-17/vacantes` con respuesta 201. Abrirlo para mostrar el identificador "horarioId:fecha" (D09).
    3. En Render, la línea del POST con 201.
+   4. En hasta 15 s, la tarjeta ámbar en la ventana de Mariano, sin recargar. En hasta 12 s, en la campanita de Mariano y en el celular de Carlos: "Vacante: guardia del 17/10 a las 08:00." Como no es urgente, va solo a la campanita, sin aviso emergente. A Florencia no le llega, porque la generó ella.
 
-   Mensaje: el turno no existía en la base; se guarda recién ahora, porque le pasó algo (D11). Una vacante que no es urgente no manda notificaciones: los demás la ven al recargar.
-3. **Mariano y Carlos se postulan (25 s).** Mariano recarga, toca la tarjeta ámbar del sábado y toca **Postularme**. Carlos hace lo mismo desde el celular, después de Mariano. La tarjeta sigue ámbar.
-4. **Enzo elige a Mariano (25 s). Enzo.** Recargar, tocar la tarjeta del sábado: en el detalle aparece el panel **Cobertura** con los candidatos. El orden es por equidad: primero quien cubrió menos guardias en el mes. Los dos tienen 0 coberturas, así que desempata quién se postuló antes (D17). Al lado de cada uno se ven las horas que ya tiene esa semana, como dato. Tocar **Elegir** en Mariano. Se tiene que ver:
+   Mensaje: el turno no existía en la base; se guarda recién ahora, porque le pasó algo (D11).
+3. **Mariano y Carlos se postulan (25 s).** Mariano toca la tarjeta ámbar del sábado y toca **Postularme**; el botón pasa a **Retirar postulación**. Carlos hace lo mismo desde el celular, después de Mariano. La tarjeta sigue ámbar.
+4. **Enzo elige a Mariano (25 s). Enzo.** Tocar la tarjeta del sábado: en el detalle aparece el panel **Cobertura** con los candidatos. El orden es por equidad: primero quien cubrió menos guardias en el mes. Los dos tienen 0 coberturas, así que desempata quién se postuló antes (D17). Al lado de cada uno se ven las horas que ya tiene esa semana, como dato. Tocar **Elegir** en Mariano. Se tiene que ver:
    1. El mensaje "Mariano Reimondez cubre este turno." y la tarjeta en verde.
    2. A los pocos segundos (hasta 12 s), en la campanita de Mariano: "Te asignaron la guardia del 17/10 a las 08:00."
 5. **Cancelación de último momento (35 s).**
-   1. Mariano: en el detalle del sábado, **Retirar postulación**. Retirarla no le saca la guardia.
-   2. Enzo: en el detalle del sábado (verde), escribir el motivo "Mariano no puede" y tocar **Generar vacante**. La tarjeta vuelve a ámbar y el turno queda sin asignado (D31).
-   3. En el panel **Cobertura**, Carlos ya figura como candidato sin haber hecho nada: su postulación sigue en pie. Enzo toca **Elegir** en Carlos; la tarjeta vuelve a verde y a Carlos le llega el aviso al celular.
+   1. Mariano: en su ventana la tarjeta del sábado ya está verde. Tocarla: como es el asignado, el detalle le ofrece **Avisar ausencia**, igual que al titular. Escribir el motivo "No puedo el sábado" y tocar **Avisar ausencia**. La tarjeta vuelve a ámbar y el turno queda sin asignado, en la misma transacción (D31). En hasta 12 s, Carlos y Florencia reciben en la campanita "Vacante: guardia del 17/10 a las 08:00."
+   2. Enzo: cuando la tarjeta del sábado se ve ámbar en su ventana (hasta 15 s), tocarla. En el panel **Cobertura**, Carlos ya figura como candidato sin haber hecho nada: su postulación sigue en pie. Mariano no figura, porque quien avisa la ausencia no es candidato (D32).
+   3. Enzo toca **Elegir** en Carlos; la tarjeta vuelve a verde y a Carlos le llega el aviso al celular.
 
-   Mensaje: la postulación es al turno, no a la vacante, y por eso la reserva sobrevive (D08).
+   Mensaje: el asignado cancela desde la app, sin WhatsApp ni intermediarios. La postulación es al turno, no a la vacante, y por eso la reserva sobrevive (D08).
 6. **Lo que nadie cubre (50 s).**
    1. Florencia: tocar su guardia de hoy, miércoles 14 a las 20:00, y **Avisar ausencia**. Como empieza en menos de 24 h, la tarjeta pasa a naranja ("Vacante urgente"). En hasta 12 s aparece el aviso emergente "Vacante urgente: guardia del 14/10 a las 20:00." en la ventana de Mariano y en el celular de Carlos. A Florencia no le aparece, porque la generó ella.
-   2. Enzo, en la consola: `await reloj("2026-10-14T20:30:00-03:00")` y recargar. Nadie se postuló y el turno ya empezó. En su campanita aparece "La guardia del 14/10 a las 20:00 sigue sin cobertura: ya empezó." (D19). Tocar la tarjeta y **Marcar sin cobertura**; se ve "El turno quedó marcado sin cobertura."
-   3. Enzo, en la consola: `await reloj("2026-10-15T08:30:00-03:00")` y recargar. El turno terminó y se consolidó. El indicador de arriba del calendario pasa de "0 h sin cobertura en octubre de 2026" a "12 h sin cobertura en octubre de 2026 (1 turno)".
+   2. Enzo, en la consola: `await reloj("2026-10-14T20:30:00-03:00")` y recargar (F5, por el reloj). Nadie se postuló y el turno ya empezó. En su campanita aparece "La guardia del 14/10 a las 20:00 sigue sin cobertura: ya empezó." (D19). Tocar la tarjeta y **Marcar sin cobertura**; se ve "El turno quedó marcado sin cobertura." y la tarjeta pasa a violeta, con la etiqueta "Sin cobertura".
+   3. Enzo, en la consola: `await reloj("2026-10-15T08:30:00-03:00")` y recargar (F5). El turno terminó y se consolidó; la tarjeta sigue violeta. El indicador de arriba del calendario pasa de "0 h sin cobertura en octubre de 2026" a "12 h sin cobertura en octubre de 2026 (1 turno)".
 
-   Mensaje: hoy ese trabajo doble es invisible; ahora queda medido.
-
-   Ojo: después de marcarlo sin cobertura, la tarjeta vuelve a verde, porque el turno ya no tiene una vacante abierta. No señalar la tarjeta en ese momento: mostrar la campanita y el indicador.
+   Mensaje: hoy ese trabajo doble es invisible; ahora queda medido, y en el calendario se distingue de un vistazo.
 
 Si sobran 15 s: abrir `/docs` en Render y mostrar el contrato de la API generado automáticamente.
 
@@ -119,7 +116,7 @@ GitHub en vivo, con diapositivas de respaldo con el mismo contenido.
 
 1. Arquitectura (20 s): interfaz web, FastAPI, Postgres en Supabase. "El futuro normal se calcula, el presente excepcional se guarda, el pasado se consolida". Momento opcional de 10 s en Supabase, en el Table Editor:
    1. Tabla `turno`: hay filas para los días ya pasados (consolidados) y, para adelante, solo para el sábado 17 y el miércoles 14, que tuvieron novedades.
-   2. Tabla `evento_turno`: la bitácora de lo que acaba de pasar (VACANTE_GENERADA, POSTULACION_CREADA, CANDIDATO_ELEGIDO, POSTULACION_RETIRADA, TURNO_SIN_COBERTURA), con quién lo hizo. La interfaz todavía no muestra la línea de tiempo del turno.
+   2. Tabla `evento_turno`: la bitácora de lo que acaba de pasar (VACANTE_GENERADA de Florencia y después de Mariano, POSTULACION_CREADA, CANDIDATO_ELEGIDO dos veces, TURNO_SIN_COBERTURA), con quién lo hizo. La interfaz todavía no muestra la línea de tiempo del turno.
 2. Dos decisiones (50 s):
    1. Por qué C5 y no C1 o C4: turno guardado solo cuando le pasa algo, con una restricción única que resuelve la concurrencia y la consolidación.
    2. La validación con Carlos eliminó complejidad imaginada: rotaciones y ranking por descanso.
@@ -132,9 +129,9 @@ Trabajo futuro: notificaciones push, mail para vacantes urgentes, intercambios e
 
 ## Qué tiene que funcionar sí o sí
 
-Login con roles, calendario con semáforo, avisar ausencia, postularse y retirar la postulación, candidatos por equidad y asignación, reserva después de una cancelación, notificaciones y aviso emergente, reloj de demo, turno sin cobertura con alerta al coordinador e indicador.
+Login con roles, calendario con semáforo que se actualiza solo, avisar ausencia (titular y asignado), postularse, candidatos por equidad y asignación, reserva después de una cancelación del asignado, notificaciones (campanita para toda vacante y aviso emergente para la urgente), reloj de demo, turno sin cobertura en violeta con alerta al coordinador e indicador.
 
-Está implementado pero no entra en el recorrido principal: pantalla de staff (pestaña **Staff**, solo para Enzo), baja de un médico con sus horarios marcados BAJA y designar un titular nuevo, registro con código de coordinación, avisar ausencia en varias fechas, asignación directa y reasignación desde el panel de cobertura. Si sobra tiempo, se muestra la pantalla de staff (15 s).
+Está implementado pero no entra en el recorrido principal: pantalla de staff (pestaña **Staff**, solo para Enzo), baja de un médico con sus horarios marcados BAJA y designar un titular nuevo, registro con código de coordinación, avisar ausencia en varias fechas, retirar una postulación o un aviso de ausencia, asignación directa y reasignación desde el panel de cobertura. Si sobra tiempo, se muestra la pantalla de staff (15 s).
 
 No está implementado: la línea de tiempo del turno en la interfaz (no existe `GET /api/turnos/{turnoId}`) y la rectificación (no existe `POST /api/turnos/{turnoId}/rectificacion`).
 
