@@ -1,6 +1,7 @@
 from datetime import date, time, timedelta
 
 import pytest
+from sqlalchemy import event
 
 from app.modelos import RolUsuario
 from app.repos.horarios import DatosVersion, crear_horario
@@ -45,6 +46,7 @@ def test_turnos_formato_exacto(cliente, sesion):
             "asignado": None,
             "sinCobertura": False,
             "miPostulacionId": None,
+            "cantidadPostulantes": 0,
         }
     ]
 
@@ -192,3 +194,51 @@ def test_mi_postulacion_activa_solo_para_quien_consulta(cliente, sesion, reloj):
     cliente.post(f"/api/postulaciones/{postulacion['id']}/retiro", headers=encabezados(mariano))
     [retirada] = cliente.get("/api/turnos", params=rango, headers=encabezados(mariano)).json()
     assert retirada["miPostulacionId"] is None
+
+
+def test_cantidad_de_postulantes_cuenta_solo_las_activas(cliente, sesion, reloj):
+    carlos = crear_usuario(sesion, "Carlos Lugones")
+    mariano = crear_usuario(sesion, "Mariano Reimondez")
+    florencia = crear_usuario(sesion, "Florencia Lucca")
+    ana = crear_usuario(sesion, "Ana Pérez")
+    martes = horario(sesion, carlos.id, dia=2, hora=time(8), dur=12)
+    turno_id = f"{martes.id}:2026-10-20"
+    cliente.post(f"/api/turnos/{turno_id}/vacantes", json={}, headers=encabezados(carlos))
+    for medico in (mariano, florencia):
+        cliente.post(f"/api/turnos/{turno_id}/postulaciones", headers=encabezados(medico))
+    de_ana = cliente.post(f"/api/turnos/{turno_id}/postulaciones", headers=encabezados(ana)).json()
+    cliente.post(f"/api/postulaciones/{de_ana['id']}/retiro", headers=encabezados(ana))
+
+    turnos = cliente.get("/api/turnos", params={"desde": "2026-10-13", "hasta": "2026-10-20"}).json()
+
+    por_fecha = {t["fecha"]: t for t in turnos}
+    assert por_fecha["2026-10-20"]["cantidadPostulantes"] == 2
+    assert por_fecha["2026-10-13"]["cantidadPostulantes"] == 0  # turno sin fila (D11)
+
+
+def test_la_cantidad_de_consultas_no_crece_con_los_turnos(cliente, sesion, reloj):
+    carlos = crear_usuario(sesion, "Carlos Lugones")
+    mariano = crear_usuario(sesion, "Mariano Reimondez")
+    martes = horario(sesion, carlos.id, dia=2, hora=time(8), dur=12)
+    for fecha in ("2026-10-20", "2026-10-27", "2026-11-03"):
+        turno_id = f"{martes.id}:{fecha}"
+        cliente.post(f"/api/turnos/{turno_id}/vacantes", json={}, headers=encabezados(carlos))
+        cliente.post(f"/api/turnos/{turno_id}/postulaciones", headers=encabezados(mariano))
+
+    def contar_consultas(desde, hasta):
+        consultas = []
+        conexion = sesion.connection()
+        escuchar = lambda *args: consultas.append(args[2])  # noqa: E731
+        event.listen(conexion, "before_cursor_execute", escuchar)
+        try:
+            r = cliente.get("/api/turnos", params={"desde": desde, "hasta": hasta})
+        finally:
+            event.remove(conexion, "before_cursor_execute", escuchar)
+        assert r.status_code == 200
+        return len(consultas)
+
+    contar_consultas("2026-10-20", "2026-10-20")  # la primera consulta consolida; se descarta
+    un_turno = contar_consultas("2026-10-20", "2026-10-20")
+    tres_turnos = contar_consultas("2026-10-20", "2026-11-03")
+
+    assert tres_turnos == un_turno

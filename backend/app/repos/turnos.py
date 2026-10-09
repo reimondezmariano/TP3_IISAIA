@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.orm import aliased
 from sqlalchemy.dialects.postgresql import insert
 
@@ -122,14 +122,23 @@ class NovedadesTurno:
     asignado: Usuario | None
     sin_cobertura: bool
     postulacion_propia_id: int | None
+    cantidad_postulantes: int
 
 
 def novedades_en_rango(sesion, desde: date, hasta: date, usuario_id: int) -> dict[tuple[int, date], NovedadesTurno]:
-    """Asignado vigente, marca de sin cobertura y postulación activa de `usuario_id` de los turnos guardados
-    que empiezan entre desde-1 y hasta, por (horario_id, fecha). Un turno sin fila no tiene novedades (D11)."""
+    """Asignado vigente, marca de sin cobertura, postulación activa de `usuario_id` y cantidad de postulaciones
+    activas de los turnos guardados que empiezan entre desde-1 y hasta, por (horario_id, fecha), en una sola
+    consulta. Un turno sin fila no tiene novedades (D11)."""
     asignado = aliased(Usuario)
+    activas = aliased(Postulacion)
+    cantidad = (
+        select(func.count())
+        .where(activas.turno_id == Turno.id, activas.retirada_en.is_(None))
+        .correlate(Turno)
+        .scalar_subquery()
+    )
     filas = sesion.execute(
-        select(Turno, asignado, Postulacion.id)
+        select(Turno, asignado, Postulacion.id, cantidad)
         .outerjoin(asignado, Turno.asignado_id == asignado.id)
         .outerjoin(
             Postulacion,
@@ -142,6 +151,8 @@ def novedades_en_rango(sesion, desde: date, hasta: date, usuario_id: int) -> dic
         .where(Turno.fecha >= desde - timedelta(days=1), Turno.fecha <= hasta)
     ).all()
     return {
-        (turno.horario_id, turno.fecha): NovedadesTurno(asignado_db, turno.sin_cobertura_en is not None, postulacion_id)
-        for turno, asignado_db, postulacion_id in filas
+        (turno.horario_id, turno.fecha): NovedadesTurno(
+            asignado_db, turno.sin_cobertura_en is not None, postulacion_id, cantidad_postulantes
+        )
+        for turno, asignado_db, postulacion_id, cantidad_postulantes in filas
     }
