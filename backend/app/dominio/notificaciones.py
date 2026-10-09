@@ -14,6 +14,7 @@ class TipoNotificacion(str, Enum):
     VACANTE_ABIERTA = "VACANTE_ABIERTA"  # vacante que no es urgente: solo campanita, sin aviso emergente
     ALERTA_SIN_COBERTURA = "ALERTA_SIN_COBERTURA"  # D19
     TURNO_ASIGNADO = "TURNO_ASIGNADO"  # D18: al médico a quien el coordinador asigna el turno
+    NUEVO_REGISTRO = "NUEVO_REGISTRO"  # D30: a los coordinadores, cuando alguien queda PENDIENTE al registrarse
 
 
 _CUANDO = {
@@ -27,3 +28,8 @@ def mensaje_alerta(umbral: Umbral, inicio: datetime) -> str:
     """Texto de la alerta a coordinadores. `inicio` tiene que venir en la zona del servicio."""
     exigir_zona(inicio)
     return f"La guardia del {inicio:%d/%m} a las {inicio:%H:%M} sigue sin cobertura: {_CUANDO[umbral]}."
+
+
+def mensaje_nuevo_registro(nombre: str) -> str:
+    """Texto del aviso a coordinadores de que una cuenta espera activación (D30)."""
+    return f"{nombre} se registró y espera activación"
