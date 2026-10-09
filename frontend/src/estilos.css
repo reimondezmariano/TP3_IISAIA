@@ -64,8 +64,9 @@ label small { display: block; font-weight: 400; color: var(--suave); margin-top:
 .vacante { --estado: var(--alerta); --estado-fondo: var(--alerta-fondo); }
 .urgente { --estado: var(--urgente); --estado-fondo: var(--urgente-fondo); }
 .baja { --estado: var(--peligro); --estado-fondo: var(--peligro-fondo); }
+.baja-postulantes { --estado: var(--alerta); --estado-fondo: var(--alerta-fondo); }
 .sin-cobertura { --estado: var(--sin-cobertura); --estado-fondo: var(--sin-cobertura-fondo); }
-.turno.cubierta, .turno.vacante, .turno.urgente, .turno.baja, .turno.sin-cobertura { background: var(--estado-fondo); border-color: var(--estado); border-left-width: 5px; }
+.turno.cubierta, .turno.vacante, .turno.urgente, .turno.baja, .turno.baja-postulantes, .turno.sin-cobertura { background: var(--estado-fondo); border-color: var(--estado); border-left-width: 5px; }
 .leyenda { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; list-style: none; margin: 0 0 1rem; padding: 0; font-size: 0.875rem; }
 .leyenda li { display: flex; align-items: center; gap: 0.4rem; }
 .leyenda li::before { content: ""; width: 14px; height: 14px; border-radius: 4px; background: var(--estado-fondo); border: 2px solid var(--estado); }
@@ -79,7 +80,7 @@ label small { display: block; font-weight: 400; color: var(--suave); margin-top:
 .insignias { display: flex; flex-wrap: wrap; gap: 0.25rem; }
 .insignia { font-size: 0.6875rem; font-weight: 600; padding: 0 0.4rem; line-height: 1.4; border-radius: 999px; background: #fff; border: 1px solid var(--borde); }
 .insignia.mia { color: var(--ok); border-color: var(--ok); }
-.insignia.vacante, .insignia.urgente, .insignia.baja, .insignia.sin-cobertura { color: var(--estado); border-color: var(--estado); }
+.insignia.vacante, .insignia.urgente, .insignia.baja, .insignia.baja-postulantes, .insignia.sin-cobertura { color: var(--estado); border-color: var(--estado); }
 /* Siete columnas solo cuando entran sin partir el horario; antes, columnas de al menos 200 px. */
 @media (min-width: 640px) {
   .semana { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }

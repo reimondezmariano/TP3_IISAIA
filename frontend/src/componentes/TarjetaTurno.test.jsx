@@ -64,6 +64,17 @@ describe("TarjetaTurno", () => {
     expect(screen.getByText("cubre por baja del titular")).toBeVisible();
   });
 
+  test("D34: BAJA con postulantes va en ámbar con la etiqueta BAJA y la cantidad; toda tarjeta con postulantes la muestra", () => {
+    const { rerender } = render(<TarjetaTurno turno={{ ...turno, titular: null, cantidadPostulantes: 2 }} usuario={usuario} onAbrir={vi.fn()} />);
+    expect(screen.getByTestId("turno")).toHaveAttribute("data-semaforo", "baja-postulantes");
+    expect(screen.getByText("BAJA")).toBeVisible();
+    expect(screen.getByText("2 postulantes")).toBeVisible();
+    rerender(<TarjetaTurno turno={{ ...turno, cantidadPostulantes: 1, vacante: { id: 1, urgente: false, generadaPor: { id: 3, nombre: "Carlos Ruiz" } } }} usuario={usuario} onAbrir={vi.fn()} />);
+    expect(screen.getByText("1 postulante")).toBeVisible();
+    rerender(<TarjetaTurno turno={{ ...turno, cantidadPostulantes: 0 }} usuario={usuario} onAbrir={vi.fn()} />);
+    expect(screen.queryByText(/postulante/)).toBeNull();
+  });
+
   test("clic abre el detalle con el turno", async () => {
     const onAbrir = vi.fn();
     render(<TarjetaTurno turno={turno} usuario={usuario} onAbrir={onAbrir} />);

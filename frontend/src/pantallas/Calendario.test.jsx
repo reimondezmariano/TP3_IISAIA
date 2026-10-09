@@ -50,7 +50,7 @@ describe("Calendario", () => {
   test("muestra la leyenda del semáforo arriba del calendario (D08)", async () => {
     montar({ turnosPorDesde: { "2026-10-05": SEMANA_ACTUAL } });
     const leyenda = await screen.findByRole("list", { name: "Colores del calendario" });
-    for (const nombre of ["Cubierta", "Vacante abierta", "Vacante urgente", "BAJA (sin titular)"]) {
+    for (const nombre of ["Cubierta", "Vacante abierta", "Vacante urgente", "BAJA (sin titular)", "BAJA con postulantes"]) {
       expect(within(leyenda).getByText(nombre)).toBeVisible();
     }
   });
