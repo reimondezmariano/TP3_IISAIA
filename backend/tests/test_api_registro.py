@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy import func, select, text
 
 from app.config import get_settings
-from app.modelos import EstadoUsuario, RolUsuario, Usuario
+from app.modelos import EstadoUsuario, Notificacion, RolUsuario, Usuario
 from fabricas import crear_usuario, token_para
 
 CODIGO = "SMG"
@@ -205,3 +205,55 @@ def test_vincular_un_coordinador_cargado_con_codigo_incorrecto_es_422(cliente, s
     assert r.json()["codigo"] == "CODIGO_INVALIDO"
     sesion.refresh(enzo)
     assert enzo.auth_id is None
+
+
+def avisos_de_registro(sesion) -> list[Notificacion]:
+    return list(
+        sesion.scalars(select(Notificacion).where(Notificacion.tipo == "NUEVO_REGISTRO").order_by(Notificacion.usuario_id))
+    )
+
+
+def test_registro_pendiente_avisa_a_los_coordinadores_activos(cliente, sesion, reloj):
+    enzo = crear_usuario(sesion, "Enzo", rol=RolUsuario.COORDINADOR)
+    laura = crear_usuario(sesion, "Laura", rol=RolUsuario.COORDINADOR)
+    crear_usuario(sesion, "Coordinadora pendiente", rol=RolUsuario.COORDINADOR, estado=EstadoUsuario.PENDIENTE)
+    crear_usuario(sesion, "Médico activo")
+
+    r = registrar(cliente, uuid.uuid4())
+
+    assert r.status_code == 201
+    avisos = avisos_de_registro(sesion)
+    assert [a.usuario_id for a in avisos] == [enzo.id, laura.id]
+    assert {a.mensaje for a in avisos} == {"Ana Pérez se registró y espera activación"}
+    assert {a.creada_en for a in avisos} == {reloj.ahora()}
+    assert avisos[0].datos == {"usuario_id": r.json()["id"]}
+
+
+def test_registro_con_codigo_no_avisa(cliente, sesion):
+    crear_usuario(sesion, "Enzo", rol=RolUsuario.COORDINADOR)
+
+    r = registrar(cliente, uuid.uuid4(), codigoCoordinacion=CODIGO)
+
+    assert r.status_code == 201
+    assert avisos_de_registro(sesion) == []
+
+
+def test_vincular_un_medico_cargado_activo_no_avisa(cliente, sesion):
+    crear_usuario(sesion, "Enzo", rol=RolUsuario.COORDINADOR)
+    crear_usuario(sesion, "Carlos", email="carlos@prueba.test", con_cuenta=False)
+
+    r = registrar(cliente, uuid.uuid4(), email="carlos@prueba.test")
+
+    assert r.status_code == 200
+    assert avisos_de_registro(sesion) == []
+
+
+def test_registro_rechazado_no_avisa(cliente, sesion):
+    crear_usuario(sesion, "Enzo", rol=RolUsuario.COORDINADOR)
+    auth_id = uuid.uuid4()
+    registrar(cliente, auth_id)
+
+    r = registrar(cliente, auth_id)
+
+    assert r.status_code == 409
+    assert len(avisos_de_registro(sesion)) == 1

@@ -47,9 +47,10 @@ class TurnoOut(Esquema):
     asignado: PersonaOut | None  # quien cubre el turno hoy (D08 punto 4); null si no hay
     sin_cobertura: bool  # el coordinador lo marcó sin cobertura, o se consolidó con la vacante abierta (D19)
     mi_postulacion_id: int | None  # postulación activa de quien consulta, para retirarla (D16)
+    cantidad_postulantes: int  # postulaciones activas del turno, de cualquier médico (D34)
 
 
-SIN_NOVEDADES = NovedadesTurno(asignado=None, sin_cobertura=False, postulacion_propia_id=None)
+SIN_NOVEDADES = NovedadesTurno(asignado=None, sin_cobertura=False, postulacion_propia_id=None, cantidad_postulantes=0)
 
 
 def _a_salida(
@@ -76,6 +77,7 @@ def _a_salida(
         asignado=PersonaOut(id=novedades.asignado.id, nombre=novedades.asignado.nombre) if novedades.asignado else None,
         sin_cobertura=novedades.sin_cobertura,
         mi_postulacion_id=novedades.postulacion_propia_id,
+        cantidad_postulantes=novedades.cantidad_postulantes,
     )
 
 

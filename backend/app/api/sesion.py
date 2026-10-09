@@ -10,10 +10,13 @@ from app.api.esquemas import Esquema
 from app.auth import Identidad, identidad_actual, usuario_registrado
 from app.config import get_settings
 from app.db import get_db
+from app.dominio.notificaciones import TipoNotificacion, mensaje_nuevo_registro
 from app.dominio.registro import es_codigo_de_coordinacion
 from app.errores import ErrorDominio
 from app.modelos import EstadoUsuario, RolUsuario, Usuario
+from app.reloj import Reloj, get_reloj, hoy
 from app.repos.usuarios import buscar_por_email
+from app.servicios.notificaciones import destinatarios, notificar
 
 router = APIRouter()
 
@@ -56,6 +59,7 @@ def registrar(
     respuesta: Response,
     identidad: Identidad = Depends(identidad_actual),
     db: Session = Depends(get_db),
+    reloj: Reloj = Depends(get_reloj),
 ) -> UsuarioOut:
     """Completa el registro de una cuenta ya creada en Supabase Auth (D30).
 
@@ -63,6 +67,7 @@ def registrar(
     que un coordinador lo active. Si el email ya estaba cargado sin cuenta (datos de ejemplo, D28),
     vincula la cuenta, conserva nombre, rol y estado, y responde 200. Vincular un coordinador cargado exige
     el código: sin confirmación de email (D06), cualquiera podría crear la cuenta con ese email.
+    Si la cuenta queda PENDIENTE, avisa a los coordinadores activos en la misma transacción (D22).
     """
     if identidad.email is None:
         raise ErrorDominio("TOKEN_SIN_EMAIL", "El token de sesión no trae el email de la cuenta.", 403)
@@ -114,5 +119,14 @@ def registrar(
             raise
         codigo_error, mensaje = _CONFLICTOS_DE_REGISTRO[restriccion]
         raise ErrorDominio(codigo_error, mensaje, 409) from exc
+    if usuario.estado == EstadoUsuario.PENDIENTE:
+        notificar(
+            db,
+            destinatarios(db, RolUsuario.COORDINADOR, hoy(reloj)),
+            TipoNotificacion.NUEVO_REGISTRO,
+            mensaje_nuevo_registro(usuario.nombre),
+            reloj.ahora(),
+            datos={"usuario_id": usuario.id},
+        )
     db.commit()
     return _a_salida(usuario)

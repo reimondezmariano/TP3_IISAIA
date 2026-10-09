@@ -127,3 +127,13 @@ Cómo lo detectamos: al ejecutar el paso 1 (confirmar la función de Mariano) y 
 Cómo lo corregimos: la baja y el cambio a coordinador reabren al final, después de dejar los horarios sin titular y de cambiar estado o rol. `coberturas_desde` bloquea los turnos por (horario, fecha), como `bloquear_turnos` (convención 20). La firma real quedó anotada en el paso 1 del plan.
 
 Qué aprendimos: una tarea marcada como dependiente envejece mientras espera; hay que contrastarla con las convenciones que se sumaron después, no solo con la función de la que depende.
+
+## 2026-10-08. La decisión de los postulantes en BAJA se numeró D34 porque D33 ya existía
+
+Qué pasó: el prompt de feature/postulantes pedía agregar la decisión "turno en BAJA con postulantes en ámbar" como D33, pero D33 ya existía en `docs/decisiones-arquitectura.md` ("Asignación y candidatos", de F3).
+
+Cómo lo detectamos: el agente buscó D33 en la documentación y el código antes de escribir; aparecía en `docs/decisiones-arquitectura.md`, en la convención 24 de `backend/CLAUDE.md` y en el commit 80a7c58.
+
+Cómo lo corregimos: la decisión nueva se numeró D34 y así se cita en el código, en `backend/CLAUDE.md` y en el pull request #26. El agente lo avisó al entregar y el equipo lo aprobó ("Bien D34").
+
+Qué aprendimos: antes de pedir una decisión nueva conviene mirar el último número usado; reusar un código haría que dos decisiones distintas se citen igual en specs, planes y commits.

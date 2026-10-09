@@ -141,6 +141,9 @@ Motivo de la habilitación: D23 (el coordinador no cubre vacantes) y D24 (la cue
 D33. Asignación y candidatos, reglas que D17 y D18 dejaban abiertas. Solo los coordinadores ven los candidatos y asignan. Los no elegibles (D16) se listan al final con su motivo y no se pueden asignar; "el coordinador puede elegir a cualquier candidato" significa que no está obligado a elegir al primero. La asignación vale hasta el fin del turno (D19). Si el turno ya tiene asignado hay que pedir explícitamente `reasignar`, así dos coordinadores no se pisan. Asignar cierra la vacante abierta como CUBIERTA; si el turno estaba marcado sin cobertura, levanta la marca en la misma transacción. El asignado recibe una notificación. Las horas de la semana que informa la lista son las que el médico ya tiene en esa semana, sin contar el turno evaluado.
 Alternativa descartada: dejar que el segundo coordinador reasigne sin avisarle que el turno ya tenía asignado. Motivo: la concurrencia se resuelve con restricciones y el cliente tiene que enterarse del conflicto (regla 8).
 
+D34. Un turno en BAJA con postulantes se muestra en ámbar conservando la etiqueta BAJA, para que el coordinador vea que alguien quiere cubrirlo provisoriamente hasta designar un nuevo titular; toda tarjeta con postulantes indica cuántos. Ajusta D24, que mostraba en rojo toda guardia sin titular. La cantidad se calcula (postulaciones activas del turno, `cantidadPostulantes` en GET /turnos); no se guarda.
+Origen: prueba de la app con un médico del servicio el 8/10/2026.
+
 ## Pendiente de confirmar
 
 Sin pendientes al 4/10/2026.
