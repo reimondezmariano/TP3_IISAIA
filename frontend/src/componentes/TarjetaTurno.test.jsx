@@ -55,6 +55,15 @@ describe("TarjetaTurno", () => {
     expect(screen.getByTestId("turno")).toHaveAttribute("data-semaforo", "baja");
   });
 
+  test("con asignado: muestra a quien cubre y al titular como dato secundario", () => {
+    const asignado = { id: 4, nombre: "Carlos Lugones" };
+    const { rerender } = render(<TarjetaTurno turno={{ ...turno, titular: { id: 3, nombre: "Mariano Reimondez" }, asignado }} usuario={usuario} onAbrir={vi.fn()} />);
+    expect(screen.getByText("Carlos Lugones")).toBeVisible();
+    expect(screen.getByText("cubre a Mariano Reimondez")).toBeVisible();
+    rerender(<TarjetaTurno turno={{ ...turno, titular: null, asignado }} usuario={usuario} onAbrir={vi.fn()} />);
+    expect(screen.getByText("cubre por baja del titular")).toBeVisible();
+  });
+
   test("clic abre el detalle con el turno", async () => {
     const onAbrir = vi.fn();
     render(<TarjetaTurno turno={turno} usuario={usuario} onAbrir={onAbrir} />);
