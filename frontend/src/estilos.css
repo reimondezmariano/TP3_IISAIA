@@ -132,3 +132,4 @@ select { font: inherit; width: 100%; min-height: 44px; padding: 0.5rem 0.75rem; 
 .resultado { background: var(--ok-fondo); border: 1px solid var(--ok); border-radius: 12px; padding: 0.75rem 1rem; margin-bottom: 1rem; }
 .resultado h3, .resultado h4 { margin: 0.25rem 0; }
 .staff h3 { margin: 1rem 0 0.5rem; }
+.enlace-notificacion { display: block; width: 100%; min-height: 44px; padding: 0.25rem 0; text-align: left; background: transparent; border: 0; color: var(--primario); font-weight: 600; text-decoration: underline; }

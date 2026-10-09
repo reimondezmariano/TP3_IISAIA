@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { fechaLocal, horaLocal } from "../lib/fechas.js";
 
-export default function Campanita({ notificaciones }) {
+// Destino al tocar cada tipo de notificación; `onIr(destino)` lo resuelve la pantalla que la usa.
+const DESTINOS = { NUEVO_REGISTRO: "staff" };
+
+export default function Campanita({ notificaciones, onIr }) {
   const { lista, noLeidas, marcarLeida, marcarTodas } = notificaciones;
   const [abierta, setAbierta] = useState(false);
   const [error, setError] = useState(null);
@@ -13,6 +16,12 @@ export default function Campanita({ notificaciones }) {
     } catch (e) {
       setError(e.message);
     }
+  }
+
+  async function abrir(n) {
+    setAbierta(false);
+    onIr(DESTINOS[n.tipo]);
+    if (!n.leidaEn) await intentar(() => marcarLeida(n.id)); // el error no impide haber llegado a la pantalla
   }
 
   return (
@@ -37,7 +46,11 @@ export default function Campanita({ notificaciones }) {
           <ul>
             {lista.map((n) => (
               <li key={n.id} className={n.leidaEn ? "leida" : "no-leida"}>
-                <p>{n.mensaje}</p>
+                {onIr && DESTINOS[n.tipo] ? (
+                  <button type="button" className="enlace-notificacion" onClick={() => abrir(n)}>{n.mensaje}</button>
+                ) : (
+                  <p>{n.mensaje}</p>
+                )}
                 <p className="chico">{fechaLocal(n.creadaEn)} {horaLocal(n.creadaEn)}</p>
                 {!n.leidaEn && (
                   <button type="button" className="secundario" onClick={() => intentar(() => marcarLeida(n.id))}>Marcar leída</button>

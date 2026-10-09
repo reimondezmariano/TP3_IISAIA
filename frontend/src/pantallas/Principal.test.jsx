@@ -46,4 +46,20 @@ describe("Principal: pantalla de staff", () => {
     await userEvent.click(screen.getByRole("button", { name: "Calendario" }));
     expect(screen.getByText("CALENDARIO")).toBeVisible();
   });
+
+  test("tocar NUEVO_REGISTRO lleva al coordinador a la pantalla de staff", async () => {
+    const nueva = { id: 9, tipo: "NUEVO_REGISTRO", mensaje: "Ana Gómez espera activación", creadaEn: "2026-10-08T10:00:00-03:00", leidaEn: null };
+    const apiConAviso = {
+      get: vi.fn(async (ruta) => (ruta === "/api/notificaciones" ? [nueva] : [])),
+      post: vi.fn(async () => ({ leidaEn: "2026-10-08T10:05:00-03:00" })),
+    };
+    render(
+      <ContextoSesion.Provider value={{ api: apiConAviso, usuario: { id: 1, nombre: "X", rol: "COORDINADOR" } }}>
+        <Principal />
+      </ContextoSesion.Provider>,
+    );
+    await userEvent.click(await screen.findByRole("button", { name: /Notificaciones/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Ana Gómez espera activación" }));
+    expect(await screen.findByRole("heading", { name: "Staff y horarios" })).toBeVisible();
+  });
 });

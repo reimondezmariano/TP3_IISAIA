@@ -27,7 +27,7 @@ export default function Principal() {
             <button type="button" aria-pressed={verStaff} onClick={() => setPantalla("staff")}>Staff</button>
           </nav>
         )}
-        <Campanita notificaciones={notificaciones} />
+        <Campanita notificaciones={notificaciones} onIr={esCoordinador ? setPantalla : undefined} />
       </header>
       {verStaff ? <PantallaStaff api={api} usuario={usuario} /> : <Calendario />}
       <AvisoUrgente notificaciones={notificaciones} />
